@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    @apply antialiased;
+  }
+
+  body {
+    @apply text-gray-900 bg-gray-50;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors;
+  }
+
+  .btn-primary {
+    @apply bg-green-500 text-white hover:bg-green-600;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+  }
+
+  .input {
+    @apply w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-shadow;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-md p-4 sm:p-6;
+  }
+}
+
+/* Finding icon styles */
+.finding-icon {
+  transition: transform 0.2s ease-in-out;
+}
+
+.finding-icon-wrapper {
+  transform-origin: center;
+  animation: bounce 1s ease-in-out;
+}
+
+.fungo-finding {
+  filter: drop-shadow(0 2px 4px rgba(220, 38, 38, 0.3));
+}
+
+.tartufo-finding {
+  filter: drop-shadow(0 2px 4px rgba(28, 25, 23, 0.3));
+}
+
+.fungo-finding:hover,
+.tartufo-finding:hover {
+  transform: scale(1.2);
+}
+
+/* Custom walker icon styles */
+.walker-icon {
+  transition: transform 0.3s ease-in-out;
+}
+
+.walker-icon-wrapper {
+  transform-origin: center;
+  transform: scale(1.3);
+  animation: pulse 2s infinite;
+}
+
+.walker-icon:hover {
+  transform: scale(1.1);
+}
+
+/* Screenshot mode styles */
+.screenshot-mode .leaflet-control-container,
+.screenshot-mode .leaflet-pane.leaflet-popup-pane {
+  display: none !important;
+}
+
+.screenshot-mode .leaflet-container {
+  background-color: white !important;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1.3);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1.3);
+  }
+}
+
+@keyframes bounce {
+  0% {
+    transform: scale(0) translateY(10px);
+  }
+  50% {
+    transform: scale(1.2) translateY(-5px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+@media (min-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
+  }
+}
+
+/* Responsive typography */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1536px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+/* Improve touch targets on mobile */
+@media (max-width: 640px) {
+  button, 
+  [role="button"],
+  .btn {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  input,
+  select,
+  textarea {
+    @apply min-h-[44px];
+  }
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Smooth scrolling for the whole page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better image handling */
+img {
+  @apply max-w-full h-auto;
+}
