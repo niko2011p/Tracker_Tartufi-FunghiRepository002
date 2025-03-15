@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 
 import { useTrackStore } from '../store/trackStore';
 import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import './MapControls.css';
 import { Finding } from '../types';
 
 const MIN_ZOOM = 4;
@@ -222,6 +223,39 @@ function MouseTracker() {
   return null;
 }
 
+function ZoomControl() {
+  const map = useMap();
+  const [zoomLevel, setZoomLevel] = useState(map.getZoom());
+
+  useEffect(() => {
+    const updateZoom = () => setZoomLevel(map.getZoom());
+    map.on('zoomend', updateZoom);
+    return () => {
+      map.off('zoomend', updateZoom);
+    };
+  }, [map]);
+
+  return (
+    <div className="zoom-control">
+      <button
+        className={`zoom-button ${zoomLevel >= 15 ? 'disabled' : ''}`}
+        onClick={() => map.zoomIn()}
+        disabled={zoomLevel >= 15}
+        title={zoomLevel >= 15 ? 'Maximum zoom level reached' : ''}
+      >
+        +
+      </button>
+      <div className="zoom-level-indicator">Zoom: {zoomLevel}</div>
+      <button
+        className="zoom-button"
+        onClick={() => map.zoomOut()}
+      >
+        -
+      </button>
+    </div>
+  );
+}
+
 export default function Map() {
   const { currentTrack, isRecording, loadedFindings } = useTrackStore();
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
@@ -264,8 +298,9 @@ export default function Map() {
         className="w-full h-full"
         attributionControl={false}
         minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
+        maxZoom={15}
         zoomControl={false}
+
       >
         <TileLayer
           url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"

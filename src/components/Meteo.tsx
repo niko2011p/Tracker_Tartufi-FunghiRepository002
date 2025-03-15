@@ -14,7 +14,8 @@ import {
   Compass,
   Map,
   History,
-  ChevronRight
+  ChevronRight,
+  Navigation
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -140,6 +141,7 @@ function Meteo() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [isGpsLoading, setIsGpsLoading] = useState(false);
   const location = useLocation();
 
   const table = useReactTable({
@@ -268,6 +270,49 @@ function Meteo() {
     }
   };
 
+  const handleGpsActivation = () => {
+    setIsGpsLoading(true);
+    setError(null);
+    
+    if (!navigator.geolocation) {
+      setError('Il tuo browser non supporta la geolocalizzazione');
+      setIsGpsLoading(false);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        await fetchLocationName(latitude, longitude);
+        fetchWeatherData(latitude, longitude);
+        setIsGpsLoading(false);
+      },
+      (err) => {
+        let errorMessage = 'Errore durante l\'acquisizione della posizione';
+        
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            errorMessage = 'Permesso di geolocalizzazione negato';
+            break;
+          case err.POSITION_UNAVAILABLE:
+            errorMessage = 'Informazioni sulla posizione non disponibili';
+            break;
+          case err.TIMEOUT:
+            errorMessage = 'Tempo scaduto per la richiesta di posizione';
+            break;
+        }
+        
+        setError(errorMessage);
+        setIsGpsLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -310,13 +355,27 @@ function Meteo() {
               placeholder="Cerca località..."
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            <button
-              onClick={handleSearch}
-              className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2"
-            >
-              <Search className="w-5 h-5" />
-              <span>Cerca</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSearch}
+                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2"
+              >
+                <Search className="w-5 h-5" />
+                <span>Cerca</span>
+              </button>
+              <button
+                onClick={handleGpsActivation}
+                disabled={isGpsLoading}
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isGpsLoading ? (
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                ) : (
+                  <Navigation className="w-5 h-5" />
+                )}
+                <span>Attiva GPS e Centra</span>
+              </button>
+            </div>
           </div>
         </div>
 
