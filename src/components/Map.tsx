@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import { useTrackStore } from '../store/trackStore';
 import { DivIcon } from 'leaflet';
@@ -16,48 +16,33 @@ const GEOLOCATION_OPTIONS = {
   maximumAge: 30000
 };
 
-const walkerIcon = new DivIcon({
-  html: `
-    <div class="walker-icon-wrapper">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">
-        <g transform="translate(2, 1)">
-          <circle cx="10" cy="4" r="3.5" fill="#FF8C00" stroke="white" stroke-width="1"/>
-          <path d="
-            M10 8
-            L10 14
-            M6 20
-            L10 14
-            L14 20
-            M7 11
-            L13 11
-          " 
-          stroke="#FF8C00" 
-          stroke-width="3" 
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          />
-          <path d="
-            M10 8
-            L10 14
-            M6 20
-            L10 14
-            L14 20
-            M7 11
-            L13 11
-          " 
-          stroke="white" 
-          stroke-width="1.5" 
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          />
-        </g>
-      </svg>
-    </div>
-  `,
-  className: 'walker-icon',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16]
-});
+const createGpsArrowIcon = (direction = 0) => {
+  return new DivIcon({
+    html: `
+      <div class="gps-arrow-wrapper" style="transform: rotate(${direction}deg);">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="rgba(0,0,0,0.3)" />
+          </filter>
+          <g filter="url(#shadow)">
+            <!-- Triangolo 3D arancione con effetto di profondità -->
+            <path d="M16 4 L28 24 L4 24 Z" fill="#FF8C00" />
+            <path d="M16 4 L28 24 L16 24 Z" fill="#E67E00" />
+            <path d="M16 4 L16 24 L4 24 Z" fill="#FF9D1F" />
+            <!-- Bordo bianco per migliorare la visibilità -->
+            <path d="M16 4 L28 24 L4 24 Z" stroke="white" stroke-width="1" fill="none" />
+          </g>
+        </svg>
+      </div>
+    `,
+    className: 'gps-arrow-icon',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
+  });
+};
+
+// Manteniamo l'icona walker originale per compatibilità
+const walkerIcon = createGpsArrowIcon(0);
 
 const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false) => {
   if (type === 'Fungo') {
@@ -257,9 +242,10 @@ function ZoomControl() {
 }
 
 export default function Map() {
-  const { currentTrack, isRecording, loadedFindings } = useTrackStore();
+  const { currentTrack, isRecording, loadedFindings, currentDirection } = useTrackStore();
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
   const positionUpdateRequested = useRef(false);
+  const gpsArrowIcon = useMemo(() => createGpsArrowIcon(currentDirection), [currentDirection]);
 
   useEffect(() => {
     if (isRecording && !positionUpdateRequested.current) {
@@ -308,7 +294,7 @@ export default function Map() {
         />
         <LocationTracker />
         <MouseTracker />
-        {isRecording && <Marker position={currentPosition} icon={walkerIcon} />}
+        {isRecording && <Marker position={currentPosition} icon={gpsArrowIcon} />}
         {currentTrack && (
           <>
             <Polyline

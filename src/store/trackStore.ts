@@ -9,6 +9,7 @@ interface TrackState {
   tracks: Track[];
   isRecording: boolean;
   loadedFindings: Finding[] | null;
+  currentDirection: number;
   startTrack: () => void;
   pauseTrack: () => void;
   resumeTrack: () => void;
@@ -53,6 +54,7 @@ export const useTrackStore = create<TrackState>()(
       tracks: [],
       isRecording: false,
       loadedFindings: null,
+      currentDirection: 0,
       
       startTrack: () => {
         const newTrack: Track = {
@@ -148,11 +150,23 @@ export const useTrackStore = create<TrackState>()(
         if (currentTrack && isRecording) {
           const newCoordinates = [...currentTrack.coordinates, position];
           let distance = currentTrack.distance;
+          let direction = get().currentDirection;
           
           if (newCoordinates.length > 1) {
             const lastPoint = turf.point(newCoordinates[newCoordinates.length - 2]);
             const newPoint = turf.point(position);
             distance += turf.distance(lastPoint, newPoint, { units: 'kilometers' });
+            
+            // Calcola la direzione solo se la distanza è significativa per evitare fluttuazioni casuali
+            const movementDistance = turf.distance(lastPoint, newPoint, { units: 'meters' });
+            if (movementDistance > 2) {
+              // Calcola l'angolo di direzione in gradi (0-360)
+              direction = turf.bearing(lastPoint, newPoint);
+              // Normalizza l'angolo a valori positivi (0-360)
+              if (direction < 0) direction += 360;
+              
+              set({ currentDirection: direction });
+            }
           }
           
           set({
