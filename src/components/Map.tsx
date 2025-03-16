@@ -7,7 +7,7 @@ import './MapControls.css';
 import { Finding } from '../types';
 
 const MIN_ZOOM = 4;
-const MAX_ZOOM = 15;
+const MAX_ZOOM = 15; /* Updated max zoom level to 15 */
 const INITIAL_ZOOM = 13;
 const DEFAULT_POSITION: [number, number] = [42.8333, 12.8333];
 const GEOLOCATION_OPTIONS = {
@@ -211,6 +211,7 @@ function MouseTracker() {
 function ZoomControl() {
   const map = useMap();
   const [zoomLevel, setZoomLevel] = useState(map.getZoom());
+  const { isRecording } = useTrackStore();
 
   useEffect(() => {
     const updateZoom = () => setZoomLevel(map.getZoom());
@@ -220,23 +221,112 @@ function ZoomControl() {
     };
   }, [map]);
 
+  // Set zoom to 15 when recording starts
+  useEffect(() => {
+    if (isRecording && map.getZoom() < MAX_ZOOM) {
+      map.setZoom(MAX_ZOOM);
+    }
+  }, [isRecording, map]);
+
   return (
     <div className="zoom-control">
       <button
-        className={`zoom-button ${zoomLevel >= 15 ? 'disabled' : ''}`}
+        className={`zoom-button ${zoomLevel >= MAX_ZOOM ? 'disabled' : ''}`}
         onClick={() => map.zoomIn()}
-        disabled={zoomLevel >= 15}
-        title={zoomLevel >= 15 ? 'Maximum zoom level reached' : ''}
+        disabled={zoomLevel >= MAX_ZOOM}
+        title={zoomLevel >= MAX_ZOOM ? 'Maximum zoom level reached' : ''}
       >
         +
       </button>
-      <div className="zoom-level-indicator">Zoom: {zoomLevel}</div>
+      {!isRecording && (
+        <div className="zoom-level-indicator">Zoom: {zoomLevel}/{MAX_ZOOM}</div>
+      )}
       <button
         className="zoom-button"
         onClick={() => map.zoomOut()}
       >
         -
       </button>
+    </div>
+  );
+}
+
+function MapView() {
+  const { isRecording, currentTrack, loadedFindings, currentDirection } = useTrackStore();
+  const [mapZoom, setMapZoom] = useState(INITIAL_ZOOM);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_POSITION);
+  const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
+  const gpsArrowIcon = useMemo(() => createGpsArrowIcon(currentDirection), [currentDirection]);
+  const mapRef = useRef<L.Map | null>(null);
+  
+  // Helper function to determine if a finding is from loaded findings
+  const isLoadedFinding = (finding: Finding) => {
+    return loadedFindings?.some(f => f.id === finding.id) ?? false;
+  };
+  
+  // Apply full screen style when tracking is active
+  const mapContainerStyle = {
+    height: '100%',
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1
+  };
+
+  return (
+    <div style={mapContainerStyle}>
+      <MapContainer
+        center={mapCenter}
+        zoom={mapZoom}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
+        style={{ height: '100%', width: '100%' }}
+        zoomControl={false}
+        whenCreated={(map) => {
+          mapRef.current = map;
+        }}
+      >
+        <ZoomControl />
+        <TileLayer
+          url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+          attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        <LocationTracker />
+        <MouseTracker />
+        {isRecording && <Marker position={currentPosition} icon={gpsArrowIcon} />}
+        {currentTrack && (
+          <>
+            <Polyline
+              positions={currentTrack.coordinates}
+              color="#FF9800"
+              weight={3}
+              opacity={0.8}
+            />
+            {currentTrack.findings
+              .filter(finding => !isLoadedFinding(finding))
+              .map((finding) => (
+                <Marker
+                  key={finding.id}
+                  position={finding.coordinates}
+                  icon={createFindingIcon(finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo')}
+                />
+              ))}
+          </>
+        )}
+        {loadedFindings?.map((finding) => (
+          <Marker
+            key={`loaded-${finding.id}`}
+            position={finding.coordinates}
+            icon={createFindingIcon(
+              finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo',
+              true
+            )}
+          />
+        ))}
+      </MapContainer>
     </div>
   );
 }
@@ -277,16 +367,17 @@ export default function Map() {
   };
 
   return (
-    <div className="fixed top-[72px] left-0 right-0 bottom-[70px] z-10">
+    <div className="fixed top-[72px] left-0 right-0 bottom-0 z-10">
       <MapContainer
         center={currentPosition}
         zoom={INITIAL_ZOOM}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
-        className="h-[calc(100vh-142px)] w-full fixed top-[72px] left-0"
+        className="h-full w-full fixed top-[72px] left-0"
         attributionControl={false}
         zoomControl={false}
       >
+        <ZoomControl />
         <TileLayer
           url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
           attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

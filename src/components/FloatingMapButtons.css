@@ -1,12 +1,12 @@
 .floating-map-buttons {
   position: fixed;
-  bottom: 90px;
+  bottom: 120px; /* Aumentato per evitare sovrapposizione con il footer */
   left: 50%;
   transform: translateX(-50%);
   z-index: 1001;
   display: flex;
   flex-direction: row;
-  gap: 16px;
+  gap: 32px; /* Increased distance between buttons */
   pointer-events: none; /* Allow clicks to pass through to the map */
 }
 
@@ -14,18 +14,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: 9999px;
+  gap: 8px;
+  padding: 20px 32px; /* Doubled size (100% increase) */
+  border-radius: 9999px; /* Already rounded, but will appear more rounded due to larger size */
   font-weight: 600;
-  font-size: 0.8rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+  font-size: 1.2rem; /* Increased font size */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   pointer-events: auto; /* Re-enable pointer events for buttons */
   min-width: 0;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  transform: scale(1.0); /* Base scale for the 100% increase */
 }
 
 .floating-button:hover {
@@ -59,17 +60,57 @@
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
 }
 
+.floating-button-pause {
+  background-color: rgba(245, 158, 11, 0.9);
+  color: white;
+}
+
+.floating-button-pause:hover {
+  background-color: rgba(217, 119, 6, 0.95);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.floating-button-stop {
+  background-color: rgba(239, 68, 68, 0.9);
+  color: white;
+}
+
+.floating-button-stop:hover {
+  background-color: rgba(220, 38, 38, 0.95);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.floating-button-finding {
+  background-color: rgba(59, 130, 246, 0.9);
+  color: white;
+}
+
+.floating-button-finding:hover {
+  background-color: rgba(37, 99, 235, 0.95);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Rimosso il posizionamento in alto a sinistra per il pulsante Tag */
+.floating-top-left {
+  position: relative;
+  transform: none;
+  z-index: 1002;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .floating-map-buttons {
-    bottom: 80px; /* Adjust for fixed footer */
+    bottom: 160px; /* Adjusted higher position for mobile */
   }
   
   .floating-button {
-    padding: 8px 14px;
+    padding: 16px 28px; /* Doubled size for mobile */
   }
   
   .floating-button span {
-    font-size: 0.75rem;
+    font-size: 1.1rem; /* Increased font size for mobile */
   }
 }

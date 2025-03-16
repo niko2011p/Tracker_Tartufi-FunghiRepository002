@@ -10,6 +10,7 @@ interface TrackState {
   isRecording: boolean;
   loadedFindings: Finding[] | null;
   currentDirection: number;
+  showFindingForm: boolean;
   startTrack: () => void;
   pauseTrack: () => void;
   resumeTrack: () => void;
@@ -22,6 +23,7 @@ interface TrackState {
   importTracks: (data: string) => void;
   loadFindings: (findings: Finding[]) => void;
   clearLoadedFindings: () => void;
+  setShowFindingForm: (show: boolean) => void;
 }
 
 async function getLocationName(lat: number, lon: number) {
@@ -55,6 +57,7 @@ export const useTrackStore = create<TrackState>()(
       isRecording: false,
       loadedFindings: null,
       currentDirection: 0,
+      showFindingForm: false,
       
       startTrack: () => {
         const newTrack: Track = {
@@ -212,6 +215,10 @@ export const useTrackStore = create<TrackState>()(
 
       clearLoadedFindings: () => {
         set({ loadedFindings: null });
+      },
+      
+      setShowFindingForm: (show: boolean) => {
+        set({ showFindingForm: show });
       },
 
       exportTracks: () => {

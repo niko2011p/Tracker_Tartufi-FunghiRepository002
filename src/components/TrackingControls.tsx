@@ -288,27 +288,32 @@ function TrackingControls() {
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                <button
-                  onClick={isRecording ? pauseTrack : resumeTrack}
-                  className="w-full sm:w-auto bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-3 font-medium"
-                >
-                  <Pause className="w-6 h-6" />
-                  <span>{isRecording ? 'Pausa' : 'Riprendi'}</span>
-                </button>
-                <button
-                  onClick={() => setShowStopConfirm(true)}
-                  className="w-full sm:w-auto bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-3 font-medium"
-                >
-                  <Square className="w-6 h-6" />
-                  <span>Stop</span>
-                </button>
-                <button
-                  onClick={() => setShowFindingForm(true)}
-                  className="w-full sm:w-auto bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-3 font-medium"
-                >
-                  <MapPin className="w-6 h-6" />
-                  <span>Aggiungi Ritrovamento</span>
-                </button>
+                {/* Nascondo i vecchi pulsanti rettangolari quando la traccia è in registrazione */}
+                {!isRecording && (
+                  <>
+                    <button
+                      onClick={isRecording ? pauseTrack : resumeTrack}
+                      className="w-full sm:w-auto bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-3 font-medium"
+                    >
+                      <Pause className="w-6 h-6" />
+                      <span>{isRecording ? 'Pausa' : 'Riprendi'}</span>
+                    </button>
+                    <button
+                      onClick={() => setShowStopConfirm(true)}
+                      className="w-full sm:w-auto bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-3 font-medium"
+                    >
+                      <Square className="w-6 h-6" />
+                      <span>Stop</span>
+                    </button>
+                    <button
+                      onClick={() => setShowFindingForm(true)}
+                      className="w-full sm:w-auto bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-3 font-medium"
+                    >
+                      <MapPin className="w-6 h-6" />
+                      <span>Aggiungi Ritrovamento</span>
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
