@@ -7,6 +7,32 @@ import './MapControls.css';
 import { Finding } from '../types';
 import { MapPin, Crosshair } from 'lucide-react';
 
+const useMapStyle = () => {
+  const { isPaused } = useTrackStore();
+  useEffect(() => {
+    const mapContainer = document.querySelector('.leaflet-container');
+    const zoomControl = document.querySelector('.zoom-control');
+    const tagButton = document.querySelector('.tag-button-container');
+    const centerButton = document.querySelector('.center-button-container');
+    
+    if (mapContainer) {
+      if (isPaused) {
+        mapContainer.classList.add('map-paused');
+        // Hide controls when paused
+        if (zoomControl) zoomControl.classList.add('hidden');
+        if (tagButton) tagButton.classList.add('hidden');
+        if (centerButton) centerButton.classList.add('hidden');
+      } else {
+        mapContainer.classList.remove('map-paused');
+        // Show controls when not paused
+        if (zoomControl) zoomControl.classList.remove('hidden');
+        if (tagButton) tagButton.classList.remove('hidden');
+        if (centerButton) centerButton.classList.remove('hidden');
+      }
+    }
+  }, [isPaused]);
+};
+
 const MIN_ZOOM = 4;
 const MAX_ZOOM = 15; /* Updated max zoom level to 15 */
 const INITIAL_ZOOM = 13;
@@ -46,43 +72,28 @@ const createGpsArrowIcon = (direction = 0) => {
 const walkerIcon = createGpsArrowIcon(0);
 
 const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false) => {
+  const opacity = isLoaded ? '0.5' : '1';
   if (type === 'Fungo') {
-    const color = '#DC2626';
-    const opacity = isLoaded ? '0.5' : '1';
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper fungo-finding">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="8" fill="${color}" stroke="white" stroke-width="2" opacity="${opacity}"/>
-            <circle cx="12" cy="12" r="4" fill="rgba(255,255,255,0.3)" opacity="${opacity}"/>
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="12" fill="#FF0000" stroke="white" strokeWidth="2" opacity="${opacity}"/>
+            <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.2)" opacity="${opacity}"/>
           </svg>
         </div>
       `,
       className: 'finding-icon fungo-finding',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12]
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16]
     });
   } else {
-    const opacity = isLoaded ? '0.5' : '1';
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper tartufo-finding">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">
-            <path d="
-              M16 4
-              L28 16
-              Q28 24 16 28
-              Q4 24 4 16
-              L16 4
-              Z
-            " 
-            fill="#1c1917" 
-            opacity="${opacity}"
-            stroke="white" 
-            stroke-width="2"
-            stroke-linejoin="round"
-            />
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 4L28 16Q28 24 16 28Q4 24 4 16L16 4Z" fill="#1c1917" stroke="white" strokeWidth="2" strokeLinejoin="round" opacity="${opacity}"/>
             <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.2)" opacity="${opacity}"/>
           </svg>
         </div>
@@ -429,13 +440,13 @@ export default function Map() {
   };
 
   return (
-    <div className="fixed top-[72px] left-0 right-0 bottom-0 z-10">
+    <div className="fixed top-0 left-0 right-0 bottom-0 z-10">
       <MapContainer
         center={currentPosition}
         zoom={INITIAL_ZOOM}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
-        className="h-full w-full fixed top-[72px] left-0"
+        className="h-full w-full fixed top-0 left-0"
         attributionControl={false}
         zoomControl={false}
       >

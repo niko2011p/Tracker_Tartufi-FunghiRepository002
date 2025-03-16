@@ -213,11 +213,11 @@ export default function TrackDetails({ track, onClose }: TrackDetailsProps) {
     ? track.coordinates[0] 
     : [42.8333, 12.8333] as [number, number];
 
-  const handleExportLocal = () => {
-    const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+  const generateGpxContent = (track: Track) => {
+    return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1">
   <trk>
-    <name>Track ${format(track.startTime, 'yyyy-MM-dd HH:mm')}</name>
+    <name>${track.location?.name || `Track ${format(track.startTime, 'yyyy-MM-dd HH:mm')}`}</name>
     <trkseg>
       ${track.coordinates.map(coord => `
       <trkpt lat="${coord[0]}" lon="${coord[1]}">
@@ -232,17 +232,34 @@ export default function TrackDetails({ track, onClose }: TrackDetailsProps) {
     </wpt>`).join('')}
   </trk>
 </gpx>`;
+  };
+
+  const generateFileName = (track: Track) => {
+    const locationName = track.location?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'track';
+    const timestamp = format(track.startTime, 'yyyy-MM-dd_HH-mm');
+    return `${locationName}_${timestamp}.gpx`;
+  };
+
+  const handleExportLocal = () => {
+    const gpxContent = generateGpxContent(track);
 
     const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `track-${format(track.startTime, 'yyyy-MM-dd-HH-mm')}.gpx`;
+    a.download = generateFileName(track);
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     setShowExportModal(false);
+    
+    // Show confirmation message
+    const confirmationMessage = document.createElement('div');
+    confirmationMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-[10000]';
+    confirmationMessage.textContent = `File salvato come: ${generateFileName(track)}`;
+    document.body.appendChild(confirmationMessage);
+    setTimeout(() => document.body.removeChild(confirmationMessage), 3000);
   };
 
   const handleExportDrive = () => {

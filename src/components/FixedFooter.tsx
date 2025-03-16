@@ -1,13 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Map as MapIcon, History, Cloud } from 'lucide-react';
+import { Map as MapIcon, History, Cloud, Settings } from 'lucide-react';
 
 const FixedFooter: React.FC = () => {
   const location = useLocation();
 
   return (
     <div className="fixed-footer">
-      <div className="max-w-7xl mx-auto flex justify-center gap-4">
+      <div className="max-w-7xl mx-auto flex justify-center">
         <Link
           to="/"
           className={`footer-link ${location.pathname === '/' ? 'active' : ''}`}
@@ -19,10 +19,10 @@ const FixedFooter: React.FC = () => {
         <Link
           to="/storico"
           className={`footer-link ${location.pathname === '/storico' ? 'active' : ''}`}
-          aria-label="Storico"
+          aria-label="Logger"
         >
           <History className="w-5 h-5" />
-          <span>Storico</span>
+          <span>Logger</span>
         </Link>
         <Link
           to="/meteo"
@@ -31,6 +31,14 @@ const FixedFooter: React.FC = () => {
         >
           <Cloud className="w-5 h-5" />
           <span>Meteo</span>
+        </Link>
+        <Link
+          to="/impostazioni"
+          className={`footer-link ${location.pathname === '/impostazioni' ? 'active' : ''}`}
+          aria-label="Impostazioni"
+        >
+          <Settings className="w-5 h-5" />
+          <span>Impostazioni</span>
         </Link>
       </div>
     </div>

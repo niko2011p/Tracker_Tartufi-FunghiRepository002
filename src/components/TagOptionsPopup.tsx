@@ -1,0 +1,60 @@
+import React from 'react';
+import { MapPin, Crosshair, X } from 'lucide-react';
+import { useTrackStore } from '../store/trackStore';
+import { useMap } from 'react-leaflet';
+
+interface TagOptionsPopupProps {
+  onClose: () => void;
+  onCenterMap: () => void;
+}
+
+function TagOptionsPopup({ onClose, onCenterMap }: TagOptionsPopupProps) {
+  const { setShowFindingForm } = useTrackStore();
+
+  const handleAddFinding = () => {
+    setShowFindingForm(true);
+    // Don't close the popup until the form is shown
+    setTimeout(() => onClose(), 100);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Opzioni Tag</h3>
+          <button 
+            onClick={onClose} 
+            className="text-gray-500 hover:text-gray-700"
+            aria-label="Chiudi"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <button
+            onClick={onCenterMap}
+            className="w-full flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            <div className="flex items-center">
+              <Crosshair className="w-5 h-5 mr-3 text-green-600" />
+              <span className="font-medium">Centra posizione tag GPS su Mappa</span>
+            </div>
+          </button>
+
+          <button
+            onClick={handleAddFinding}
+            className="w-full flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            <div className="flex items-center">
+              <MapPin className="w-5 h-5 mr-3 text-blue-600" />
+              <span className="font-medium">Aggiungi Ritrovamento</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default TagOptionsPopup;

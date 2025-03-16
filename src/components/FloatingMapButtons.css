@@ -1,32 +1,73 @@
 .floating-map-buttons {
   position: fixed;
-  bottom: 120px; /* Aumentato per evitare sovrapposizione con il footer */
+  bottom: 120px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1001;
   display: flex;
   flex-direction: row;
-  gap: 32px; /* Increased distance between buttons */
-  pointer-events: none; /* Allow clicks to pass through to the map */
+  gap: 16px;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.floating-map-buttons.paused {
+  opacity: 0;
+  pointer-events: none;
+  display: none;
+}
+
+.resume-button {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  background-color: rgba(34, 197, 94, 0.9);
+  color: white;
+  padding: 16px 28px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+  display: none;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.resume-button.visible {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.resume-button:hover {
+  background-color: rgba(22, 163, 74, 0.95);
+  transform: translateX(-50%) translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
 }
 
 .floating-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 20px 32px; /* Doubled size (100% increase) */
-  border-radius: 9999px; /* Already rounded, but will appear more rounded due to larger size */
+  gap: 6px;
+  padding: 16px 24px;
+  border-radius: 9999px;
   font-weight: 600;
-  font-size: 1.2rem; /* Increased font size */
+  font-size: 1.1rem;
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  pointer-events: auto; /* Re-enable pointer events for buttons */
+  pointer-events: auto;
   min-width: 0;
   border: 3px solid rgba(255, 255, 255, 0.3);
-  transform: scale(1.0); /* Base scale for the 100% increase */
+  transform: scale(1.0);
 }
 
 .floating-button:hover {
@@ -41,11 +82,13 @@
 .floating-button-start {
   background-color: rgba(34, 197, 94, 0.9);
   color: white;
+  transform: scale(1.1);
+  padding: 14px 24px;
 }
 
 .floating-button-start:hover {
   background-color: rgba(22, 163, 74, 0.95);
-  transform: translateY(-3px);
+  transform: scale(1.3) translateY(-3px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
 }
 

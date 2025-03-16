@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { Map as MapIcon, History, Cloud, Settings, Menu, X } from 'lucide-react';
 import Map from './components/Map';
 import TrackingControls from './components/TrackingControls';
@@ -8,6 +8,10 @@ import StoricoTracce from './components/StoricoTracce';
 import Meteo from './components/Meteo';
 import Impostazioni from './components/Impostazioni';
 import FixedFooter from './components/FixedFooter';
+import MapLogo from './components/MapLogo';
+import PausePage from './components/PausePage';
+import FindingForm from './components/FindingForm';
+import { useTrackStore } from './store/trackStore';
 import './components/FixedFooter.css';
 
 function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
@@ -29,86 +33,33 @@ function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType
   );
 }
 
-function App() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+function MainApp() {
+  const { currentTrack, showFindingForm, setShowFindingForm } = useTrackStore();
+  const isPaused = currentTrack?.isPaused;
 
+  // If track is paused, show the pause page
+  if (isPaused) {
+    return <PausePage />;
+  }
+
+  return (
+    <div className="relative h-screen w-full">
+      <Map />
+      <MapLogo />
+      <FloatingMapButtons />
+      <TrackingControls />
+      {showFindingForm && <FindingForm onClose={() => setShowFindingForm(false)} />}
+    </div>
+  );
+}
+
+function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gray-50 flex flex-col has-fixed-footer">
-        <header className="bg-green-600 shadow-sm fixed top-0 left-0 right-0 z-50">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex justify-between items-center py-3 sm:py-4">
-              <h1 className="text-xl sm:text-2xl md:text-[2.4rem] font-bold text-white font-roboto tracking-wide truncate">
-                Tracker Funghi e Tartufi
-              </h1>
-              
-              <button 
-                className="sm:hidden p-2 text-white hover:text-gray-200"
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                aria-label="Toggle menu"
-              >
-                {isMenuOpen ? <X /> : <Menu />}
-              </button>
-
-              <nav className="hidden sm:flex space-x-1 md:space-x-2">
-                <NavLink to="/" icon={MapIcon} text="Mappa" />
-                <NavLink to="/storico" icon={History} text="Storico" />
-                <NavLink to="/meteo" icon={Cloud} text="Meteo" />
-                <NavLink to="/impostazioni" icon={Settings} text="Impostazioni" />
-              </nav>
-            </div>
-
-            {isMenuOpen && (
-              <nav className="sm:hidden py-2 space-y-1 bg-white rounded-lg shadow-lg mb-4">
-                <Link 
-                  to="/" 
-                  className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg" 
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <MapIcon className="w-5 h-5 mr-3" />
-                  Mappa
-                </Link>
-                <Link 
-                  to="/storico" 
-                  className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg" 
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <History className="w-5 h-5 mr-3" />
-                  Storico
-                </Link>
-                <Link 
-                  to="/meteo" 
-                  className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg" 
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Cloud className="w-5 h-5 mr-3" />
-                  Meteo
-                </Link>
-                <Link 
-                  to="/impostazioni" 
-                  className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg" 
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Settings className="w-5 h-5 mr-3" />
-                  Impostazioni
-                </Link>
-              </nav>
-            )}
-          </div>
-        </header>
-
-        <main className="flex-1 pt-[72px]">
+        <main className="flex-1">
           <Routes>
-            <Route
-              path="/"
-              element={
-                <div className="relative h-screen">
-                  <Map />
-                  <FloatingMapButtons />
-                  <TrackingControls />
-                </div>
-              }
-            />
+            <Route path="/" element={<MainApp />} />
             <Route path="/storico" element={<StoricoTracce />} />
             <Route path="/meteo" element={<Meteo />} />
             <Route path="/impostazioni" element={<Impostazioni />} />

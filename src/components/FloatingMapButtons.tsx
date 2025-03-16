@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { Play, History, Pause, Square, MapPin, AlertCircle } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
 import './FloatingMapButtons.css';
+import TagOptionsPopup from './TagOptionsPopup';
 
 function FloatingMapButtons() {
-  const { startTrack, pauseTrack, resumeTrack, stopTrack, isRecording, currentTrack, setShowFindingForm } = useTrackStore();
+  const { startTrack, pauseTrack, resumeTrack, stopTrack, isRecording, isPaused, currentTrack } = useTrackStore();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [showTagOptions, setShowTagOptions] = useState(false);
 
   const handleStopClick = () => {
     setShowStopConfirm(true);
@@ -17,8 +19,54 @@ function FloatingMapButtons() {
     setShowStopConfirm(false);
   };
 
+  const handleTagClick = () => {
+    setShowTagOptions(true);
+  };
+
+  const handleCenterMap = () => {
+    // Get the current position from the track store and center the map on it
+    const { currentTrack } = useTrackStore.getState();
+    
+    // Get all map instances from the document
+    const mapInstances = document.querySelectorAll('.leaflet-container');
+    if (mapInstances.length > 0) {
+      // Get the Leaflet map instance from the DOM element
+      const mapInstance = (mapInstances[0] as any)._leaflet_map;
+      if (mapInstance) {
+        if (currentTrack && currentTrack.coordinates.length > 0) {
+          // Use the last recorded position from the track
+          const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
+          // Center the map on the current position with zoom level 15
+          mapInstance.setView(lastPosition, 15, { animate: true, duration: 0.5 });
+        } else {
+          // Fallback to geolocation API if no track is available
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              mapInstance.setView(
+                [position.coords.latitude, position.coords.longitude],
+                15,
+                { animate: true, duration: 0.5 }
+              );
+            },
+            (error) => {
+              console.error('Error getting current position:', error);
+            }
+          );
+        }
+      }
+    }
+    setShowTagOptions(false);
+  };
+
   return (
     <>
+      {showTagOptions && (
+        <TagOptionsPopup 
+          onClose={() => setShowTagOptions(false)}
+          onCenterMap={handleCenterMap}
+        />
+      )}
+      
       {showStopConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
@@ -51,7 +99,7 @@ function FloatingMapButtons() {
           </div>
         </div>
       )}
-      <div className="floating-map-buttons">
+      <div className={`floating-map-buttons ${isPaused ? 'paused' : ''}`}>
       {!isRecording ? (
         // Buttons when not recording
         <>
@@ -67,10 +115,10 @@ function FloatingMapButtons() {
           <Link
             to="/storico"
             className="floating-button floating-button-history"
-            aria-label="Storico tracce"
+            aria-label="Logger"
           >
             <History className="w-5 h-5" />
-            <span>Storico</span>
+            <span className="text-[#4b5320]">Logger</span>
           </Link>
         </>
       ) : (
@@ -95,9 +143,9 @@ function FloatingMapButtons() {
           </button>
 
           <button
-            onClick={() => setShowFindingForm(true)}
+            onClick={handleTagClick}
             className="floating-button floating-button-finding"
-            aria-label="Aggiungi ritrovamento"
+            aria-label="Opzioni Tag"
           >
             <MapPin className="w-5 h-5" />
             <span>Tag</span>

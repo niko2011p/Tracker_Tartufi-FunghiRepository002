@@ -158,18 +158,53 @@ export default function StoricoTracce() {
     });
   }, [tracks, searchQuery]);
 
+  const generateFileName = (track: Track) => {
+    const locationName = track.location?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'track';
+    const timestamp = format(track.startTime, 'yyyy-MM-dd_HH-mm');
+    return `${locationName}_${timestamp}.gpx`;
+  };
+
   const handleExportLocal = () => {
-    const gpxContent = exportTracks();
-    const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tracks.gpx';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Export each track as a separate file
+    tracks.forEach(track => {
+      const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <name>${track.location?.name || `Track ${format(track.startTime, 'yyyy-MM-dd HH:mm')}`}</name>
+    <trkseg>
+      ${track.coordinates.map(coord => `
+      <trkpt lat="${coord[0]}" lon="${coord[1]}">
+        <time>${track.startTime.toISOString()}</time>
+      </trkpt>`).join('')}
+    </trkseg>
+    ${track.findings.map(finding => `
+    <wpt lat="${finding.coordinates[0]}" lon="${finding.coordinates[1]}">
+      <name>${finding.name}</name>
+      <desc>${finding.description || ''}</desc>
+      <time>${finding.timestamp.toISOString()}</time>
+    </wpt>`).join('')}
+  </trk>
+</gpx>`;
+
+      const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = generateFileName(track);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
     setShowExportModal(false);
+
+    // Show confirmation message
+    const confirmationMessage = document.createElement('div');
+    confirmationMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-[10000]';
+    confirmationMessage.textContent = `${tracks.length} tracce esportate con successo`;
+    document.body.appendChild(confirmationMessage);
+    setTimeout(() => document.body.removeChild(confirmationMessage), 3000);
   };
 
   const handleExportDrive = () => {
@@ -360,7 +395,7 @@ export default function StoricoTracce() {
       <div className="flex-1 p-4 max-w-3xl mx-auto overflow-y-auto">
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Storico Tracce</h2>
+            <h2 className="text-2xl font-bold text-[#4b5320]">Logger</h2>
             <div className="flex gap-4">
               <button
                 onClick={() => setShowExportModal(true)}
