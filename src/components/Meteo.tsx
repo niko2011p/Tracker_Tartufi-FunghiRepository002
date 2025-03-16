@@ -17,6 +17,8 @@ import {
   ChevronRight,
   Navigation
 } from 'lucide-react';
+import WeatherForecast from './WeatherForecast';
+import MoonPhase from './MoonPhase';
 import { 
   LineChart, 
   Line, 
@@ -373,7 +375,7 @@ function Meteo() {
                 ) : (
                   <Navigation className="w-5 h-5" />
                 )}
-                <span>Attiva GPS e Centra</span>
+                <span>Posizione corrente</span>
               </button>
             </div>
           </div>
@@ -453,6 +455,11 @@ function Meteo() {
                 </div>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <WeatherForecast />
+          <MoonPhase />
+        </div>
 
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-xl font-semibold mb-4">Previsioni Settimanali</h3>

@@ -94,6 +94,18 @@ function TrackingControls() {
   const handleStopConfirm = () => {
     stopTrack();
     setShowStopConfirm(false);
+    // Navigate to Logger section and scroll to the latest track
+    const navigate = useNavigate();
+    navigate('/storico');
+    setTimeout(() => {
+      const tracksContainer = document.querySelector('.tracks-container');
+      if (tracksContainer) {
+        tracksContainer.scrollTo({
+          top: tracksContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
   };
 
   const handleCloseAlert = () => {

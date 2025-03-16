@@ -125,6 +125,12 @@ let renderCount = 0;
 
 export default function StoricoTracce() {
   const { tracks, exportTracks, importTracks, deleteTrack, deleteAllTracks, loadFindings, startTrack } = useTrackStore();
+  const logoStyle = {
+    display: 'block',
+    margin: '1rem auto',
+    maxWidth: '200px',
+    height: 'auto'
+  };
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
@@ -277,6 +283,7 @@ export default function StoricoTracce() {
 
   return (
     <div className="flex flex-col h-full">
+      <img src="/LogoFTL.svg" alt="LogoFTL" style={logoStyle} />
       {selectedTrack && (
         <TrackDetails
           key={`details-${uniqueId}-${selectedTrack.id}`}

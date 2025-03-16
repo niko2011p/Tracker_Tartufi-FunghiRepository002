@@ -144,14 +144,31 @@
 }
 
 /* Finding marker animations */
-@keyframes pulse {
+@keyframes pulse-fungo {
   0% {
     transform: scale(1) translateY(0);
     opacity: 1;
   }
   50% {
-    transform: scale(1.1) translateY(-8px);
+    transform: scale(1.2) translateY(-10px);
     opacity: 0.8;
+    filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.4));
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-tartufo {
+  0% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15) translateY(-6px);
+    opacity: 0.9;
+    filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.3));
   }
   100% {
     transform: scale(1) translateY(0);
@@ -160,19 +177,27 @@
 }
 
 .finding-icon-wrapper {
-  animation: pulse 2s infinite ease-in-out;
   transform: translateY(-12px); /* Add offset to prevent overlap */
+}
+
+.fungo-finding {
+  animation: pulse-fungo 2s infinite ease-in-out;
+}
+
+.tartufo-finding {
+  animation: pulse-tartufo 2.5s infinite ease-in-out;
 }
 
 .finding-icon-wrapper:hover {
   transform: scale(1.2) translateY(-12px);
   cursor: pointer;
+  transition: transform 0.2s ease;
 }
 
-.fungo-finding svg circle {
+.fungo-finding svg path {
   fill: #FF0000;
 }
 
-.tartufo-finding svg circle {
+.tartufo-finding svg path {
   fill: #000000;
 }
