@@ -9,6 +9,12 @@
   z-index: 1000;
 }
 
+.max-w-7xl {
+  display: flex;
+  justify-content: space-around; /* Changed from center to space-around for better spacing */
+  gap: 40px; /* Increased gap from 4px to 40px */
+}
+
 .footer-link {
   display: flex;
   flex-direction: column;
@@ -41,6 +47,10 @@
     padding: 8px 12px;
   }
   
+  .max-w-7xl {
+    gap: 30px; /* Still increased but slightly less on mobile */
+  }
+  
   .footer-link {
     padding: 9px 18px; /* Increased by 50% */
   }
@@ -48,5 +58,5 @@
 
 /* Add padding to the bottom of the main content to prevent it from being hidden behind the footer */
 .has-fixed-footer {
-  padding-bottom: 70px;
+  padding-bottom: 80px;
 }

@@ -5,6 +5,7 @@ import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import { Finding } from '../types';
+import { MapPin, Crosshair } from 'lucide-react';
 
 const MIN_ZOOM = 4;
 const MAX_ZOOM = 15; /* Updated max zoom level to 15 */
@@ -111,7 +112,8 @@ function LocationTracker() {
     if (!lastGpsPosition.current || 
         Math.abs(latitude - lastGpsPosition.current[0]) > 0.00001 || 
         Math.abs(longitude - lastGpsPosition.current[1]) > 0.00001) {
-      map.panTo(newPosition, { animate: true, duration: 0.5 });
+      // Center the map on the user's position with animation
+      map.setView(newPosition, MAX_ZOOM, { animate: true, duration: 0.5 });
       lastGpsPosition.current = newPosition;
     }
     
@@ -160,6 +162,9 @@ function LocationTracker() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        // When starting recording, ensure we center the map on user's position with proper zoom
+        const { latitude, longitude } = position.coords;
+        map.setView([latitude, longitude], MAX_ZOOM, { animate: true });
         updateLocation(position);
         startWatching();
       },
@@ -179,7 +184,7 @@ function LocationTracker() {
         watchId.current = null;
       }
     };
-  }, [isRecording, updateLocation, handleError]);
+  }, [isRecording, updateLocation, handleError, map]);
   
   return null;
 }
@@ -238,14 +243,69 @@ function ZoomControl() {
       >
         +
       </button>
-      {!isRecording && (
-        <div className="zoom-level-indicator">Zoom: {zoomLevel}/{MAX_ZOOM}</div>
-      )}
       <button
-        className="zoom-button"
+        className={`zoom-button ${zoomLevel <= MIN_ZOOM ? 'disabled' : ''}`}
         onClick={() => map.zoomOut()}
+        disabled={zoomLevel <= MIN_ZOOM}
+        title={zoomLevel <= MIN_ZOOM ? 'Minimum zoom level reached' : ''}
       >
         -
+      </button>
+    </div>
+  );
+}
+
+function TagButton() {
+  const { setShowFindingForm } = useTrackStore();
+  const { isRecording } = useTrackStore();
+  
+  if (!isRecording) return null;
+  
+  return (
+    <div className="tag-button-container">
+      <button 
+        className="tag-button"
+        onClick={() => setShowFindingForm(true)}
+        aria-label="Aggiungi ritrovamento"
+      >
+        <MapPin />
+        <span>Tag</span>
+      </button>
+    </div>
+  );
+}
+
+function CenterButton() {
+  const map = useMap();
+  const { currentTrack } = useTrackStore();
+  
+  const handleCenterClick = () => {
+    if (currentTrack?.coordinates.length) {
+      const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
+      map.setView(lastPosition, MAX_ZOOM, { animate: true });
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          map.setView([latitude, longitude], MAX_ZOOM, { animate: true });
+        },
+        (error) => {
+          console.warn('Geolocation error:', error.message);
+          map.setView(DEFAULT_POSITION, MAX_ZOOM, { animate: true });
+        },
+        GEOLOCATION_OPTIONS
+      );
+    }
+  };
+  
+  return (
+    <div className="center-button-container">
+      <button 
+        className="center-button"
+        onClick={handleCenterClick}
+        aria-label="Centra mappa sulla posizione"
+      >
+        <Crosshair />
       </button>
     </div>
   );
@@ -290,6 +350,8 @@ function MapView() {
         }}
       >
         <ZoomControl />
+        <TagButton />
+        <CenterButton />
         <TileLayer
           url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
           attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
