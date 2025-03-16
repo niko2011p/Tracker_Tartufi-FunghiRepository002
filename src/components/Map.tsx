@@ -277,16 +277,15 @@ export default function Map() {
   };
 
   return (
-    <div className="fixed top-[72px] left-0 right-0 bottom-[144px] z-10">
+    <div className="fixed top-[72px] left-0 right-0 bottom-0 z-10">
       <MapContainer
         center={currentPosition}
         zoom={INITIAL_ZOOM}
-        className="w-full h-full"
-        attributionControl={false}
         minZoom={MIN_ZOOM}
-        maxZoom={15}
+        maxZoom={MAX_ZOOM}
+        className="h-[calc(100vh-72px)] w-full fixed top-[72px] left-0"
+        attributionControl={false}
         zoomControl={false}
-
       >
         <TileLayer
           url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"

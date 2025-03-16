@@ -518,43 +518,7 @@ export default function StoricoTracce() {
         )}
       </div>
 
-      <div className="bg-white shadow-lg p-4">
-        <div className="max-w-7xl mx-auto flex justify-center gap-4 pt-2 border-t border-gray-200">
-          <Link
-            to="/"
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-              location.pathname === '/' 
-                ? 'bg-green-100 text-green-700' 
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <MapIcon className="w-5 h-5" />
-            <span>Mappa</span>
-          </Link>
-          <Link
-            to="/storico"
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-              location.pathname === '/storico'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <History className="w-5 h-5" />
-            <span>Storico</span>
-          </Link>
-          <Link
-            to="/meteo"
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-              location.pathname === '/meteo'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Cloud className="w-5 h-5" />
-            <span>Meteo</span>
-          </Link>
-        </div>
-      </div>
+      {/* Fixed footer is now handled by the FixedFooter component */}
     </div>
   );
 }

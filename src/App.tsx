@@ -3,9 +3,12 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import { Map as MapIcon, History, Cloud, Settings, Menu, X } from 'lucide-react';
 import Map from './components/Map';
 import TrackingControls from './components/TrackingControls';
+import FloatingMapButtons from './components/FloatingMapButtons';
 import StoricoTracce from './components/StoricoTracce';
 import Meteo from './components/Meteo';
 import Impostazioni from './components/Impostazioni';
+import FixedFooter from './components/FixedFooter';
+import './components/FixedFooter.css';
 
 function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
   const location = useLocation();
@@ -31,7 +34,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-gray-50 flex flex-col has-fixed-footer">
         <header className="bg-green-600 shadow-sm fixed top-0 left-0 right-0 z-50">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex justify-between items-center py-3 sm:py-4">
@@ -101,6 +104,7 @@ function App() {
               element={
                 <div className="relative h-screen">
                   <Map />
+                  <FloatingMapButtons />
                   <TrackingControls />
                 </div>
               }
@@ -110,6 +114,7 @@ function App() {
             <Route path="/impostazioni" element={<Impostazioni />} />
           </Routes>
         </main>
+        <FixedFooter />
       </div>
     </BrowserRouter>
   );
