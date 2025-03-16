@@ -284,20 +284,7 @@ function TrackingControls() {
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
             {!currentTrack ? (
               <div className="flex flex-col w-full sm:w-auto gap-3">
-                <Link
-                  to="/storico"
-                  className="w-full sm:w-auto bg-amber-500 text-white px-8 py-3 rounded-lg hover:bg-amber-600 transition-colors flex items-center justify-center gap-3 font-medium shadow-md hover:shadow-lg"
-                >
-                  <History className="w-6 h-6" />
-                  <span>Storico Tracce</span>
-                </Link>
-                <button
-                  onClick={startTrack}
-                  className="w-full sm:w-auto bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-3 font-medium text-lg shadow-md hover:shadow-lg"
-                >
-                  <Play className="w-6 h-6" />
-                  <span>Avvia Traccia</span>
-                </button>
+                {/* Buttons removed to avoid duplication with FloatingMapButtons */}
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
