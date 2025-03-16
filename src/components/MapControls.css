@@ -146,21 +146,27 @@
 /* Finding marker animations */
 @keyframes pulse {
   0% {
-    transform: scale(1);
+    transform: scale(1) translateY(0);
     opacity: 1;
   }
   50% {
-    transform: scale(1.2);
+    transform: scale(1.1) translateY(-8px);
     opacity: 0.8;
   }
   100% {
-    transform: scale(1);
+    transform: scale(1) translateY(0);
     opacity: 1;
   }
 }
 
 .finding-icon-wrapper {
   animation: pulse 2s infinite ease-in-out;
+  transform: translateY(-12px); /* Add offset to prevent overlap */
+}
+
+.finding-icon-wrapper:hover {
+  transform: scale(1.2) translateY(-12px);
+  cursor: pointer;
 }
 
 .fungo-finding svg circle {

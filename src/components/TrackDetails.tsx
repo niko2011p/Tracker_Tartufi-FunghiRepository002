@@ -68,7 +68,7 @@ const ShareModal = ({ onClose, onShare, isGenerating }: ShareModalProps) => (
             <span>Marker per i funghi trovati</span>
           </li>
           <li className="flex items-center gap-2">
-            <span className="text-xl">🎯</span>
+            <span className="text-xl">🪨</span>
             <span>Marker per i tartufi trovati</span>
           </li>
           <li className="flex items-center gap-2">
@@ -145,7 +145,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isSharing: boolean = false
   if (isSharing) {
     return new DivIcon({
       html: `<div class="finding-icon-wrapper ${type.toLowerCase()}-finding">
-        <span style="font-size: 24px;">${type === 'Fungo' ? '🍄' : '🎯'}</span>
+        <span style="font-size: 24px;">${type === 'Fungo' ? '🍄' : '🪨'}</span>
       </div>`,
       className: `finding-icon ${type.toLowerCase()}-finding`,
       iconSize: [24, 24],
@@ -192,6 +192,7 @@ function MapController({ track }: { track: Track }) {
       map.fitBounds(paddedBounds, {
         padding: [50, 50],
         maxZoom: 15,
+        minZoom: 15,
         animate: true,
         duration: 1
       });
@@ -311,7 +312,7 @@ export default function TrackDetails({ track, onClose }: TrackDetailsProps) {
                 <span class="text-sm">Funghi</span>
               </div>
               <div class="flex items-center gap-2">
-                <span style="font-size: 20px;">🎯</span>
+                <span style="font-size: 20px;">🪨</span>
                 <span class="text-sm">Tartufi</span>
               </div>
               <div class="flex items-center gap-2">

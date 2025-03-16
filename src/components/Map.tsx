@@ -78,8 +78,8 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false)
       html: `
         <div class="finding-icon-wrapper fungo-finding">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="12" fill="#FF0000" stroke="white" strokeWidth="2" opacity="${opacity}"/>
-            <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.2)" opacity="${opacity}"/>
+            <path d="M8 20C8 16 12 14 16 14C20 14 24 16 24 20C24 24 20 26 16 26C12 26 8 24 8 20Z" fill="#FF0000" stroke="white" strokeWidth="2" opacity="${opacity}"/>
+            <path d="M10 14C10 10 12 6 16 6C20 6 22 10 22 14C22 16 20 18 16 18C12 18 10 16 10 14Z" fill="#FF0000" stroke="white" strokeWidth="2" opacity="${opacity}"/>
           </svg>
         </div>
       `,

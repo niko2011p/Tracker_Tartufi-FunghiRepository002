@@ -44,7 +44,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false)
     const opacity = isLoaded ? '0.5' : '1';
     return new DivIcon({
       html: `
-        <div class="finding-icon-wrapper fungo-finding">
+        <div class="finding-icon-wrapper fungo-finding ${pulseAnimation}">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="12" cy="12" r="8" fill="${color}" stroke="white" stroke-width="2" opacity="${opacity}"/>
             <circle cx="12" cy="12" r="4" fill="rgba(255,255,255,0.3)" opacity="${opacity}"/>
@@ -60,7 +60,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false)
     const opacity = isLoaded ? '0.5' : '1';
     return new DivIcon({
       html: `
-        <div class="finding-icon-wrapper tartufo-finding">
+        <div class="finding-icon-wrapper tartufo-finding ${pulseAnimation}">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">
             <path d="
               M16 4

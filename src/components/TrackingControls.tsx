@@ -1,11 +1,12 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Play, Pause, Square, MapPin, Upload, X, History, Cloud, Map, AlertCircle } from 'lucide-react';
+import AlertPopup from './AlertPopup';
 import { useTrackStore } from '../store/trackStore';
 import { Link, useLocation } from 'react-router-dom';
 import { species } from '../data/species';
 
 function TrackingControls() {
-  const { currentTrack, isRecording, startTrack, pauseTrack, resumeTrack, stopTrack, addFinding } = useTrackStore();
+  const { currentTrack, isRecording, startTrack, pauseTrack, resumeTrack, stopTrack, addFinding, nearbyFinding, isAlertPlaying } = useTrackStore();
   const [showFindingForm, setShowFindingForm] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [findingType, setFindingType] = useState<'Fungo' | 'Tartufo'>('Fungo');
@@ -95,8 +96,24 @@ function TrackingControls() {
     setShowStopConfirm(false);
   };
 
+  const handleCloseAlert = () => {
+    useTrackStore.setState({ nearbyFinding: null });
+  };
+
+  const handleMuteAlert = () => {
+    useTrackStore.setState({ isAlertPlaying: false });
+  };
+
   return (
     <>
+      {nearbyFinding && (
+        <AlertPopup
+          finding={nearbyFinding}
+          onClose={handleCloseAlert}
+          onMute={handleMuteAlert}
+          isAudioPlaying={isAlertPlaying}
+        />
+      )}
       {showStopConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">

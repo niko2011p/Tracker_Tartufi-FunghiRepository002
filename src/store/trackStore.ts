@@ -11,6 +11,8 @@ interface TrackState {
   loadedFindings: Finding[] | null;
   currentDirection: number;
   showFindingForm: boolean;
+  nearbyFinding: Finding | null;
+  isAlertPlaying: boolean;
   startTrack: () => void;
   pauseTrack: () => void;
   resumeTrack: () => void;
@@ -52,6 +54,8 @@ async function getLocationName(lat: number, lon: number) {
 export const useTrackStore = create<TrackState>()(
   persist(
     (set, get) => ({
+      nearbyFinding: null,
+      isAlertPlaying: false,
       currentTrack: null,
       tracks: [],
       isRecording: false,
@@ -142,10 +146,14 @@ export const useTrackStore = create<TrackState>()(
             const findingPoint = turf.point(finding.coordinates);
             const distance = turf.distance(currentPoint, findingPoint, { units: 'meters' });
             
-            if (distance <= 10) {
+            if (distance <= 10 && !get().isAlertPlaying) {
               const audio = new Audio('/alert.mp3');
               audio.volume = 0.3;
               audio.play().catch(console.error);
+              set({
+                nearbyFinding: finding,
+                isAlertPlaying: true
+              });
             }
           });
         }
