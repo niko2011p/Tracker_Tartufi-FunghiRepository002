@@ -23,6 +23,7 @@ const WeatherForecast: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const currentTrack = useTrackStore(state => state.currentTrack);
 
   const fetchWeatherData = async () => {
     try {
@@ -31,9 +32,27 @@ const WeatherForecast: React.FC = () => {
       const coordinates = currentTrack?.coordinates;
       
       let locationQuery = 'auto:ip';
+      let lat, lon;
+      
       if (coordinates && coordinates.length > 0) {
         const lastPosition = coordinates[coordinates.length - 1];
-        locationQuery = `${lastPosition[1]},${lastPosition[0]}`;
+        lat = lastPosition[1];
+        lon = lastPosition[0];
+        locationQuery = `${lat},${lon}`;
+      }
+      
+      // First fetch location name
+      if (lat && lon) {
+        const locationResponse = await fetch(
+          `https://api.weatherapi.com/v1/search.json?key=e57f461f9d4245158e5100345250803&q=${lat},${lon}`
+        );
+        
+        if (locationResponse.ok) {
+          const locations = await locationResponse.json();
+          if (locations.length > 0) {
+            locationQuery = locations[0].name;
+          }
+        }
       }
 
       const response = await fetch(
@@ -121,7 +140,7 @@ const WeatherForecast: React.FC = () => {
 
   useEffect(() => {
     fetchWeatherData();
-  }, []);
+  }, [currentTrack?.coordinates]);
 
   if (loading) {
     return (
