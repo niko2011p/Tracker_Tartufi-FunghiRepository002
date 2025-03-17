@@ -400,7 +400,10 @@ function MapView() {
                 <Marker
                   key={finding.id}
                   position={finding.coordinates}
-                  icon={createFindingIcon(finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo')}
+                  icon={createFindingIcon(
+                    finding.type === 'poi' ? 'Interesse' : 
+                    finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo'
+                  )}
                 />
               ))}
           </>
@@ -410,6 +413,7 @@ function MapView() {
             key={`loaded-${finding.id}`}
             position={finding.coordinates}
             icon={createFindingIcon(
+              finding.type === 'poi' ? 'Interesse' : 
               finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo',
               true
             )}

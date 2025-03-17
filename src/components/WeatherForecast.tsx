@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Sun, Cloud, CloudRain, CloudSnow, CloudLightning } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { useTrackStore } from '../store/trackStore';
 
 interface WeatherData {
   date: string;
@@ -26,8 +27,17 @@ const WeatherForecast: React.FC = () => {
   const fetchWeatherData = async () => {
     try {
       setLoading(true);
+      const currentTrack = useTrackStore.getState().currentTrack;
+      const coordinates = currentTrack?.coordinates;
+      
+      let locationQuery = 'auto:ip';
+      if (coordinates && coordinates.length > 0) {
+        const lastPosition = coordinates[coordinates.length - 1];
+        locationQuery = `${lastPosition[1]},${lastPosition[0]}`;
+      }
+
       const response = await fetch(
-        `https://api.weatherapi.com/v1/forecast.json?key=e57f461f9d4245158e5100345250803&q=auto:ip&days=7&aqi=no&alerts=no`
+        `https://api.weatherapi.com/v1/forecast.json?key=e57f461f9d4245158e5100345250803&q=${locationQuery}&days=7&aqi=no&alerts=no`
       );
 
       if (!response.ok) throw new Error('Errore nel caricamento delle previsioni meteo');

@@ -21,7 +21,7 @@ export interface Finding {
   coordinates: [number, number];
   timestamp: Date;
   trackId: string;
-  type: 'Fungo' | 'Tartufo';
+  type: 'Fungo' | 'Tartufo' | 'poi';
 }
 
 export interface WeatherData {
