@@ -22,7 +22,7 @@ const useMapStyle = () => {
         if (zoomControl) zoomControl.classList.add('hidden');
         if (tagButton) tagButton.classList.add('hidden');
         if (centerButton) centerButton.classList.add('hidden');
-      } else if (type === 'Tartufo') {
+      } else {
         mapContainer.classList.remove('map-paused');
         // Show controls when not paused
         if (zoomControl) zoomControl.classList.remove('hidden');

@@ -14,6 +14,7 @@ interface WeatherData {
   wind_kph: number;
   wind_dir: string;
   condition: string;
+  location: string;
 }
 
 const WeatherForecast: React.FC = () => {
@@ -42,7 +43,8 @@ const WeatherForecast: React.FC = () => {
         precip_chance: day.day.daily_chance_of_rain,
         wind_kph: day.day.maxwind_kph,
         wind_dir: day.hour[12].wind_dir,
-        condition: day.day.condition.text
+        condition: day.day.condition.text,
+        location: `${data.location.name}, ${data.location.region}`
       }));
 
       setForecast(forecastData);
@@ -51,6 +53,28 @@ const WeatherForecast: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Errore sconosciuto');
       setLoading(false);
     }
+  };
+
+  const translateWeatherCondition = (condition: string): string => {
+    const translations: { [key: string]: string } = {
+      'clear': 'Sereno',
+      'sunny': 'Soleggiato',
+      'partly cloudy': 'Parzialmente nuvoloso',
+      'cloudy': 'Nuvoloso',
+      'overcast': 'Coperto',
+      'rain': 'Pioggia',
+      'light rain': 'Pioggia leggera',
+      'moderate rain': 'Pioggia moderata',
+      'heavy rain': 'Pioggia forte',
+      'patchy rain nearby': 'Pioggia sparsa nelle vicinanze',
+      'snow': 'Neve',
+      'light snow': 'Neve leggera',
+      'heavy snow': 'Neve forte',
+      'thunderstorm': 'Temporale',
+      'mist': 'Foschia',
+      'fog': 'Nebbia'
+    };
+    return translations[condition.toLowerCase()] || condition;
   };
 
   const getWeatherIcon = (condition: string) => {
@@ -110,7 +134,10 @@ const WeatherForecast: React.FC = () => {
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-semibold text-indigo-900">Previsioni Meteo</h3>
+        <div>
+          <h3 className="text-xl font-semibold text-indigo-900">Previsioni Meteo</h3>
+          <p className="text-sm text-indigo-600">{currentDay.location}</p>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigateForecast('prev')}
@@ -139,7 +166,7 @@ const WeatherForecast: React.FC = () => {
           <div className="relative">
             {getWeatherIcon(currentDay.condition)}
             <div className="mt-2 text-center">
-              <p className="text-lg font-medium text-indigo-900">{currentDay.condition}</p>
+              <p className="text-lg font-medium text-indigo-900">{translateWeatherCondition(currentDay.condition)}</p>
               <p className="text-3xl font-bold text-indigo-700">{currentDay.temp_c.toFixed(1)}°C</p>
               <p className="text-sm text-indigo-600">
                 Min: {currentDay.temp_min.toFixed(1)}°C | Max: {currentDay.temp_max.toFixed(1)}°C
