@@ -152,7 +152,7 @@
   50% {
     transform: scale(1.2) translateY(-10px);
     opacity: 0.8;
-    filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.4));
+    filter: drop-shadow(0 0 12px rgba(255, 0, 0, 0.6));
   }
   100% {
     transform: scale(1) translateY(0);
@@ -166,9 +166,9 @@
     opacity: 1;
   }
   50% {
-    transform: scale(1.15) translateY(-6px);
+    transform: scale(1.15) translateY(-8px);
     opacity: 0.9;
-    filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
   }
   100% {
     transform: scale(1) translateY(0);
@@ -177,7 +177,8 @@
 }
 
 .finding-icon-wrapper {
-  transform: translateY(-12px); /* Add offset to prevent overlap */
+  transform: translateY(-12px);
+  transition: transform 0.3s ease;
 }
 
 .fungo-finding {
@@ -186,6 +187,26 @@
 
 .tartufo-finding {
   animation: pulse-tartufo 2.5s infinite ease-in-out;
+}
+
+@keyframes pulse-interesse {
+  0% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2) translateY(-10px);
+    opacity: 0.8;
+    filter: drop-shadow(0 0 12px rgba(0, 255, 0, 0.6));
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.interesse-finding {
+  animation: pulse-interesse 2s infinite ease-in-out;
 }
 
 .finding-icon-wrapper:hover {

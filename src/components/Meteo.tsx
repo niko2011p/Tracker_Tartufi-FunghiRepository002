@@ -200,7 +200,7 @@ function Meteo() {
         wind_kph: data.current.wind_kph,
         wind_dir: data.current.wind_dir,
         cloud_cover: data.current.cloud,
-        condition: data.current.condition.text
+        condition: data.current.condition.text === 'Patchy rain nearby' ? 'Pioggia sparsa nelle vicinanze' : data.current.condition.text
       });
 
       const forecastData = data.forecast.forecastday.map((day: any) => ({
@@ -460,54 +460,6 @@ function Meteo() {
           <WeatherForecast />
           <MoonPhase />
         </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-4">Previsioni Settimanali</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {forecast.map((day, index) => (
-                  <div
-                    key={index}
-                    className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex justify-between items-center mb-3">
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {format(parseISO(day.date), "EEEE", { locale: it })}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {format(parseISO(day.date), "d MMMM", { locale: it })}
-                        </span>
-                      </div>
-                      {getWeatherIcon(day.condition)}
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Min/Max</span>
-                        <span>
-                          {day.temp_min}°C / {day.temp_max}°C
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Precipitazioni</span>
-                        <span>{day.precip_chance}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Vento</span>
-                        <span className={getWindColor(day.wind_kph)}>
-                          {day.wind_kph} km/h {day.wind_dir}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Umidità</span>
-                        <span className={`px-2 rounded ${getHumidityColor(day.humidity)}`}>
-                          {day.humidity}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
 
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-4">

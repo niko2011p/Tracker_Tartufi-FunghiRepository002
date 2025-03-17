@@ -142,6 +142,7 @@ const MoonPhase: React.FC = () => {
       </div>
 
       {moonData && (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="relative">
@@ -156,7 +157,6 @@ const MoonPhase: React.FC = () => {
             </div>
             <div className="text-center">
               <h4 className="font-medium text-indigo-900">{getItalianPhase(moonData.phase)}</h4>
-              <p className="text-sm text-indigo-600">Età: {moonData.age} giorni</p>
             </div>
           </div>
 
@@ -171,6 +171,19 @@ const MoonPhase: React.FC = () => {
             </div>
           </div>
         </div>
+        <div className="flex justify-center mt-4 space-x-1">
+          {Array.from({ length: 15 }, (_, i) => {
+            const date = subDays(new Date(), 7 - i);
+            const isSelected = format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+            return (
+              <div
+                key={i}
+                className={`w-2 h-2 rounded-full ${isSelected ? 'bg-indigo-600' : 'bg-indigo-200'}`}
+              />
+            );
+          })}
+        </div>
+        </>
       )}
     </div>
   );

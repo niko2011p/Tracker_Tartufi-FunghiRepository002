@@ -22,7 +22,7 @@ const useMapStyle = () => {
         if (zoomControl) zoomControl.classList.add('hidden');
         if (tagButton) tagButton.classList.add('hidden');
         if (centerButton) centerButton.classList.add('hidden');
-      } else {
+      } else if (type === 'Tartufo') {
         mapContainer.classList.remove('map-paused');
         // Show controls when not paused
         if (zoomControl) zoomControl.classList.remove('hidden');
@@ -71,7 +71,7 @@ const createGpsArrowIcon = (direction = 0) => {
 // Manteniamo l'icona walker originale per compatibilità
 const walkerIcon = createGpsArrowIcon(0);
 
-const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false) => {
+const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: boolean = false) => {
   const opacity = isLoaded ? '0.5' : '1';
   if (type === 'Fungo') {
     return new DivIcon({
@@ -89,7 +89,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false)
       iconAnchor: [16, 16],
       popupAnchor: [0, -16]
     });
-  } else {
+  } else if (type === 'Tartufo') {
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper tartufo-finding">
@@ -100,6 +100,21 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false)
         </div>
       `,
       className: 'finding-icon tartufo-finding',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16]
+    });
+  } else {
+    return new DivIcon({
+      html: `
+        <div class="finding-icon-wrapper interesse-finding">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 4L28 16L16 28L4 16L16 4Z" fill="#00FF00" stroke="white" strokeWidth="2" strokeLinejoin="round" opacity="${opacity}"/>
+            <circle cx="16" cy="16" r="6" fill="rgba(0,255,0,0.2)" opacity="${opacity}"/>
+          </svg>
+        </div>
+      `,
+      className: 'finding-icon interesse-finding',
       iconSize: [32, 32],
       iconAnchor: [16, 16],
       popupAnchor: [0, -16]
@@ -295,7 +310,7 @@ function CenterButton() {
     if (currentTrack?.coordinates.length) {
       const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
       map.setView(lastPosition, MAX_ZOOM, { animate: true });
-    } else {
+    } else if (type === 'Tartufo') {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
