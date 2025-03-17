@@ -128,8 +128,8 @@ export default function StoricoTracce() {
   const logoStyle = {
     display: 'block',
     margin: '1rem auto',
-    maxWidth: '200px',
-    height: 'auto'
+    height: '8rem',
+    width: 'auto'
   };
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);

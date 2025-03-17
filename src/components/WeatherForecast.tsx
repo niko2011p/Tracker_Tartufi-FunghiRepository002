@@ -54,7 +54,7 @@ const WeatherForecast: React.FC = () => {
         wind_kph: day.day.maxwind_kph,
         wind_dir: day.hour[12].wind_dir,
         condition: day.day.condition.text,
-        location: `${data.location.name}, ${data.location.region}`
+        location: data.location.name
       }));
 
       setForecast(forecastData);

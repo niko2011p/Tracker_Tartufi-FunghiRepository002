@@ -17,6 +17,8 @@ import {
   ChevronRight,
   Navigation
 } from 'lucide-react';
+import MeteoLogo from './MeteoLogo';
+import { useTrackStore } from '../store/trackStore';
 import WeatherForecast from './WeatherForecast';
 import MoonPhase from './MoonPhase';
 import { 
@@ -180,10 +182,28 @@ function Meteo() {
     }
   };
 
-  const fetchWeatherData = async (lat: number, lon: number) => {
+  const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     try {
+      let locationQuery = 'auto:ip';
+      let lat = latitude;
+      let lon = longitude;
+      
+      if (!lat || !lon) {
+        const currentTrack = useTrackStore.getState().currentTrack;
+        const coordinates = currentTrack?.coordinates;
+        
+        if (coordinates && coordinates.length > 0) {
+          const lastPosition = coordinates[coordinates.length - 1];
+          locationQuery = `${lastPosition[1]},${lastPosition[0]}`;
+          lat = lastPosition[1];
+          lon = lastPosition[0];
+        }
+      } else {
+        locationQuery = `${lat},${lon}`;
+      }
+
       const response = await fetch(
-        `https://api.weatherapi.com/v1/forecast.json?key=e57f461f9d4245158e5100345250803&q=${lat},${lon}&days=7&aqi=no&alerts=no`
+        `https://api.weatherapi.com/v1/forecast.json?key=e57f461f9d4245158e5100345250803&q=${locationQuery}&days=7&aqi=no&alerts=no`
       );
       
       if (!response.ok) throw new Error('Errore nel caricamento dei dati meteo');
@@ -221,7 +241,7 @@ function Meteo() {
       const historicalPromises = Array.from({ length: 14 }, (_, i) => {
         const date = format(subDays(new Date(), i + 1), 'yyyy-MM-dd');
         return fetch(
-          `https://api.weatherapi.com/v1/history.json?key=e57f461f9d4245158e5100345250803&q=${lat},${lon}&dt=${date}`
+          `https://api.weatherapi.com/v1/history.json?key=e57f461f9d4245158e5100345250803&q=${locationQuery}&dt=${date}`
         ).then(res => res.json());
       });
 
@@ -316,17 +336,18 @@ function Meteo() {
   };
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        await fetchLocationName(latitude, longitude);
-        fetchWeatherData(latitude, longitude);
-      },
-      () => {
-        fetchLocationName(41.9028, 12.4964);
-        fetchWeatherData(41.9028, 12.4964);
+    const unsubscribe = useTrackStore.subscribe(
+      (state) => state.currentTrack?.coordinates,
+      (coordinates) => {
+        if (coordinates && coordinates.length > 0) {
+          const lastPosition = coordinates[coordinates.length - 1];
+          fetchWeatherData(lastPosition[1], lastPosition[0]);
+        }
       }
     );
+
+    fetchWeatherData();
+    return () => unsubscribe();
   }, []);
 
   if (loading) {
@@ -389,6 +410,11 @@ function Meteo() {
                   <MapPin className="w-6 h-6 text-blue-500" />
                   <h2 className="text-2xl font-semibold">
                     {selectedLocation?.name || 'Posizione attuale'}
+                    {selectedLocation && (
+                      <span className="block text-sm text-gray-500">
+                        {selectedLocation.lat.toFixed(6)}°, {selectedLocation.lon.toFixed(6)}°
+                      </span>
+                    )}
                   </h2>
                 </div>
                 <span className="text-gray-500">
