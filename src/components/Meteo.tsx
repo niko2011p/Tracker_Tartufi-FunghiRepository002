@@ -163,7 +163,7 @@ function Meteo() {
   const fetchLocationName = async (lat: number, lon: number) => {
     try {
       const response = await fetch(
-        `https://api.weatherapi.com/v1/search.json?key=e57f461f9d4245158e5100345250803&q=${lat},${lon}`
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${import.meta.env.VITE_OPENWEATHERMAP_API_KEY}&units=metric`
       );
       
       if (!response.ok) throw new Error('Errore nel recupero della località');
@@ -182,6 +182,22 @@ function Meteo() {
     }
   };
 
+  const retryFetch = async (url: string, options = {}, retries = 3): Promise<Response> => {
+    let lastError;
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url, options);
+        if (response.ok) return response;
+        lastError = await response.json();
+      } catch (error) {
+        lastError = error;
+        if (i === retries - 1) break;
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+      }
+    }
+    throw new Error(lastError?.message || 'Errore di rete dopo diversi tentativi');
+  };
+
   const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     try {
       let locationQuery = 'auto:ip';
@@ -197,81 +213,116 @@ function Meteo() {
           locationQuery = `${lastPosition[1]},${lastPosition[0]}`;
           lat = lastPosition[1];
           lon = lastPosition[0];
+        } else {
+          throw new Error('Posizione non disponibile. Attiva il GPS o seleziona una località.');
         }
       } else {
         locationQuery = `${lat},${lon}`;
       }
 
-      const response = await fetch(
-        `https://api.weatherapi.com/v1/forecast.json?key=e57f461f9d4245158e5100345250803&q=${locationQuery}&days=7&aqi=no&alerts=no`
-      );
+      const meteoblueUrl = `https://my.meteoblue.com/packages/basic-1h?apikey=${import.meta.env.VITE_METEOBLUE_API_KEY}&lat=${lat}&lon=${lon}&format=json&temperature=1&windspeed=1&winddirection=1&precipitation=1&humidity=1&clouds=1`;
       
-      if (!response.ok) throw new Error('Errore nel caricamento dei dati meteo');
-      const data = await response.json();
+      const meteoblueResponse = await retryFetch(meteoblueUrl);
+      const meteoblueData = await meteoblueResponse.json();
+      
+      if (!meteoblueData || !meteoblueData.data_1h) {
+        throw new Error('Dati meteo non validi o incompleti');;
+      }
+      
+      const currentData = meteoblueData.data_1h;
+      const currentIndex = new Date().getHours();
       
       setCurrentWeather({
-        date: data.current.last_updated,
-        temp_c: data.current.temp_c,
-        temp_min: data.forecast.forecastday[0].day.mintemp_c,
-        temp_max: data.forecast.forecastday[0].day.maxtemp_c,
-        humidity: data.current.humidity,
-        precip_mm: data.current.precip_mm,
-        precip_chance: data.forecast.forecastday[0].day.daily_chance_of_rain,
-        wind_kph: data.current.wind_kph,
-        wind_dir: data.current.wind_dir,
-        cloud_cover: data.current.cloud,
-        condition: data.current.condition.text === 'Patchy rain nearby' ? 'Pioggia sparsa nelle vicinanze' : data.current.condition.text
+        date: new Date().toISOString(),
+        temp_c: currentData.temperature[currentIndex],
+        temp_min: Math.min(...currentData.temperature.slice(0, 24)),
+        temp_max: Math.max(...currentData.temperature.slice(0, 24)),
+        humidity: currentData.relativehumidity[currentIndex],
+        precip_mm: currentData.precipitation[currentIndex],
+        precip_chance: currentData.precipitation_probability[currentIndex],
+        wind_kph: currentData.windspeed[currentIndex] * 3.6,
+        wind_dir: (() => {
+          const deg = currentData.winddirection[currentIndex];
+          if (deg >= 337.5 || deg < 22.5) return 'N';
+          if (deg >= 22.5 && deg < 67.5) return 'NE';
+          if (deg >= 67.5 && deg < 112.5) return 'E';
+          if (deg >= 112.5 && deg < 157.5) return 'SE';
+          if (deg >= 157.5 && deg < 202.5) return 'S';
+          if (deg >= 202.5 && deg < 247.5) return 'SW';
+          if (deg >= 247.5 && deg < 292.5) return 'W';
+          return 'NW';
+        })(),
+        cloud_cover: currentData.clouds[currentIndex],
+        condition: meteoblueData.metadata.name
       });
 
-      const forecastData = data.forecast.forecastday.map((day: any) => ({
-        date: day.date,
-        temp_c: day.day.avgtemp_c,
-        temp_min: day.day.mintemp_c,
-        temp_max: day.day.maxtemp_c,
-        humidity: day.day.avghumidity,
-        precip_mm: day.day.totalprecip_mm,
-        precip_chance: day.day.daily_chance_of_rain,
-        wind_kph: day.day.maxwind_kph,
-        wind_dir: day.hour[12].wind_dir,
-        cloud_cover: day.hour[12].cloud,
-        condition: day.day.condition.text
-      }));
-      setForecast(forecastData);
-
-      const historicalPromises = Array.from({ length: 14 }, (_, i) => {
-        const date = format(subDays(new Date(), i + 1), 'yyyy-MM-dd');
-        return fetch(
-          `https://api.weatherapi.com/v1/history.json?key=e57f461f9d4245158e5100345250803&q=${locationQuery}&dt=${date}`
-        ).then(res => res.json());
+      // Processa i dati delle previsioni per i prossimi giorni
+      const processedForecastData = Array.from({ length: 7 }, (_, dayIndex) => {
+        const startIndex = dayIndex * 24 + 12; // Prendi i dati per mezzogiorno di ogni giorno
+        return {
+          date: new Date(Date.now() + dayIndex * 86400000).toISOString(),
+          temp_c: currentData.temperature[startIndex],
+          temp_min: Math.min(...currentData.temperature.slice(dayIndex * 24, (dayIndex + 1) * 24)),
+          temp_max: Math.max(...currentData.temperature.slice(dayIndex * 24, (dayIndex + 1) * 24)),
+          humidity: currentData.relativehumidity[startIndex],
+          precip_mm: currentData.precipitation[startIndex],
+          precip_chance: currentData.precipitation_probability[startIndex],
+          wind_kph: currentData.windspeed[startIndex] * 3.6,
+          wind_dir: currentData.winddirection[startIndex].toString(),
+          cloud_cover: currentData.clouds[startIndex],
+          condition: meteoblueData.metadata.name
+        };
       });
+      setForecast(processedForecastData);
 
-      const historicalResults = await Promise.all(historicalPromises);
-      const historicalData = historicalResults.map(day => ({
-        date: day.forecast.forecastday[0].date,
-        temp_c: day.forecast.forecastday[0].day.avgtemp_c,
-        temp_min: day.forecast.forecastday[0].day.mintemp_c,
-        temp_max: day.forecast.forecastday[0].day.maxtemp_c,
-        humidity: day.forecast.forecastday[0].day.avghumidity,
-        precip_mm: day.forecast.forecastday[0].day.totalprecip_mm,
-        precip_chance: day.forecast.forecastday[0].day.daily_chance_of_rain,
-        wind_kph: day.forecast.forecastday[0].day.maxwind_kph,
-        wind_dir: day.forecast.forecastday[0].hour[12].wind_dir,
-        cloud_cover: day.forecast.forecastday[0].hour[12].cloud,
-        condition: day.forecast.forecastday[0].day.condition.text
-      }));
-      setHistoricalData(historicalData);
+      // Processa i dati storici dalle ultime 24 ore
+      const historicalData = Array.from({ length: 24 }, (_, hourIndex) => {
+        const dataIndex = (currentIndex - hourIndex + 24) % 24;
+        return {
+          date: new Date(Date.now() - hourIndex * 3600000).toISOString(),
+          temp_c: currentData.temperature[dataIndex],
+          temp_min: currentData.temperature[dataIndex],
+          temp_max: currentData.temperature[dataIndex],
+          humidity: currentData.relativehumidity[dataIndex],
+          precip_mm: currentData.precipitation[dataIndex],
+          precip_chance: currentData.precipitation_probability[dataIndex],
+          wind_kph: currentData.windspeed[dataIndex] * 3.6,
+          wind_dir: currentData.winddirection[dataIndex].toString(),
+          cloud_cover: currentData.clouds[dataIndex],
+          condition: meteoblueData.metadata.name
+        };
+      });
+      setHistoricalData(historicalData.reverse());
 
       setLoading(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Errore sconosciuto');
+      let errorMessage = 'Errore nel caricamento dei dati meteo';
+      
+      if (err instanceof Error) {
+        if (err.message.includes('API key')) {
+          errorMessage = 'Chiave API non valida o scaduta. Verifica le impostazioni.';
+        } else if (err.message.includes('network') || err.message.includes('rete')) {
+          errorMessage = 'Errore di connessione. Verifica la tua connessione internet.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setError(errorMessage);
       setLoading(false);
+      
+      // Dati di fallback per mantenere l'interfaccia funzionante
+      if (currentWeather) {
+        setForecast([]);
+        setHistoricalData([]);
+      }
     }
   };
 
   const handleSearch = async () => {
     try {
       const response = await fetch(
-        `https://api.weatherapi.com/v1/search.json?key=e57f461f9d4245158e5100345250803&q=${searchQuery}`
+        `https://api.openweathermap.org/geo/1.0/direct?q=${searchQuery}&limit=5&appid=${import.meta.env.VITE_OPENWEATHERMAP_API_KEY}`
       );
       
       if (!response.ok) throw new Error('Errore nella ricerca della località');
@@ -485,6 +536,73 @@ function Meteo() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <WeatherForecast />
           <MoonPhase />
+        </div>
+        
+        {/* NOAA Historical Data Section */}
+        <div className="mt-8 bg-white rounded-lg shadow p-6">
+          <h2 className="text-2xl font-semibold mb-4">Dati Storici NOAA</h2>
+          
+          {nearestStations.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Seleziona Stazione Meteorologica
+              </label>
+              <select
+                className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                value={selectedStation || ''}
+                onChange={(e) => setSelectedStation(e.target.value)}
+              >
+                {nearestStations.map((station) => (
+                  <option key={station.id} value={station.id}>
+                    {station.name} ({station.latitude.toFixed(2)}, {station.longitude.toFixed(2)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          {historicalData.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          {header.isPlaceholder ? null : (
+                            flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <td
+                          key={cell.id}
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
             <div className="bg-white rounded-lg shadow-md p-6">

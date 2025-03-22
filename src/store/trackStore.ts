@@ -31,7 +31,7 @@ interface TrackState {
 async function getLocationName(lat: number, lon: number) {
   try {
     const response = await fetch(
-      `https://api.weatherapi.com/v1/search.json?key=e57f461f9d4245158e5100345250803&q=${lat},${lon}`
+      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${import.meta.env.VITE_OPENWEATHERMAP_API_KEY}&units=metric`
     );
     
     if (!response.ok) throw new Error('Error retrieving location');

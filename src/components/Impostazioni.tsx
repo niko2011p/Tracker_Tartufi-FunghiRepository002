@@ -1,7 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Moon, Sun, Map as MapIcon, Bell, Share2, Database, HelpCircle } from 'lucide-react';
+import { testCoopsApi, testNcdcApi } from '../utils/weatherApiTest';
 
 export default function Impostazioni() {
+  const [coopsStatus, setCoopsStatus] = useState<{ isValid: boolean; message: string } | null>(null);
+  const [ncdcStatus, setNcdcStatus] = useState<{ isValid: boolean; message: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleTestCoopsApi = async () => {
+    setIsLoading(true);
+    const result = await testCoopsApi();
+    setCoopsStatus(result);
+    setIsLoading(false);
+  };
+
+  const handleTestNcdcApi = async () => {
+    setIsLoading(true);
+    const token = import.meta.env.VITE_NCDC_TOKEN;
+    const result = await testNcdcApi(token);
+    setNcdcStatus(result);
+    setIsLoading(false);
+  };
+
   return (
     <div className="p-4 max-w-3xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">Impostazioni</h2>
@@ -68,6 +88,45 @@ export default function Impostazioni() {
               <Database className="w-5 h-5 mr-3" />
               <span>Backup automatico</span>
             </button>
+          </div>
+        </section>
+
+        <section className="bg-white rounded-lg shadow-md p-4">
+          <h3 className="text-lg font-semibold mb-4">Test API Meteo</h3>
+          <div className="space-y-4">
+            <div className="mb-4">
+              <h4 className="text-md font-medium mb-2">API CO-OPS (Dati in tempo reale)</h4>
+              <button
+                onClick={handleTestCoopsApi}
+                disabled={isLoading}
+                className="flex items-center text-gray-700 hover:text-gray-900 bg-blue-100 px-4 py-2 rounded-md disabled:opacity-50"
+              >
+                <span>{isLoading ? 'Verifica in corso...' : 'Verifica API CO-OPS'}</span>
+              </button>
+
+              {coopsStatus && (
+                <div className={`mt-3 p-3 rounded ${coopsStatus.isValid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {coopsStatus.message}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h4 className="text-md font-medium mb-2">API NCDC CDO (Dati storici)</h4>
+              <button
+                onClick={handleTestNcdcApi}
+                disabled={isLoading}
+                className="flex items-center text-gray-700 hover:text-gray-900 bg-blue-100 px-4 py-2 rounded-md disabled:opacity-50"
+              >
+                <span>{isLoading ? 'Verifica in corso...' : 'Verifica API NCDC'}</span>
+              </button>
+
+              {ncdcStatus && (
+                <div className={`mt-3 p-3 rounded ${ncdcStatus.isValid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {ncdcStatus.message}
+                </div>
+              )}
+            </div>
           </div>
         </section>
 

@@ -22,7 +22,7 @@ const MoonPhase: React.FC = () => {
       setLoading(true);
       const formattedDate = format(date, 'yyyy-MM-dd');
       const response = await fetch(
-        `https://api.weatherapi.com/v1/astronomy.json?key=e57f461f9d4245158e5100345250803&q=auto:ip&dt=${formattedDate}`
+        `https://api.openweathermap.org/data/2.5/weather?q=auto:ip&appid=${import.meta.env.VITE_OPENWEATHERMAP_API_KEY}&units=metric&dt=${formattedDate}`
       );
 
       if (!response.ok) throw new Error('Errore nel caricamento dei dati lunari');
