@@ -1,24 +1,16 @@
 import React, { useState } from 'react';
 import { Moon, Sun, Map as MapIcon, Bell, Share2, Database, HelpCircle } from 'lucide-react';
-import { testCoopsApi, testNcdcApi } from '../utils/weatherApiTest';
+import { testWeatherApiKey } from '../utils/weatherApiTest';
 
 export default function Impostazioni() {
-  const [coopsStatus, setCoopsStatus] = useState<{ isValid: boolean; message: string } | null>(null);
-  const [ncdcStatus, setNcdcStatus] = useState<{ isValid: boolean; message: string } | null>(null);
+  const [weatherApiStatus, setWeatherApiStatus] = useState<{ isValid: boolean; message: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleTestCoopsApi = async () => {
+  const handleTestWeatherApi = async () => {
     setIsLoading(true);
-    const result = await testCoopsApi();
-    setCoopsStatus(result);
-    setIsLoading(false);
-  };
-
-  const handleTestNcdcApi = async () => {
-    setIsLoading(true);
-    const token = import.meta.env.VITE_NCDC_TOKEN;
-    const result = await testNcdcApi(token);
-    setNcdcStatus(result);
+    const apiKey = import.meta.env.VITE_WEATHERAPI_KEY;
+    const result = await testWeatherApiKey(apiKey);
+    setWeatherApiStatus(result);
     setIsLoading(false);
   };
 
@@ -95,37 +87,47 @@ export default function Impostazioni() {
           <h3 className="text-lg font-semibold mb-4">Test API Meteo</h3>
           <div className="space-y-4">
             <div className="mb-4">
-              <h4 className="text-md font-medium mb-2">API CO-OPS (Dati in tempo reale)</h4>
+              <h4 className="text-md font-medium mb-2">WeatherAPI</h4>
+              <p className="text-sm text-gray-600 mb-2">Verifica la validità della tua chiave API WeatherAPI</p>
               <button
-                onClick={handleTestCoopsApi}
+                onClick={handleTestWeatherApi}
                 disabled={isLoading}
                 className="flex items-center text-gray-700 hover:text-gray-900 bg-blue-100 px-4 py-2 rounded-md disabled:opacity-50"
               >
-                <span>{isLoading ? 'Verifica in corso...' : 'Verifica API CO-OPS'}</span>
+                <span>{isLoading ? 'Verifica in corso...' : 'Verifica API WeatherAPI'}</span>
               </button>
 
-              {coopsStatus && (
-                <div className={`mt-3 p-3 rounded ${coopsStatus.isValid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                  {coopsStatus.message}
+              {weatherApiStatus && (
+                <div className={`mt-3 p-3 rounded ${weatherApiStatus.isValid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {weatherApiStatus.message}
                 </div>
               )}
-            </div>
-
-            <div>
-              <h4 className="text-md font-medium mb-2">API NCDC CDO (Dati storici)</h4>
-              <button
-                onClick={handleTestNcdcApi}
-                disabled={isLoading}
-                className="flex items-center text-gray-700 hover:text-gray-900 bg-blue-100 px-4 py-2 rounded-md disabled:opacity-50"
-              >
-                <span>{isLoading ? 'Verifica in corso...' : 'Verifica API NCDC'}</span>
-              </button>
-
-              {ncdcStatus && (
-                <div className={`mt-3 p-3 rounded ${ncdcStatus.isValid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                  {ncdcStatus.message}
+              
+              {weatherApiStatus?.isValid && (
+                <div className="mt-2 text-sm text-gray-600">
+                  {weatherApiStatus?.isValid ? (
+                    <p>La tua chiave API è valida e funzionante. Puoi utilizzare tutte le funzionalità meteo dell'app.</p>
+                  ) : (
+                    <div>
+                      <p className="font-medium mb-1">Suggerimenti per risolvere il problema:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>Verifica che la chiave API nel file .env sia corretta e aggiornata</li>
+                        <li>Assicurati che il tuo account WeatherAPI sia attivo</li>
+                        <li>Controlla di non aver superato il limite di richieste giornaliere</li>
+                        <li>Se il problema persiste, prova a generare una nuova chiave API su WeatherAPI.com</li>
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
+              <div className="mt-4 flex flex-col items-center space-y-2">
+                <a href="https://www.weatherapi.com/" title="Free Weather API" className="text-blue-600 hover:text-blue-800">
+                  Powered by WeatherAPI.com
+                </a>
+                <a href="https://www.weatherapi.com/" title="Free Weather API">
+                  <img src="//cdn.weatherapi.com/v4/images/weatherapi_logo.png" alt="Weather data by WeatherAPI.com" className="h-8" />
+                </a>
+              </div>
             </div>
           </div>
         </section>

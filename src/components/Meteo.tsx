@@ -17,6 +17,10 @@ import {
   ChevronRight,
   Navigation
 } from 'lucide-react';
+
+// Costanti per WeatherAPI
+const WEATHER_API_KEY = import.meta.env.VITE_WEATHERAPI_KEY;
+const BASE_URL = 'https://api.weatherapi.com/v1';
 import MeteoLogo from './MeteoLogo';
 import { useTrackStore } from '../store/trackStore';
 import WeatherForecast from './WeatherForecast';
@@ -43,6 +47,8 @@ import {
   SortingState,
 } from '@tanstack/react-table';
 import { Link, useLocation } from 'react-router-dom';
+import PopupNotification from './PopupNotification';
+import FixedFooter from './FixedFooter';
 
 interface WeatherData {
   date: string;
@@ -160,10 +166,33 @@ function Meteo() {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
+  const searchLocations = async (query: string) => {
+    if (!query.trim()) return;
+    
+    try {
+      const response = await fetch(
+        `https://api.weatherapi.com/v1/search.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${encodeURIComponent(query)}`
+      );
+      
+      if (!response.ok) throw new Error('Errore nella ricerca delle località');
+      const locations = await response.json();
+      
+      return locations.map((loc: any) => ({
+        name: loc.name,
+        region: loc.region || '',
+        lat: loc.lat,
+        lon: loc.lon
+      }));
+    } catch (err) {
+      console.error('Errore nella ricerca delle località:', err);
+      return [];
+    }
+  };
+
   const fetchLocationName = async (lat: number, lon: number) => {
     try {
       const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${import.meta.env.VITE_OPENWEATHERMAP_API_KEY}&units=metric`
+        `https://api.weatherapi.com/v1/search.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}`
       );
       
       if (!response.ok) throw new Error('Errore nel recupero della località');
@@ -172,127 +201,303 @@ function Meteo() {
       if (locations.length > 0) {
         setSelectedLocation({
           name: locations[0].name,
-          region: locations[0].region,
+          region: locations[0].region || '',
           lat: locations[0].lat,
           lon: locations[0].lon
         });
       }
     } catch (err) {
       console.error('Errore nel recupero del nome della località:', err);
+      setError('Impossibile determinare la località. Prova a cercarla manualmente.');
     }
   };
 
-  const retryFetch = async (url: string, options = {}, retries = 3): Promise<Response> => {
-    let lastError;
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await fetch(url, options);
-        if (response.ok) return response;
-        lastError = await response.json();
-      } catch (error) {
-        lastError = error;
-        if (i === retries - 1) break;
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+  const retryFetch = async (url: string, options = {}, maxRetries = 3) => {
+  let lastError;
+  let timeoutId: NodeJS.Timeout;
+
+  const controller = new AbortController();
+  const signal = controller.signal;
+
+  const fetchWithTimeout = async () => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 15000); // 15 secondi timeout
+
+    try {
+      const response = await fetch(url, { ...options, signal });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  };
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetchWithTimeout();
+      if (response.ok) return response;
+      
+      lastError = new Error(`Errore HTTP: ${response.status} - ${response.statusText}`);
+      if (response.status === 429) { // Rate limit
+        const retryAfter = response.headers.get('Retry-After');
+        await new Promise(resolve => setTimeout(resolve, (parseInt(retryAfter || '60') * 1000)));
+        continue;
+      }
+      
+      // Gestione specifica per errori di autenticazione
+      if (response.status === 401) {
+        console.error(`Errore di autenticazione 401 - Unauthorized per l'URL: ${url}`);
+        console.error('Verifica la chiave API nel file .env (VITE_WEATHERAPI_KEY)');
+        break; // Non ritentare errori di autenticazione
+      }
+      
+      if (response.status >= 400 && response.status < 500) break; // Non ritentare altri errori client
+    } catch (err: any) {
+      lastError = err;
+      if (err.name === 'AbortError') {
+        throw new Error('Timeout: la richiesta sta impiegando troppo tempo');
       }
     }
-    throw new Error(lastError?.message || 'Errore di rete dopo diversi tentativi');
-  };
 
-  const fetchWeatherData = async (latitude?: number, longitude?: number) => {
-    try {
-      let locationQuery = 'auto:ip';
-      let lat = latitude;
-      let lon = longitude;
-      
-      if (!lat || !lon) {
-        const currentTrack = useTrackStore.getState().currentTrack;
-        const coordinates = currentTrack?.coordinates;
-        
-        if (coordinates && coordinates.length > 0) {
-          const lastPosition = coordinates[coordinates.length - 1];
-          locationQuery = `${lastPosition[1]},${lastPosition[0]}`;
-          lat = lastPosition[1];
-          lon = lastPosition[0];
-        } else {
-          throw new Error('Posizione non disponibile. Attiva il GPS o seleziona una località.');
+    if (i < maxRetries - 1) {
+      const backoffMs = Math.min(1000 * Math.pow(2, i) + Math.random() * 1000, 10000);
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
+    }
+  }
+
+  throw new Error(
+    lastError?.message || 
+    'Impossibile completare la richiesta. Verifica la tua connessione e riprova.'
+  );
+};
+
+  const CACHE_KEY = 'weatherData';
+const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minuti
+
+const saveToCache = (data: any) => {
+  const cacheData = {
+    timestamp: Date.now(),
+    data: data
+  };
+  localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+};
+
+const getFromCache = () => {
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (!cached) return null;
+
+  const { timestamp, data } = JSON.parse(cached);
+  if (Date.now() - timestamp > CACHE_EXPIRY) {
+    localStorage.removeItem(CACHE_KEY);
+    return null;
+  }
+
+  return data;
+};
+
+const fetchWeatherData = async (latitude?: number, longitude?: number) => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    let locationQuery = 'auto:ip';
+    let lat = latitude;
+    let lon = longitude;
+    
+    // Verifica connessione internet e cache prima di tutto
+    if (!navigator.onLine) {
+      const cachedData = getFromCache();
+      if (cachedData) {
+        setCurrentWeather(cachedData.currentWeather);
+        setForecast(cachedData.forecast);
+        setHistoricalData(cachedData.historicalData);
+        setError('Modalità offline: visualizzazione dati in cache');
+        setLoading(false);
+        return;
+      }
+      throw new Error('Nessuna connessione internet disponibile');
+    }
+    
+    if (!navigator.onLine) {
+      const cachedData = getFromCache();
+      if (cachedData) {
+        setCurrentWeather(cachedData.currentWeather);
+        setForecast(cachedData.forecast);
+        setHistoricalData(cachedData.historicalData);
+        setError('Modalità offline: visualizzazione dati in cache');
+        setLoading(false);
+        return;
+      }
+      throw new Error('Nessuna connessione internet disponibile');
+    }
+    
+    if (!lat || !lon) {
+      // Prima prova a ottenere la posizione dal GPS
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          });
+        });
+        lat = position.coords.latitude;
+        lon = position.coords.longitude;
+        locationQuery = `${lat},${lon}`;
+      } catch (gpsError) {
+          // Se il GPS fallisce, prova a usare le coordinate del track corrente
+          const currentTrack = useTrackStore.getState().currentTrack;
+          const coordinates = currentTrack?.coordinates;
+          
+          if (coordinates && coordinates.length > 0) {
+            const lastPosition = coordinates[coordinates.length - 1];
+            if (lastPosition && Array.isArray(lastPosition) && lastPosition.length >= 2) {
+              locationQuery = `${lastPosition[1]},${lastPosition[0]}`;
+              lat = lastPosition[1];
+              lon = lastPosition[0];
+            } else {
+              throw new Error('Formato coordinate non valido nel track corrente');
+            }
+          } else {
+            throw new Error('Posizione non disponibile. Attiva il GPS o seleziona una località.');
+          }
         }
+      } else if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        throw new Error('Coordinate GPS non valide. Riprova o seleziona manualmente una località.');
       } else {
         locationQuery = `${lat},${lon}`;
       }
 
-      const meteoblueUrl = `https://my.meteoblue.com/packages/basic-1h?apikey=${import.meta.env.VITE_METEOBLUE_API_KEY}&lat=${lat}&lon=${lon}&format=json&temperature=1&windspeed=1&winddirection=1&precipitation=1&humidity=1&clouds=1`;
-      
-      const meteoblueResponse = await retryFetch(meteoblueUrl);
-      const meteoblueData = await meteoblueResponse.json();
-      
-      if (!meteoblueData || !meteoblueData.data_1h) {
-        throw new Error('Dati meteo non validi o incompleti');;
+      // Verifica connessione internet prima di fare la richiesta
+      if (!navigator.onLine) {
+        const cachedData = getFromCache();
+        if (cachedData) {
+          setCurrentWeather(cachedData.currentWeather);
+          setForecast(cachedData.forecast);
+          setHistoricalData(cachedData.historicalData);
+          setError('Modalità offline: visualizzazione dati in cache');
+          setLoading(false);
+          return;
+        }
+        throw new Error('Nessuna connessione internet disponibile');
       }
+
+      // Costruisci l'URL con tutti i parametri necessari per WeatherAPI
+      const weatherApiUrl = `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${locationQuery}&aqi=no`;
       
-      const currentData = meteoblueData.data_1h;
-      const currentIndex = new Date().getHours();
+      // Usa retryFetch con gestione degli errori migliorata
+      const weatherResponse = await retryFetch(weatherApiUrl, {}, 3);
+      if (!weatherResponse.ok) {
+        throw new Error(`Errore API: ${weatherResponse.status} ${weatherResponse.statusText}`);
+      }
+      const weatherData = await weatherResponse.json();
+      
+      if (!weatherData || !weatherData.current) {
+        throw new Error('Dati meteo non validi o incompleti. Verifica la tua connessione e riprova.');
+      }
       
       setCurrentWeather({
         date: new Date().toISOString(),
-        temp_c: currentData.temperature[currentIndex],
-        temp_min: Math.min(...currentData.temperature.slice(0, 24)),
-        temp_max: Math.max(...currentData.temperature.slice(0, 24)),
-        humidity: currentData.relativehumidity[currentIndex],
-        precip_mm: currentData.precipitation[currentIndex],
-        precip_chance: currentData.precipitation_probability[currentIndex],
-        wind_kph: currentData.windspeed[currentIndex] * 3.6,
-        wind_dir: (() => {
-          const deg = currentData.winddirection[currentIndex];
-          if (deg >= 337.5 || deg < 22.5) return 'N';
-          if (deg >= 22.5 && deg < 67.5) return 'NE';
-          if (deg >= 67.5 && deg < 112.5) return 'E';
-          if (deg >= 112.5 && deg < 157.5) return 'SE';
-          if (deg >= 157.5 && deg < 202.5) return 'S';
-          if (deg >= 202.5 && deg < 247.5) return 'SW';
-          if (deg >= 247.5 && deg < 292.5) return 'W';
-          return 'NW';
-        })(),
-        cloud_cover: currentData.clouds[currentIndex],
-        condition: meteoblueData.metadata.name
+        temp_c: weatherData.current.temp_c,
+        temp_min: weatherData.current.temp_c, // WeatherAPI non fornisce min/max nel current
+        temp_max: weatherData.current.temp_c, // WeatherAPI non fornisce min/max nel current
+        humidity: weatherData.current.humidity,
+        precip_mm: weatherData.current.precip_mm,
+        precip_chance: weatherData.current.chance_of_rain || 0,
+        wind_kph: weatherData.current.wind_kph,
+        wind_dir: weatherData.current.wind_dir,
+        cloud_cover: weatherData.current.cloud,
+        condition: weatherData.current.condition.text
       });
 
-      // Processa i dati delle previsioni per i prossimi giorni
-      const processedForecastData = Array.from({ length: 7 }, (_, dayIndex) => {
-        const startIndex = dayIndex * 24 + 12; // Prendi i dati per mezzogiorno di ogni giorno
-        return {
-          date: new Date(Date.now() + dayIndex * 86400000).toISOString(),
-          temp_c: currentData.temperature[startIndex],
-          temp_min: Math.min(...currentData.temperature.slice(dayIndex * 24, (dayIndex + 1) * 24)),
-          temp_max: Math.max(...currentData.temperature.slice(dayIndex * 24, (dayIndex + 1) * 24)),
-          humidity: currentData.relativehumidity[startIndex],
-          precip_mm: currentData.precipitation[startIndex],
-          precip_chance: currentData.precipitation_probability[startIndex],
-          wind_kph: currentData.windspeed[startIndex] * 3.6,
-          wind_dir: currentData.winddirection[startIndex].toString(),
-          cloud_cover: currentData.clouds[startIndex],
-          condition: meteoblueData.metadata.name
-        };
+      // Fetch forecast data using WeatherAPI
+      const forecastUrl = `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${locationQuery}&days=5&aqi=no&alerts=no`;
+      const forecastResponse = await retryFetch(forecastUrl, {}, 3);
+      if (!forecastResponse.ok) {
+        throw new Error(`Errore API previsioni: ${forecastResponse.status} ${forecastResponse.statusText}`);
+      }
+      const forecastData = await forecastResponse.json();
+
+      // Process forecast data from WeatherAPI
+      const processedForecastData = [];
+      forecastData.forecast.forecastday.forEach((day: any) => {
+        day.hour.forEach((hour: any) => {
+          processedForecastData.push({
+            date: new Date(hour.time).toISOString(),
+            temp_c: hour.temp_c,
+            temp_min: hour.temp_c, // WeatherAPI non fornisce min/max orari
+            temp_max: hour.temp_c, // WeatherAPI non fornisce min/max orari
+            humidity: hour.humidity,
+            precip_mm: hour.precip_mm,
+            precip_chance: hour.chance_of_rain,
+            wind_kph: hour.wind_kph,
+            wind_dir: hour.wind_dir,
+            cloud_cover: hour.cloud,
+            condition: hour.condition.text
+          });
+        });
       });
       setForecast(processedForecastData);
 
-      // Processa i dati storici dalle ultime 24 ore
-      const historicalData = Array.from({ length: 24 }, (_, hourIndex) => {
-        const dataIndex = (currentIndex - hourIndex + 24) % 24;
-        return {
-          date: new Date(Date.now() - hourIndex * 3600000).toISOString(),
-          temp_c: currentData.temperature[dataIndex],
-          temp_min: currentData.temperature[dataIndex],
-          temp_max: currentData.temperature[dataIndex],
-          humidity: currentData.relativehumidity[dataIndex],
-          precip_mm: currentData.precipitation[dataIndex],
-          precip_chance: currentData.precipitation_probability[dataIndex],
-          wind_kph: currentData.windspeed[dataIndex] * 3.6,
-          wind_dir: currentData.winddirection[dataIndex].toString(),
-          cloud_cover: currentData.clouds[dataIndex],
-          condition: meteoblueData.metadata.name
-        };
+      // Fetch historical data using WeatherAPI
+      try {
+        const historicalUrl = `${BASE_URL}/history.json?key=${WEATHER_API_KEY}&q=${locationQuery}&dt=${format(subDays(new Date(), 7), 'yyyy-MM-dd')}&end_dt=${format(new Date(), 'yyyy-MM-dd')}`;  
+        const historicalResponse = await retryFetch(historicalUrl, {}, 3);
+        if (!historicalResponse.ok) {
+          console.warn(`Avviso: impossibile caricare i dati storici: ${historicalResponse.status} ${historicalResponse.statusText}`);
+          // Non interrompere il flusso principale se lo storico fallisce
+          setHistoricalData([]);
+        } else {
+          const historicalData = await historicalResponse.json();
+          
+          // Process historical data
+          const processedHistoricalData: WeatherData[] = [];
+          if (historicalData.forecast && historicalData.forecast.forecastday) {
+            historicalData.forecast.forecastday.forEach((day: any) => {
+              processedHistoricalData.push({
+                date: day.date,
+                temp_c: day.day.avgtemp_c,
+                temp_min: day.day.mintemp_c,
+                temp_max: day.day.maxtemp_c,
+                humidity: day.day.avghumidity,
+                precip_mm: day.day.totalprecip_mm,
+                precip_chance: day.day.daily_chance_of_rain || 0,
+                wind_kph: day.day.maxwind_kph,
+                wind_dir: 'N/A', // WeatherAPI non fornisce direzione del vento nei dati giornalieri
+                cloud_cover: 0, // WeatherAPI non fornisce copertura nuvolosa nei dati giornalieri
+                condition: day.day.condition.text
+              });
+            });
+          }
+          setHistoricalData(processedHistoricalData);
+        }
+      } catch (histErr) {
+        console.warn('Avviso: impossibile caricare i dati storici', histErr);
+        // Non interrompere il flusso principale se lo storico fallisce
+        setHistoricalData([]);
+      }
+
+      // Salva i dati in cache
+      saveToCache({
+        currentWeather: {
+          ...currentWeather,
+          date: new Date().toISOString(),
+          temp_c: weatherData.current.temp_c,
+          temp_min: weatherData.current.temp_c,
+          temp_max: weatherData.current.temp_c,
+          humidity: weatherData.current.humidity,
+          precip_mm: weatherData.current.precip_mm,
+          precip_chance: weatherData.current.chance_of_rain || 0,
+          wind_kph: weatherData.current.wind_kph,
+          wind_dir: weatherData.current.wind_dir,
+          cloud_cover: weatherData.current.cloud,
+          condition: weatherData.current.condition.text
+        },
+        forecast: processedForecastData,
+        historicalData: historicalData
       });
-      setHistoricalData(historicalData.reverse());
 
       setLoading(false);
     } catch (err) {
@@ -301,8 +506,16 @@ function Meteo() {
       if (err instanceof Error) {
         if (err.message.includes('API key')) {
           errorMessage = 'Chiave API non valida o scaduta. Verifica le impostazioni.';
-        } else if (err.message.includes('network') || err.message.includes('rete')) {
+        } else if (err.message.includes('401')) {
+          errorMessage = 'Errore di autenticazione 401 - Unauthorized. La chiave API WeatherAPI potrebbe non essere valida o essere scaduta.';
+          console.error('Errore di autenticazione WeatherAPI 401 - Unauthorized');
+          console.error('Verifica la chiave API nel file .env (VITE_WEATHERAPI_KEY)');
+        } else if (err.message.includes('network') || err.message.includes('rete') || err.message.includes('internet')) {
           errorMessage = 'Errore di connessione. Verifica la tua connessione internet.';
+        } else if (err.message.includes('Timeout')) {
+          errorMessage = 'Timeout della richiesta. Il server meteo potrebbe essere sovraccarico, riprova più tardi.';
+        } else if (err.message.includes('AbortError')) {
+          errorMessage = 'Richiesta interrotta. Verifica la tua connessione e riprova.';
         } else {
           errorMessage = err.message;
         }
@@ -311,32 +524,60 @@ function Meteo() {
       setError(errorMessage);
       setLoading(false);
       
-      // Dati di fallback per mantenere l'interfaccia funzionante
-      if (currentWeather) {
+      // Prova a recuperare i dati dalla cache come fallback
+      const cachedData = getFromCache();
+      if (cachedData) {
+        setCurrentWeather(cachedData.currentWeather);
+        setForecast(cachedData.forecast);
+        setHistoricalData(cachedData.historicalData);
+        setError('Visualizzazione dati in cache - ' + errorMessage);
+      } else {
+        // Reset dei dati se non c'è cache
+        setCurrentWeather(null);
         setForecast([]);
         setHistoricalData([]);
       }
     }
   };
 
-  const handleSearch = async () => {
+  const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleSearchInputChange = async (value: string) => {
+    setSearchQuery(value);
+    if (value.trim().length < 2) {
+      setLocationSuggestions([]);
+      return;
+    }
+
+    setIsSearching(true);
     try {
-      const response = await fetch(
-        `https://api.openweathermap.org/geo/1.0/direct?q=${searchQuery}&limit=5&appid=${import.meta.env.VITE_OPENWEATHERMAP_API_KEY}`
-      );
-      
-      if (!response.ok) throw new Error('Errore nella ricerca della località');
-      const locations = await response.json();
-      
-      if (locations.length > 0) {
-        const location = locations[0];
-        setSelectedLocation({
-          name: location.name,
-          region: location.region,
-          lat: location.lat,
-          lon: location.lon
-        });
-        fetchWeatherData(location.lat, location.lon);
+      const suggestions = await searchLocations(value);
+      setLocationSuggestions(suggestions || []);
+    } catch (err) {
+      console.error('Errore nella ricerca dei suggerimenti:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleLocationSelect = (location: Location) => {
+    setSelectedLocation(location);
+    setSearchQuery(location.name);
+    setLocationSuggestions([]);
+    fetchWeatherData(location.lat, location.lon);
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setError(null);
+    try {
+      const locations = await searchLocations(searchQuery);
+      if (locations && locations.length > 0) {
+        handleLocationSelect(locations[0]);
+      } else {
+        setError('Nessuna località trovata con questo nome');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Errore nella ricerca');
@@ -353,37 +594,61 @@ function Meteo() {
       return;
     }
     
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        await fetchLocationName(latitude, longitude);
-        fetchWeatherData(latitude, longitude);
-        setIsGpsLoading(false);
-      },
-      (err) => {
-        let errorMessage = 'Errore durante l\'acquisizione della posizione';
-        
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    const tryGetPosition = () => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            await fetchLocationName(latitude, longitude);
+            await fetchWeatherData(latitude, longitude);
+            setIsGpsLoading(false);
+          } catch (err) {
+            handleGpsError(new Error('Errore nel recupero dei dati meteo'));
+          }
+        },
+        (err) => {
+          if (retryCount < maxRetries) {
+            retryCount++;
+            setTimeout(tryGetPosition, 1000);
+            return;
+          }
+          handleGpsError(err);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    };
+    
+    const handleGpsError = (err: Error | GeolocationPositionError) => {
+      let errorMessage = 'Errore durante l\'acquisizione della posizione';
+      
+      if (err instanceof GeolocationPositionError) {
         switch (err.code) {
           case err.PERMISSION_DENIED:
-            errorMessage = 'Permesso di geolocalizzazione negato';
+            errorMessage = 'Permesso di geolocalizzazione negato. Prova a cercare manualmente una località.';
             break;
           case err.POSITION_UNAVAILABLE:
-            errorMessage = 'Informazioni sulla posizione non disponibili';
+            errorMessage = 'Informazioni sulla posizione non disponibili. Prova a cercare manualmente una località.';
             break;
           case err.TIMEOUT:
-            errorMessage = 'Tempo scaduto per la richiesta di posizione';
+            errorMessage = 'Tempo scaduto per la richiesta di posizione. Prova a cercare manualmente una località.';
             break;
         }
-        
-        setError(errorMessage);
-        setIsGpsLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+      } else {
+        errorMessage = err.message;
       }
-    );
+      
+      setError(errorMessage);
+      setIsGpsLoading(false);
+    };
+    
+    tryGetPosition();
   };
 
   useEffect(() => {
@@ -400,6 +665,9 @@ function Meteo() {
     fetchWeatherData();
     return () => unsubscribe();
   }, []);
+
+  // Definizione dello stato per le notifiche popup
+  const [showNotification, setShowNotification] = useState<'gps' | 'connection' | 'both' | null>(null);
 
   if (loading) {
     return (
@@ -418,17 +686,59 @@ function Meteo() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full pb-16">
+      {showNotification && (
+        <PopupNotification
+          type={showNotification}
+          onClose={() => setShowNotification(null)}
+        />
+      )}
+      {error && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 m-4">
+          <div className="flex items-center">
+            <div className="py-1">
+              <svg className="w-6 h-6 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-bold">Errore</p>
+              <p>{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex-1 p-4 space-y-6 overflow-y-auto">
         <div className="bg-white rounded-lg shadow-md p-4">
           <div className="flex flex-col gap-3">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cerca località..."
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
+                placeholder="Cerca località..."
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {locationSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+                  {locationSuggestions.map((location, index) => (
+                    <button
+                      key={`${location.name}-${index}`}
+                      onClick={() => handleLocationSelect(location)}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 focus:outline-none focus:bg-gray-100 flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-medium">{location.name}</div>
+                        {location.region && (
+                          <div className="text-sm text-gray-600">{location.region}</div>
+                        )}
+                      </div>
+                      <MapPin className="w-4 h-4 text-gray-500" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={handleSearch}
@@ -507,7 +817,7 @@ function Meteo() {
                     <h3 className="font-medium">Vento</h3>
                   </div>
                   <div className="text-3xl font-bold text-green-600 mb-2">
-                    {currentWeather.wind_kph} km/h
+                    {currentWeather.wind_kph.toFixed(1)} km/h
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Compass className="w-4 h-4" />
@@ -533,77 +843,11 @@ function Meteo() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 gap-6 mb-6">
           <WeatherForecast />
-          <MoonPhase />
         </div>
         
-        {/* NOAA Historical Data Section */}
-        <div className="mt-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-semibold mb-4">Dati Storici NOAA</h2>
-          
-          {nearestStations.length > 0 && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Seleziona Stazione Meteorologica
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-                value={selectedStation || ''}
-                onChange={(e) => setSelectedStation(e.target.value)}
-              >
-                {nearestStations.map((station) => (
-                  <option key={station.id} value={station.id}>
-                    {station.name} ({station.latitude.toFixed(2)}, {station.longitude.toFixed(2)})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          
-          {historicalData.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <th
-                          key={header.id}
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          {header.isPlaceholder ? null : (
-                            flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id}>
-                      {row.getVisibleCells().map((cell) => (
-                        <td
-                          key={cell.id}
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {/* Sezione rimossa: Dati Storici NOAA */}
 
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-4">
@@ -695,8 +939,7 @@ function Meteo() {
           </>
         )}
       </div>
-
-      {/* Fixed footer is now handled by the FixedFooter component */}
+      <FixedFooter />
     </div>
   );
 }
