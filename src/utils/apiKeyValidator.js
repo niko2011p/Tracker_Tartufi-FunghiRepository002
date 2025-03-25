@@ -1,7 +1,8 @@
 // Script per testare la validità della chiave API WeatherAPI
 
 const testApiKey = async () => {
-  const apiKey = '97959559d86f4d3a975175711252303';
+  // Utilizziamo la variabile d'ambiente invece di una chiave hardcoded
+  const apiKey = typeof import.meta !== 'undefined' ? import.meta.env.VITE_WEATHERAPI_KEY : process.env.VITE_WEATHERAPI_KEY || '';
   const testUrl = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=Rome`;
   
   try {

@@ -21,13 +21,33 @@ Se la chiave API non è più valida, segui questi passaggi per rinnovarla:
 3. Genera una nuova chiave API o rinnova quella esistente
 4. Copia la nuova chiave API
 
-### 3. Aggiorna il file .env
+### 3. Aggiorna la chiave API nell'ambiente appropriato
+
+#### Ambiente di sviluppo locale
 
 Sostituisci la vecchia chiave API con quella nuova nel file `.env` nella directory principale del progetto:
 
 ```
 VITE_WEATHERAPI_KEY=la_tua_nuova_chiave_api
 ```
+
+#### Deploy su GitHub Pages
+
+Se stai utilizzando GitHub Pages:
+
+1. Vai alle impostazioni del repository su GitHub
+2. Seleziona "Secrets and variables" > "Actions"
+3. Modifica il segreto `VITE_WEATHERAPI_KEY` con la nuova chiave API
+4. Avvia un nuovo deploy
+
+#### Deploy su Netlify
+
+Se stai utilizzando Netlify:
+
+1. Accedi al pannello di controllo di Netlify
+2. Vai su "Site settings" > "Environment variables"
+3. Modifica la variabile d'ambiente `VITE_WEATHERAPI_KEY` con la nuova chiave API
+4. Avvia un nuovo deploy
 
 ### 4. Riavvia l'applicazione
 
