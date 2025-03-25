@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { searchLocations } from '../services/locationSearchService';
 import { 
   Cloud, 
   Droplets, 
   Wind, 
   Thermometer, 
   MapPin, 
-  Search, 
   ArrowUpDown,
   Sun,
   CloudRain,
@@ -14,8 +14,7 @@ import {
   Compass,
   Map,
   History,
-  ChevronRight,
-  Navigation
+  ChevronRight
 } from 'lucide-react';
 
 // Costanti per WeatherAPI
@@ -23,6 +22,7 @@ const WEATHER_API_KEY = import.meta.env.VITE_WEATHERAPI_KEY;
 const BASE_URL = 'https://api.weatherapi.com/v1';
 import MeteoLogo from './MeteoLogo';
 import { useTrackStore } from '../store/trackStore';
+import { useWeatherStore } from '../store/weatherStore';
 import WeatherForecast from './WeatherForecast';
 import MoonPhase from './MoonPhase';
 import { 
@@ -148,11 +148,12 @@ function Meteo() {
   const [historicalData, setHistoricalData] = useState<WeatherData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [isGpsLoading, setIsGpsLoading] = useState(false);
   const location = useLocation();
+  
+  // Utilizzo lo store condiviso per la località
+  const selectedLocation = useWeatherStore(state => state.selectedLocation);
+  const setSelectedLocation = useWeatherStore(state => state.setSelectedLocation);
 
   const table = useReactTable({
     data: historicalData,
@@ -165,29 +166,6 @@ function Meteo() {
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
-
-  const searchLocations = async (query: string) => {
-    if (!query.trim()) return;
-    
-    try {
-      const response = await fetch(
-        `https://api.weatherapi.com/v1/search.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${encodeURIComponent(query)}`
-      );
-      
-      if (!response.ok) throw new Error('Errore nella ricerca delle località');
-      const locations = await response.json();
-      
-      return locations.map((loc: any) => ({
-        name: loc.name,
-        region: loc.region || '',
-        lat: loc.lat,
-        lon: loc.lon
-      }));
-    } catch (err) {
-      console.error('Errore nella ricerca delle località:', err);
-      return [];
-    }
-  };
 
   const fetchLocationName = async (lat: number, lon: number) => {
     try {
@@ -307,19 +285,6 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     let lon = longitude;
     
     // Verifica connessione internet e cache prima di tutto
-    if (!navigator.onLine) {
-      const cachedData = getFromCache();
-      if (cachedData) {
-        setCurrentWeather(cachedData.currentWeather);
-        setForecast(cachedData.forecast);
-        setHistoricalData(cachedData.historicalData);
-        setError('Modalità offline: visualizzazione dati in cache');
-        setLoading(false);
-        return;
-      }
-      throw new Error('Nessuna connessione internet disponibile');
-    }
-    
     if (!navigator.onLine) {
       const cachedData = getFromCache();
       if (cachedData) {
@@ -662,8 +627,21 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
       }
     );
 
+    // Osserva i cambiamenti della località selezionata nello store
+    const unsubscribeLocation = useWeatherStore.subscribe(
+      (state) => state.selectedLocation,
+      (location) => {
+        if (location) {
+          fetchWeatherData(location.lat, location.lon);
+        }
+      }
+    );
+
     fetchWeatherData();
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeLocation();
+    };
   }, []);
 
   // Definizione dello stato per le notifiche popup
@@ -709,133 +687,83 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         </div>
       )}
       <div className="flex-1 p-4 space-y-6 overflow-y-auto">
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <div className="flex flex-col gap-3">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearchInputChange(e.target.value)}
-                placeholder="Cerca località..."
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              {locationSuggestions.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
-                  {locationSuggestions.map((location, index) => (
-                    <button
-                      key={`${location.name}-${index}`}
-                      onClick={() => handleLocationSelect(location)}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-100 focus:outline-none focus:bg-gray-100 flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="font-medium">{location.name}</div>
-                        {location.region && (
-                          <div className="text-sm text-gray-600">{location.region}</div>
-                        )}
-                      </div>
-                      <MapPin className="w-4 h-4 text-gray-500" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleSearch}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2"
-              >
-                <Search className="w-5 h-5" />
-                <span>Cerca</span>
-              </button>
-              <button
-                onClick={handleGpsActivation}
-                disabled={isGpsLoading}
-                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isGpsLoading ? (
-                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                ) : (
-                  <Navigation className="w-5 h-5" />
-                )}
-                <span>Posizione corrente</span>
-              </button>
-            </div>
-          </div>
-        </div>
 
         {currentWeather && (
           <>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-6 h-6 text-blue-500" />
-                  <h2 className="text-2xl font-semibold">
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-500" />
+                  <h2 className="text-xl font-semibold">
                     {selectedLocation?.name || 'Posizione attuale'}
                     {selectedLocation && (
-                      <span className="block text-sm text-gray-500">
-                        {selectedLocation.lat.toFixed(6)}°, {selectedLocation.lon.toFixed(6)}°
+                      <span className="block text-xs text-gray-500">
+                        {selectedLocation.lat.toFixed(4)}°, {selectedLocation.lon.toFixed(4)}°
                       </span>
                     )}
                   </h2>
                 </div>
-                <span className="text-gray-500">
-                  {format(new Date(), "d MMMM yyyy HH:mm", { locale: it })}
-                </span>
+                <div className="text-right">
+                  <h3 className="text-sm font-medium text-blue-600 mb-1">Condizioni in tempo reale</h3>
+                  <span className="text-base font-bold text-gray-700">
+                    {format(new Date(), "d MMMM yyyy HH:mm", { locale: it })}
+                  </span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Thermometer className="w-6 h-6 text-orange-500" />
-                    <h3 className="font-medium">Temperatura</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Thermometer className="w-5 h-5 text-orange-500" />
+                    <h3 className="text-sm font-medium">Temperatura</h3>
                   </div>
-                  <div className="text-3xl font-bold text-orange-600 mb-2">
+                  <div className="text-2xl font-bold text-orange-600 mb-1">
                     {currentWeather.temp_c}°C
                   </div>
-                  <div className="flex justify-between text-sm text-gray-600">
+                  <div className="flex justify-between text-xs text-gray-600">
                     <span>Min: {currentWeather.temp_min}°C</span>
                     <span>Max: {currentWeather.temp_max}°C</span>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <CloudRain className="w-6 h-6 text-blue-500" />
-                    <h3 className="font-medium">Precipitazioni</h3>
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CloudRain className="w-5 h-5 text-blue-500" />
+                    <h3 className="text-sm font-medium">Precipitazioni</h3>
                   </div>
-                  <div className="text-3xl font-bold text-blue-600 mb-2">
+                  <div className="text-2xl font-bold text-blue-600 mb-1">
                     {currentWeather.precip_mm} mm
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-xs text-gray-600">
                     Probabilità: {currentWeather.precip_chance}%
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Wind className="w-6 h-6 text-green-500" />
-                    <h3 className="font-medium">Vento</h3>
+                <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Wind className="w-5 h-5 text-green-500" />
+                    <h3 className="text-sm font-medium">Vento</h3>
                   </div>
-                  <div className="text-3xl font-bold text-green-600 mb-2">
+                  <div className="text-2xl font-bold text-green-600 mb-1">
                     {currentWeather.wind_kph.toFixed(1)} km/h
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Compass className="w-4 h-4" />
+                  <div className="flex items-center gap-1 text-xs text-gray-600">
+                    <Compass className="w-3 h-3" />
                     <span>{currentWeather.wind_dir}</span>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Droplets className="w-6 h-6 text-purple-500" />
-                    <h3 className="font-medium">Umidità</h3>
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Droplets className="w-5 h-5 text-purple-500" />
+                    <h3 className="text-sm font-medium">Umidità</h3>
                   </div>
-                  <div className="text-3xl font-bold text-purple-600 mb-2">
+                  <div className="text-2xl font-bold text-purple-600 mb-1">
                     {currentWeather.humidity}%
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
                     <div
-                      className="bg-purple-500 rounded-full h-2"
+                      className="bg-purple-500 rounded-full h-1.5"
                       style={{ width: `${currentWeather.humidity}%` }}
                     ></div>
                   </div>
@@ -843,99 +771,13 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 mb-6">
+            <div className="grid grid-cols-1 gap-4 mt-3">
           <WeatherForecast />
         </div>
         
         {/* Sezione rimossa: Dati Storici NOAA */}
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-semibold">Dati Storici</h3>
-                  <span className="text-gray-500">
-                    (ultimi 14 giorni {selectedLocation?.name ? `- ${selectedLocation.name}` : ''})
-                  </span>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="overflow-x-auto table-container">
-                  <table className="w-full min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      {table.getHeaderGroups().map(headerGroup => (
-                        <tr key={headerGroup.id}>
-                          {headerGroup.headers.map(header => (
-                            <th
-                              key={header.id}
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={header.column.getToggleSortingHandler()}
-                            >
-                              <div className="flex items-center gap-2">
-                                {flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext()
-                                )}
-                                <ArrowUpDown className="w-4 h-4" />
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      ))}
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {table.getRowModel().rows.map(row => {
-                        const precipValue = row.original.precip_mm;
-                        return (
-                          <tr 
-                            key={row.id} 
-                            className={`hover:bg-gray-50 transition-colors ${
-                              precipValue > 0 ? 'bg-blue-50' : ''
-                            }`}
-                          >
-                            {row.getVisibleCells().map(cell => (
-                              <td
-                                key={cell.id}
-                                className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500`}
-                              >
-                                {flexRender(
-                                  cell.column.columnDef.cell,
-                                  cell.getContext()
-                                )}
-                              </td>
-                            ))}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="scroll-indicator">
-                  <ChevronRight className="scroll-arrow" />
-                </div>
-              </div>
-              <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                    className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    Precedente
-                  </button>
-                  <button
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                    className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    Successivo
-                  </button>
-                </div>
-                <span className="text-sm text-gray-500">
-                  Pagina {table.getState().pagination.pageIndex + 1} di{' '}
-                  {table.getPageCount()}
-                </span>
-              </div>
-            </div>
+            {/* Tabella Dati Storici rimossa come richiesto */}
           </>
         )}
       </div>

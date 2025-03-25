@@ -32,6 +32,8 @@ export interface WeatherData {
   windDirection: string;
   cloudCover: number;
   condition: string;
+  conditionIcon?: string;
+  conditionCode?: number;
   timestamp: Date;
 }
 
@@ -43,4 +45,6 @@ export interface HourlyWeather {
   wind_kph: number;
   wind_dir: string;
   condition: string;
+  conditionIcon?: string;
+  conditionCode?: number;
 }

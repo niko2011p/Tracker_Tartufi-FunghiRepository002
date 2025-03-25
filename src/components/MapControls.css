@@ -13,12 +13,19 @@
 }
 
 .leaflet-container {
-  height: calc(100vh - 80px);
+  height: calc(100vh - 80px); /* Altezza standard */
   width: 100%;
-  transition: height 0.3s ease;
+  transition: height 0.3s ease, transform 0.3s ease;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 80px; /* Altezza del footer */
+  z-index: 1;
 }
 
-.leaflet-container.map-paused {
+.leaflet-container.map-paused,
+.leaflet-container.map-fullscreen {
   height: 100vh !important;
   position: fixed;
   top: 0;
@@ -27,6 +34,10 @@
   bottom: 0;
   z-index: 9999;
   background-color: white;
+  width: 100vw !important;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .zoom-button {

@@ -351,7 +351,7 @@ function MapView() {
     return loadedFindings?.some(f => f.id === finding.id) ?? false;
   };
   
-  // Apply full screen style when tracking is active
+  // Applica stile a schermo intero quando il tracciamento è attivo o in pausa
   const mapContainerStyle = {
     height: '100%',
     width: '100%',
@@ -362,6 +362,23 @@ function MapView() {
     bottom: 0,
     zIndex: 1
   };
+  
+  // Applica la classe fullscreen quando il tracciamento è attivo o in pausa
+  useEffect(() => {
+    const mapContainer = document.querySelector('.leaflet-container');
+    if (mapContainer) {
+      if (isRecording || currentTrack?.isPaused) {
+        mapContainer.classList.add('map-fullscreen');
+        // Forza il ridisegno del container
+        mapContainer.style.display = 'none';
+        setTimeout(() => {
+          if (mapContainer) mapContainer.style.display = 'block';
+        }, 10);
+      } else {
+        mapContainer.classList.remove('map-fullscreen');
+      }
+    }
+  }, [isRecording, currentTrack?.isPaused]);
 
   return (
     <div style={mapContainerStyle}>
@@ -458,6 +475,23 @@ export default function Map() {
   const isLoadedFinding = (finding: Finding) => {
     return loadedFindings?.some(f => f.id === finding.id) ?? false;
   };
+
+  // Applica la classe fullscreen quando il tracciamento è attivo o in pausa
+  useEffect(() => {
+    const mapContainer = document.querySelector('.leaflet-container');
+    if (mapContainer) {
+      if (isRecording || currentTrack?.isPaused) {
+        mapContainer.classList.add('map-fullscreen');
+        // Forza il ridisegno del container
+        mapContainer.style.display = 'none';
+        setTimeout(() => {
+          if (mapContainer) mapContainer.style.display = 'block';
+        }, 10);
+      } else {
+        mapContainer.classList.remove('map-fullscreen');
+      }
+    }
+  }, [isRecording, currentTrack?.isPaused]);
 
   return (
     <div className="fixed top-0 left-0 right-0 bottom-0 z-10">

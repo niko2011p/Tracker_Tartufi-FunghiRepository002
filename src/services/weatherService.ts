@@ -26,6 +26,8 @@ interface WeatherAPIResponse {
     cloud: number;
     condition: {
       text: string;
+      icon: string;
+      code: number;
     };
   };
 }
@@ -43,6 +45,8 @@ interface ForecastResponse extends WeatherAPIResponse {
         maxwind_kph: number;
         condition: {
           text: string;
+          icon: string;
+          code: number;
         };
       };
       hour: Array<{
@@ -54,6 +58,8 @@ interface ForecastResponse extends WeatherAPIResponse {
         wind_dir: string;
         condition: {
           text: string;
+          icon: string;
+          code: number;
         };
       }>;
     }>;
@@ -100,6 +106,8 @@ const formatWeatherData = (data: WeatherAPIResponse): WeatherData => ({
   windDirection: data.current.wind_dir,
   cloudCover: data.current.cloud,
   condition: data.current.condition.text,
+  conditionIcon: data.current.condition.icon,
+  conditionCode: data.current.condition.code,
   timestamp: new Date(data.location.localtime)
 });
 
@@ -110,7 +118,9 @@ const formatHourlyWeather = (hour: ForecastResponse['forecast']['forecastday'][0
   humidity: hour.humidity,
   wind_kph: hour.wind_kph,
   wind_dir: hour.wind_dir,
-  condition: hour.condition.text
+  condition: hour.condition.text,
+  conditionIcon: hour.condition.icon,
+  conditionCode: hour.condition.code
 });
 
 export const getCurrentWeather = async (location: string): Promise<WeatherData> => {
@@ -120,7 +130,7 @@ export const getCurrentWeather = async (location: string): Promise<WeatherData> 
     }
 
     const response = await fetch(
-      `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&aqi=no`
+      `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&aqi=no&lang=it`
     );
     
     if (!response.ok) {
@@ -148,7 +158,7 @@ export const getForecast = async (location: string): Promise<WeatherData[]> => {
     }
 
     const response = await fetch(
-      `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=3&aqi=no&alerts=no`
+      `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=3&aqi=no&alerts=no&lang=it`
     );
     
     if (!response.ok) {
@@ -170,6 +180,8 @@ export const getForecast = async (location: string): Promise<WeatherData[]> => {
       windDirection: 'N/A', // Daily forecast doesn't include wind direction
       cloudCover: 0, // Daily forecast doesn't include cloud cover
       condition: day.day.condition.text,
+      conditionIcon: day.day.condition.icon,
+      conditionCode: day.day.condition.code,
       timestamp: new Date(day.date)
     }));
   } catch (error) {
@@ -193,7 +205,7 @@ export const getHistoricalWeather = async (location: string): Promise<WeatherDat
     const historicalData = await Promise.all(
       dates.map(async (date) => {
         const response = await fetch(
-          `${BASE_URL}/history.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&dt=${date}&aqi=no&alerts=no`
+          `${BASE_URL}/history.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&dt=${date}&aqi=no&alerts=no&lang=it`
         );
         
         if (!response.ok) {
@@ -211,12 +223,16 @@ export const getHistoricalWeather = async (location: string): Promise<WeatherDat
         
         return {
           temperature: dayData.avgtemp_c,
+          maxTemp: dayData.maxtemp_c,
+          minTemp: dayData.mintemp_c,
           humidity: dayData.avghumidity,
           precipitation: dayData.totalprecip_mm,
           windSpeed: dayData.maxwind_kph,
           windDirection: 'N/A', // WeatherAPI non fornisce maxwind_dir nei dati storici
           cloudCover: 0, // WeatherAPI non fornisce avgvis_km nei dati storici
           condition: dayData.condition.text,
+          conditionIcon: dayData.condition.icon,
+          conditionCode: dayData.condition.code,
           timestamp: new Date(data.forecast.forecastday[0].date)
         };
       })
@@ -236,7 +252,7 @@ export const getHourlyForecast = async (location: string): Promise<HourlyWeather
     }
 
     const response = await fetch(
-      `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=3&aqi=no&alerts=yes`
+      `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=3&aqi=no&alerts=yes&lang=it`
     );
     
     if (!response.ok) {
@@ -272,7 +288,7 @@ export const getAstroData = async (location: string, date: string): Promise<any>
     }
 
     const response = await fetch(
-      `${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&dt=${date}`
+      `${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&dt=${date}&lang=it`
     );
     
     if (!response.ok) {

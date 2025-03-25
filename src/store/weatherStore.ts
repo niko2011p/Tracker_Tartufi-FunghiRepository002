@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { WeatherData, HourlyWeather } from '../types';
 import { getCurrentWeather, getForecast, getHistoricalWeather, getHourlyForecast } from '../services/weatherService';
 
+interface Location {
+  name: string;
+  region: string;
+  country: string;
+  lat: number;
+  lon: number;
+}
+
 interface WeatherState {
   currentWeather: WeatherData | null;
   forecast: WeatherData[];
@@ -9,6 +17,8 @@ interface WeatherState {
   hourlyForecast: HourlyWeather[];
   isLoading: boolean;
   error: string | null;
+  selectedLocation: Location | null;
+  setSelectedLocation: (location: Location) => void;
   fetchCurrentWeather: (location: string) => Promise<void>;
   fetchForecast: (location: string) => Promise<void>;
   fetchHistoricalData: (location: string) => Promise<void>;
@@ -23,6 +33,9 @@ export const useWeatherStore = create<WeatherState>()((set) => ({
   hourlyForecast: [],
   isLoading: false,
   error: null,
+  selectedLocation: null,
+  
+  setSelectedLocation: (location: Location) => set({ selectedLocation: location }),
 
   fetchCurrentWeather: async (location: string) => {
     set({ isLoading: true, error: null });

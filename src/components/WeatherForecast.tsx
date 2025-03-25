@@ -3,7 +3,9 @@ import { ChevronLeft, ChevronRight, Sun, Cloud, CloudRain, CloudSnow, CloudLight
 import { format, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useTrackStore } from '../store/trackStore';
+import { useWeatherStore } from '../store/weatherStore';
 import { getForecast, getHistoricalWeather, getHourlyForecast } from '../services/weatherService';
+import { searchLocations } from '../services/locationSearchService';
 import { WeatherData as WeatherDataType, HourlyWeather as HourlyWeatherType } from '../types';
 
 interface WeatherData {
@@ -38,6 +40,8 @@ interface WeatherData {
 
 interface HistoricalWeatherData {
   temperature: number;
+  maxTemp: number;
+  minTemp: number;
   humidity: number;
   precipitation: number;
   windSpeed: number;
@@ -102,9 +106,12 @@ const WeatherForecast: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const currentTrack = useTrackStore(state => state.currentTrack);
+  
+  // Utilizzo lo store condiviso per la località
+  const selectedLocation = useWeatherStore(state => state.selectedLocation);
+  const setSelectedLocation = useWeatherStore(state => state.setSelectedLocation);
 
   useEffect(() => {
     const loadWeatherData = async () => {
@@ -175,10 +182,22 @@ const WeatherForecast: React.FC = () => {
     loadWeatherData();
   }, [selectedLocation]);
 
-  const renderWeatherIcon = (condition: string) => {
-    if (!condition) return <Cloud className="w-8 h-8 text-gray-500" />;
+  const renderWeatherIcon = (weather: WeatherData | HourlyWeatherType) => {
+    // Se abbiamo l'icona dalla API, usiamo quella
+    if (weather.conditionIcon) {
+      // Le icone dell'API WeatherAPI sono URL come //cdn.weatherapi.com/weather/64x64/day/116.png
+      // Dobbiamo assicurarci che l'URL sia completo con https:
+      const iconUrl = weather.conditionIcon.startsWith('//') 
+        ? `https:${weather.conditionIcon}` 
+        : weather.conditionIcon;
+      
+      return <img src={iconUrl} alt={weather.condition} className="w-8 h-8" />;
+    }
     
-    switch (condition.toLowerCase()) {
+    // Fallback alle icone locali se non abbiamo l'icona dall'API
+    if (!weather.condition) return <Cloud className="w-8 h-8 text-gray-500" />;
+    
+    switch (weather.condition.toLowerCase()) {
       case 'sunny':
       case 'clear':
         return <Sun className="w-8 h-8 text-yellow-500" />;
@@ -216,14 +235,17 @@ const WeatherForecast: React.FC = () => {
     if (!weather) return null;
 
     try {
+      // Estrai la data dalla timestamp
+      const date = weather.timestamp.toISOString().split('T')[0];
+      
       return (
         <div className="p-4 bg-white rounded-lg shadow-md">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-xl font-semibold">{weather.location?.name || 'Posizione attuale'}</h2>
-              <p className="text-gray-600">{format(new Date(weather.date), 'EEEE d MMMM yyyy', { locale: it })}</p>
+              <h2 className="text-xl font-semibold">{selectedLocation?.name || 'Posizione attuale'}</h2>
+              <p className="text-gray-600">{format(weather.timestamp, 'EEEE d MMMM yyyy', { locale: it })}</p>
             </div>
-            {renderWeatherIcon(weather.condition)}
+            {renderWeatherIcon(weather)}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -231,9 +253,9 @@ const WeatherForecast: React.FC = () => {
               <Thermometer className="w-5 h-5 mr-2 text-red-500" />
               <div>
                 <p className="text-sm text-gray-600">Temperatura</p>
-                <p className="font-semibold">{weather.temp_c}°C</p>
+                <p className="font-semibold">{weather.temperature}°C</p>
                 <p className="text-xs text-gray-500">
-                  Min: {weather.temp_min}°C / Max: {weather.temp_max}°C
+                  Temperatura media giornaliera
                 </p>
               </div>
             </div>
@@ -243,7 +265,7 @@ const WeatherForecast: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-600">Umidità</p>
                 <p className="font-semibold">{weather.humidity}%</p>
-                <p className="text-xs text-gray-500">Precipitazioni: {weather.precip_mm || 0}mm</p>
+                <p className="text-xs text-gray-500">Precipitazioni: {weather.precipitation || 0}mm</p>
               </div>
             </div>
 
@@ -251,17 +273,17 @@ const WeatherForecast: React.FC = () => {
               <Wind className="w-5 h-5 mr-2 text-teal-500" />
               <div>
                 <p className="text-sm text-gray-600">Vento</p>
-                <p className="font-semibold">{weather.wind_kph} km/h</p>
-                <p className="text-xs text-gray-500">Direzione: {weather.wind_dir}</p>
+                <p className="font-semibold">{weather.windSpeed} km/h</p>
+                <p className="text-xs text-gray-500">Direzione: {weather.windDirection}</p>
               </div>
             </div>
 
             <div className="flex items-center">
               <ArrowUpDown className="w-5 h-5 mr-2 text-purple-500" />
               <div>
-                <p className="text-sm text-gray-600">Pressione</p>
-                <p className="font-semibold">{weather.pressure_mb !== undefined ? `${weather.pressure_mb} mb` : 'N/A'}</p>
-                <p className="text-xs text-gray-500">UV: {weather.uv !== undefined ? weather.uv : 'N/A'}</p>
+                <p className="text-sm text-gray-600">Nuvolosità</p>
+                <p className="font-semibold">{weather.cloudCover}%</p>
+                <p className="text-xs text-gray-500">Condizioni: {weather.condition}</p>
               </div>
             </div>
           </div>
@@ -273,7 +295,7 @@ const WeatherForecast: React.FC = () => {
                 {hourlyForecast.map((hour: any, index: number) => (
                   <div key={index} className="flex-shrink-0 text-center p-2 bg-gray-50 rounded">
                     <p className="text-sm">{format(new Date(hour.time), 'HH:mm')}</p>
-                    {renderWeatherIcon(hour.condition?.text || 'cloudy')}
+                    {renderWeatherIcon(hour)}
                     <p className="font-semibold">{hour.temp_c}°C</p>
                     <p className="text-xs text-gray-500">{hour.chance_of_rain || 0}% pioggia</p>
                   </div>
@@ -317,13 +339,14 @@ const WeatherForecast: React.FC = () => {
       if (historicalData && historicalData.length > 0) {
         return (
           <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-4">Storico ultimi 7 giorni</h3>
+            <h3 className="text-lg font-semibold mb-4">Storico ultimi 7 giorni - {selectedLocation?.name || 'Posizione attuale'}</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white rounded-lg overflow-hidden">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Data</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Temperatura</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Temperatura massima</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Temperatura minima</th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Umidità</th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Precipitazioni</th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Vento</th>
@@ -332,11 +355,15 @@ const WeatherForecast: React.FC = () => {
                 </thead>
                 <tbody>
                   {historicalData.slice(0, 7).map((day, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                    <tr 
+                      key={index} 
+                      className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} ${day.precipitation > 20 ? 'bg-blue-700 text-white' : day.precipitation > 0 ? 'bg-blue-200' : ''}`}
+                    >
                       <td className="px-4 py-2 text-sm text-gray-900">
                         {format(day.timestamp, 'EEEE d MMMM yyyy', { locale: it })}
                       </td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{day.temperature}°C</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{day.maxTemp}°C</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{day.minTemp}°C</td>
                       <td className="px-4 py-2 text-sm text-gray-900">{day.humidity}%</td>
                       <td className="px-4 py-2 text-sm text-gray-900">{day.precipitation} mm</td>
                       <td className="px-4 py-2 text-sm text-gray-900">{day.windSpeed} km/h ({day.windDirection || 'N/A'})</td>
@@ -374,8 +401,177 @@ const WeatherForecast: React.FC = () => {
     }
   };
 
+  const searchLocations = async (query: string) => {
+    if (!query.trim()) return [];
+    
+    try {
+      const response = await fetch(
+        `https://api.weatherapi.com/v1/search.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${encodeURIComponent(query)}`
+      );
+      
+      if (!response.ok) throw new Error('Errore nella ricerca delle località');
+      const locations = await response.json();
+      
+      return locations.map((loc: any) => ({
+        name: loc.name,
+        region: loc.region || '',
+        country: loc.country || '',
+        lat: loc.lat,
+        lon: loc.lon
+      }));
+    } catch (err) {
+      console.error('Errore nella ricerca delle località:', err);
+      return [];
+    }
+  };
+
+  const handleSearchInputChange = async (value: string) => {
+    setSearchQuery(value);
+    if (!value.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    setIsLoadingLocation(true);
+    try {
+      const suggestions = await searchLocations(value);
+      setSuggestions(suggestions || []);
+    } catch (err) {
+      console.error('Errore nella ricerca dei suggerimenti:', err);
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
+  const handleLocationSelect = (location: Location) => {
+    setSelectedLocation(location);
+    setSearchQuery(location.name);
+    setSuggestions([]);
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setError(null);
+    try {
+      const locations = await searchLocations(searchQuery);
+      if (locations && locations.length > 0) {
+        handleLocationSelect(locations[0]);
+      } else {
+        setError('Nessuna località trovata con questo nome');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Errore nella ricerca');
+    }
+  };
+
+  const handleGpsLocation = () => {
+    setIsLoadingLocation(true);
+    setError(null);
+    
+    if (!navigator.geolocation) {
+      setError('Il tuo browser non supporta la geolocalizzazione');
+      setIsLoadingLocation(false);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const locations = await searchLocations(`${latitude},${longitude}`);
+          if (locations && locations.length > 0) {
+            handleLocationSelect(locations[0]);
+          } else {
+            // Se non trova una località specifica, usa le coordinate
+            setSelectedLocation({
+              name: 'Posizione attuale',
+              lat: latitude,
+              lon: longitude,
+              country: ''
+            });
+          }
+          setIsLoadingLocation(false);
+        } catch (err) {
+          setError('Errore nel recupero della località');
+          setIsLoadingLocation(false);
+        }
+      },
+      (err) => {
+        let errorMessage = 'Errore durante l\'acquisizione della posizione';
+        if (err instanceof GeolocationPositionError) {
+          switch (err.code) {
+            case err.PERMISSION_DENIED:
+              errorMessage = 'Permesso di geolocalizzazione negato';
+              break;
+            case err.POSITION_UNAVAILABLE:
+              errorMessage = 'Informazioni sulla posizione non disponibili';
+              break;
+            case err.TIMEOUT:
+              errorMessage = 'Tempo scaduto per la richiesta di posizione';
+              break;
+          }
+        }
+        setError(errorMessage);
+        setIsLoadingLocation(false);
+      }
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row gap-2 mb-4">
+          <div className="relative flex-grow">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchInputChange(e.target.value)}
+              placeholder="Cerca località..."
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            {suggestions.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+                {suggestions.map((location, index) => (
+                  <button
+                    key={`${location.name}-${index}`}
+                    onClick={() => handleLocationSelect(location)}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 focus:outline-none focus:bg-gray-100 flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-medium">{location.name}</div>
+                      {location.region && (
+                        <div className="text-sm text-gray-600">{location.region}, {location.country}</div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleSearch}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2"
+          >
+            <span>Cerca</span>
+          </button>
+          <button
+            onClick={handleGpsLocation}
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2"
+            disabled={isLoadingLocation}
+          >
+            {isLoadingLocation ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <Compass className="w-5 h-5" />
+                <span>Usa GPS</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+      
       {forecast.length > 0 && (
         <div className="mb-4 flex justify-between items-center">
           <button 
@@ -387,7 +583,7 @@ const WeatherForecast: React.FC = () => {
           </button>
           
           <div className="text-center">
-            <h2 className="text-lg font-semibold">Previsioni a 3 giorni</h2>
+            <h2 className="text-lg font-semibold">Previsioni a 3 giorni - {selectedLocation?.name || 'Posizione attuale'}</h2>
             <p className="text-sm text-gray-600">
               Giorno {currentIndex + 1} di {forecast.length}
             </p>
