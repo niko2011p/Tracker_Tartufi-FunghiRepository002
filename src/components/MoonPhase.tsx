@@ -3,6 +3,7 @@ import { Moon, ChevronLeft, ChevronRight, Sunrise, Sunset } from 'lucide-react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { getAstroData } from '../services/weatherService';
+import { useWeatherStore } from '../store/weatherStore';
 
 interface MoonData {
   phase: string;
@@ -19,22 +20,94 @@ const MoonPhase: React.FC = () => {
   const [moonData, setMoonData] = useState<MoonData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Utilizzo lo store condiviso per la località
+  const selectedLocation = useWeatherStore(state => state.selectedLocation);
 
   const fetchMoonData = async (date: Date) => {
     try {
       setLoading(true);
       setError(null); // Reset any previous errors
       
-      const formattedDate = format(date, 'yyyy-MM-dd');
+      // Dati predefiniti da utilizzare in caso di errore
+      const defaultMoonData = {
+        phase: 'New Moon',
+        illumination: 0,
+        moonrise: 'Non disponibile',
+        moonset: 'Non disponibile',
+        sunrise: 'Non disponibile',
+        sunset: 'Non disponibile',
+        age: 0
+      };
       
-      // Usa la funzione getAstroData dal servizio weatherService
-      const astroData = await getAstroData('Roma', formattedDate);
+      // Imposta subito i dati predefiniti per evitare rendering con dati null
+      setMoonData({...defaultMoonData});
       
-      if (!astroData) {
-        throw new Error('Dati astronomici non disponibili');
+      // Verifica connessione internet prima di fare la richiesta
+      if (!navigator.onLine) {
+        console.warn('Nessuna connessione internet disponibile per i dati lunari');
+        // Imposta dati predefiniti invece di lanciare un'eccezione
+        const offlineData = {...defaultMoonData, 
+          moonrise: 'Non disponibile (offline)',
+          moonset: 'Non disponibile (offline)',
+          sunrise: 'Non disponibile (offline)',
+          sunset: 'Non disponibile (offline)'
+        };
+        setMoonData(offlineData);
+        setLoading(false);
+        return;
       }
       
-      // Estrai i dati lunari dalla risposta
+      const formattedDate = format(date, 'yyyy-MM-dd');
+      
+      // Usa la località selezionata dall'utente se disponibile, altrimenti usa Roma come default
+      let locationQuery = 'Roma';
+      if (selectedLocation && selectedLocation.lat && selectedLocation.lon) {
+        locationQuery = `${selectedLocation.lat},${selectedLocation.lon}`;
+      }
+      
+      // Aggiungi un timeout per evitare blocchi indefiniti
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout nel recupero dei dati lunari')), 10000);
+      });
+      
+      // Usa Promise.race per implementare il timeout
+      let astroData;
+      try {
+        astroData = await Promise.race([
+          getAstroData(locationQuery, formattedDate),
+          timeoutPromise
+        ]) as any;
+      } catch (timeoutErr) {
+        console.warn('Timeout durante il recupero dei dati lunari:', timeoutErr);
+        // Imposta dati predefiniti invece di lanciare un'eccezione
+        const timeoutData = {...defaultMoonData, 
+          moonrise: 'Non disponibile (timeout)',
+          moonset: 'Non disponibile (timeout)',
+          sunrise: 'Non disponibile (timeout)',
+          sunset: 'Non disponibile (timeout)'
+        };
+        setMoonData(timeoutData);
+        setLoading(false);
+        return;
+      }
+      
+      // Verifica che i dati ricevuti siano validi
+      if (!astroData || typeof astroData !== 'object') {
+        console.warn('Dati astronomici non validi o incompleti');
+        // Imposta dati predefiniti invece di lanciare un'eccezione
+        const invalidData = {...defaultMoonData, 
+          moonrise: 'Non disponibile (dati non validi)',
+          moonset: 'Non disponibile (dati non validi)',
+          sunrise: 'Non disponibile (dati non validi)',
+          sunset: 'Non disponibile (dati non validi)'
+        };
+        setMoonData(invalidData);
+        setLoading(false);
+        return;
+      }
+      
+      // Estrai i dati lunari dalla risposta con controlli di sicurezza
       const moonPhaseText = astroData.moon_phase || 'Unknown';
       const moonIllumination = parseInt(astroData.moon_illumination || '0', 10);
       
@@ -54,13 +127,31 @@ const MoonPhase: React.FC = () => {
       setLoading(false);
     } catch (err) {
       console.error('Errore nel recupero dei dati lunari:', err);
-      setError(err instanceof Error ? err.message : 'Errore sconosciuto nel caricamento dei dati lunari');
+      // Imposta un messaggio di errore più descrittivo
+      setError(err instanceof Error ? 
+        `Errore: ${err.message}` : 
+        'Errore sconosciuto nel caricamento dei dati lunari');
+      
+      // Invece di impostare moonData a null, usa i dati predefiniti
+      // Questo evita errori di rendering quando si tenta di accedere alle proprietà di moonData
+      setMoonData({
+        phase: 'New Moon',
+        illumination: 0,
+        moonrise: 'Non disponibile (errore)',
+        moonset: 'Non disponibile (errore)',
+        sunrise: 'Non disponibile (errore)',
+        sunset: 'Non disponibile (errore)',
+        age: 0
+      });
       setLoading(false);
     }
   };
   
   // Convert WeatherAPI moon phase text to our internal format
   const convertWeatherApiPhaseToInternal = (phase: string): string => {
+    // Se la fase è undefined, null o una stringa vuota, restituisci 'New Moon'
+    if (!phase) return 'New Moon';
+    
     const phaseMap: { [key: string]: string } = {
       'New Moon': 'New Moon',
       'Waxing Crescent': 'Waxing Crescent',
@@ -78,7 +169,8 @@ const MoonPhase: React.FC = () => {
       'Full': 'Full Moon',
       'Waning gibbous': 'Waning Gibbous',
       'Last quarter': 'Last Quarter',
-      'Waning crescent': 'Waning Crescent'
+      'Waning crescent': 'Waning Crescent',
+      'Unknown': 'New Moon' // Gestisci il valore predefinito restituito in caso di errore
     };
     return phaseMap[phase] || 'New Moon';
   };
@@ -165,7 +257,13 @@ const MoonPhase: React.FC = () => {
 
   useEffect(() => {
     fetchMoonData(selectedDate);
-  }, [selectedDate]);
+    
+    // Cleanup function per evitare memory leaks e problemi di rendering
+    return () => {
+      setLoading(false);
+      setError(null);
+    };
+  }, [selectedDate, selectedLocation]);
 
   if (loading) {
     return (
@@ -176,11 +274,18 @@ const MoonPhase: React.FC = () => {
   }
 
   if (error) {
+    console.warn('Errore visualizzato nel componente MoonPhase:', error);
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
         <h4 className="text-lg font-medium text-red-700 mb-2">Errore nel caricamento dei dati lunari</h4>
         <p className="text-red-600">{error}</p>
         <p className="text-sm text-red-500 mt-2">Controlla la connessione internet o la configurazione dell'API WeatherAPI.</p>
+        <button 
+          onClick={() => fetchMoonData(selectedDate)} 
+          className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm"
+        >
+          Riprova
+        </button>
       </div>
     );
   }
@@ -193,83 +298,93 @@ const MoonPhase: React.FC = () => {
           <button
             onClick={() => navigateDate('prev')}
             className="p-1 rounded-full hover:bg-indigo-100"
-            aria-label="Giorno precedente"
+            disabled={subDays(selectedDate, 1) < subDays(new Date(), 7)}
           >
-            <ChevronLeft className="w-5 h-5 text-indigo-600" />
+            <ChevronLeft className="w-5 h-5 text-indigo-700" />
           </button>
-          <span className="text-sm font-medium text-indigo-800">
-            {format(selectedDate, 'd MMMM yyyy', { locale: it })}
+          <span className="text-indigo-800 font-medium">
+            {format(selectedDate, 'd MMMM', { locale: it })}
           </span>
           <button
             onClick={() => navigateDate('next')}
             className="p-1 rounded-full hover:bg-indigo-100"
-            aria-label="Giorno successivo"
+            disabled={addDays(selectedDate, 1) > addDays(new Date(), 3)}
           >
-            <ChevronRight className="w-5 h-5 text-indigo-600" />
+            <ChevronRight className="w-5 h-5 text-indigo-700" />
           </button>
         </div>
       </div>
 
-      {moonData && (
-        <>
+      {moonData ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="relative">
               <Moon 
-                className={`w-24 h-24 text-indigo-600 ${getMoonPhaseIcon(moonData.phase)}`} 
+                className={`w-24 h-24 text-indigo-600 ${getMoonPhaseIcon(moonData.phase || 'New Moon')}`} 
               />
               <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-indigo-100 rounded-full px-3 py-1">
                 <span className="text-sm font-medium text-indigo-800">
-                  {moonData.illumination}%
+                  {moonData.illumination || 0}%
                 </span>
               </div>
             </div>
             <div className="text-center">
-              <h4 className="font-medium text-indigo-900">{getItalianPhase(moonData.phase)}</h4>
+              <h4 className="font-medium text-indigo-900">{getItalianPhase(moonData.phase || 'New Moon')}</h4>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
               <span className="text-indigo-900">Alba lunare</span>
-              <span className="font-medium text-indigo-700">{moonData.moonrise}</span>
+              <span className="font-medium text-indigo-700">{moonData.moonrise || 'Non disponibile'}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
               <span className="text-indigo-900">Tramonto lunare</span>
-              <span className="font-medium text-indigo-700">{moonData.moonset}</span>
+              <span className="font-medium text-indigo-700">{moonData.moonset || 'Non disponibile'}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
               <div className="flex items-center">
                 <Sunrise className="w-4 h-4 mr-2 text-orange-500" />
                 <span className="text-indigo-900">Alba</span>
               </div>
-              <span className="font-medium text-indigo-700">{moonData.sunrise}</span>
+              <span className="font-medium text-indigo-700">{moonData.sunrise || 'Non disponibile'}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
               <div className="flex items-center">
                 <Sunset className="w-4 h-4 mr-2 text-red-500" />
                 <span className="text-indigo-900">Tramonto</span>
               </div>
-              <span className="font-medium text-indigo-700">{moonData.sunset}</span>
+              <span className="font-medium text-indigo-700">{moonData.sunset || 'Non disponibile'}</span>
             </div>
           </div>
+          <div className="flex justify-center mt-4 space-x-1 col-span-1 md:col-span-2">
+            {Array.from({ length: 11 }, (_, i) => {
+              // Mostra 7 giorni indietro, oggi, e 3 giorni avanti
+              const date = subDays(new Date(), 7 - i);
+              const isSelected = format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+              return (
+                <div
+                  key={i}
+                  className={`w-2 h-2 rounded-full ${isSelected ? 'bg-indigo-600' : 'bg-indigo-200'}`}
+                  onClick={() => setSelectedDate(date)}
+                  style={{ cursor: 'pointer' }}
+                />
+              );
+            })}
+          </div>
         </div>
-        <div className="flex justify-center mt-4 space-x-1">
-          {Array.from({ length: 11 }, (_, i) => {
-            // Mostra 7 giorni indietro, oggi, e 3 giorni avanti
-            const date = subDays(new Date(), 7 - i);
-            const isSelected = format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
-            return (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full ${isSelected ? 'bg-indigo-600' : 'bg-indigo-200'}`}
-                onClick={() => setSelectedDate(date)}
-                style={{ cursor: 'pointer' }}
-              />
-            );
-          })}
+      ) : (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h4 className="text-lg font-medium text-yellow-700 mb-2">Dati lunari non disponibili</h4>
+          <p className="text-yellow-600">Non è stato possibile caricare i dati lunari per questa data.</p>
+          <p className="text-sm text-yellow-500 mt-2">Riprova più tardi o seleziona un'altra data.</p>
+          <button 
+            onClick={() => fetchMoonData(selectedDate)} 
+            className="mt-2 px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-md text-sm"
+          >
+            Riprova
+          </button>
         </div>
-        </>
       )}
     </div>
   );

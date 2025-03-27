@@ -62,6 +62,13 @@ interface WeatherData {
   wind_dir: string;
   cloud_cover: number;
   condition: string;
+  // Informazioni lunari e solari
+  moonPhase?: string;
+  moonIllumination?: number;
+  moonrise?: string;
+  moonset?: string;
+  sunrise?: string;
+  sunset?: string;
 }
 
 interface Location {
@@ -149,6 +156,9 @@ function Meteo() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isGpsLoading, setIsGpsLoading] = useState(false);
+  const [showHistoricalChart, setShowHistoricalChart] = useState(false);
   const location = useLocation();
   
   // Utilizzo lo store condiviso per la località
@@ -301,6 +311,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     if (!lat || !lon) {
       // Prima prova a ottenere la posizione dal GPS
       try {
+        // Richiedi esplicitamente la posizione GPS all'utente
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
@@ -363,6 +374,83 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         throw new Error('Dati meteo non validi o incompleti. Verifica la tua connessione e riprova.');
       }
       
+      // Recupera i dati astronomici (fase lunare, alba, tramonto)
+      const today = new Date().toISOString().split('T')[0];
+      const astronomyUrl = `${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${locationQuery}&dt=${today}`;
+      
+      // Valori predefiniti per i dati astronomici
+      let astroData = {
+        moon_phase: 'Unknown',
+        moon_illumination: '0',
+        moonrise: 'Non disponibile',
+        moonset: 'Non disponibile',
+        sunrise: 'Non disponibile',
+        sunset: 'Non disponibile'
+      };
+      
+      try {
+        // Aggiungi un timeout per evitare blocchi indefiniti
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondi di timeout
+        
+        try {
+          const astronomyResponse = await retryFetch(astronomyUrl, { signal: controller.signal }, 3);
+          clearTimeout(timeoutId);
+          
+          if (!astronomyResponse.ok) {
+            console.error(`Errore API astronomia: ${astronomyResponse.status} ${astronomyResponse.statusText}`);
+            // Continuiamo con i dati predefiniti
+          } else {
+            const astronomyData = await astronomyResponse.json();
+            if (astronomyData && astronomyData.astronomy && astronomyData.astronomy.astro) {
+              // Copia i dati ricevuti nei dati predefiniti per evitare riferimenti undefined
+              const receivedData = astronomyData.astronomy.astro;
+              astroData = {
+                moon_phase: receivedData.moon_phase || astroData.moon_phase,
+                moon_illumination: receivedData.moon_illumination || astroData.moon_illumination,
+                moonrise: receivedData.moonrise || astroData.moonrise,
+                moonset: receivedData.moonset || astroData.moonset,
+                sunrise: receivedData.sunrise || astroData.sunrise,
+                sunset: receivedData.sunset || astroData.sunset
+              };
+            }
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          console.error('Errore nella richiesta fetch dei dati astronomici:', fetchError);
+          // Continuiamo con i dati predefiniti
+        }
+      } catch (astroError) {
+        console.error('Errore nel recupero dei dati astronomici:', astroError);
+        // Non interrompiamo il flusso principale se i dati astronomici falliscono
+        // Continuiamo con i dati predefiniti già impostati
+      }
+      
+      // Verifica aggiuntiva per assicurarsi che tutti i campi siano validi
+      if (typeof astroData !== 'object' || astroData === null) {
+        astroData = {
+          moon_phase: 'Unknown',
+          moon_illumination: '0',
+          moonrise: 'Non disponibile',
+          moonset: 'Non disponibile',
+          sunrise: 'Non disponibile',
+          sunset: 'Non disponibile'
+        };
+      }
+      
+      // Assicuriamoci che astroData sia un oggetto valido
+      if (typeof astroData !== 'object' || astroData === null) {
+        astroData = {
+          moon_phase: 'Unknown',
+          moon_illumination: '0',
+          moonrise: 'Non disponibile',
+          moonset: 'Non disponibile',
+          sunrise: 'Non disponibile',
+          sunset: 'Non disponibile'
+        };
+      }
+      
+      // Crea l'oggetto currentWeather con controlli di sicurezza per ogni proprietà
       setCurrentWeather({
         date: new Date().toISOString(),
         temp_c: weatherData.current.temp_c,
@@ -374,7 +462,16 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         wind_kph: weatherData.current.wind_kph,
         wind_dir: weatherData.current.wind_dir,
         cloud_cover: weatherData.current.cloud,
-        condition: weatherData.current.condition.text
+        condition: weatherData.current.condition.text,
+        // Aggiungi i dati astronomici con controlli di sicurezza più rigorosi
+        // Verifica che astroData sia un oggetto valido prima di accedere alle sue proprietà
+        moonPhase: (astroData && typeof astroData === 'object' && 'moon_phase' in astroData) ? astroData.moon_phase : 'N/A',
+        moonIllumination: (astroData && typeof astroData === 'object' && 'moon_illumination' in astroData) ? 
+          (parseInt(astroData.moon_illumination || '0', 10) || 0) : 0,
+        moonrise: (astroData && typeof astroData === 'object' && 'moonrise' in astroData) ? astroData.moonrise : 'N/A',
+        moonset: (astroData && typeof astroData === 'object' && 'moonset' in astroData) ? astroData.moonset : 'N/A',
+        sunrise: (astroData && typeof astroData === 'object' && 'sunrise' in astroData) ? astroData.sunrise : 'N/A',
+        sunset: (astroData && typeof astroData === 'object' && 'sunset' in astroData) ? astroData.sunset : 'N/A'
       });
 
       // Fetch forecast data using WeatherAPI
@@ -554,7 +651,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     setError(null);
     
     if (!navigator.geolocation) {
-      setError('Il tuo browser non supporta la geolocalizzazione');
+      setError('Il tuo browser non supporta la geolocalizzazione. Prova a cercare manualmente una località.');
       setIsGpsLoading(false);
       return;
     }
@@ -571,7 +668,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
             await fetchWeatherData(latitude, longitude);
             setIsGpsLoading(false);
           } catch (err) {
-            handleGpsError(new Error('Errore nel recupero dei dati meteo'));
+            handleGpsError(new Error('Errore nel recupero dei dati meteo. Prova a cercare manualmente una località.'));
           }
         },
         (err) => {
@@ -591,18 +688,18 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     };
     
     const handleGpsError = (err: Error | GeolocationPositionError) => {
-      let errorMessage = 'Errore durante l\'acquisizione della posizione';
+      let errorMessage = 'Errore durante l\'acquisizione della posizione. Prova a cercare manualmente una località.';
       
       if (err instanceof GeolocationPositionError) {
         switch (err.code) {
           case err.PERMISSION_DENIED:
-            errorMessage = 'Permesso di geolocalizzazione negato. Prova a cercare manualmente una località.';
+            errorMessage = 'Permesso di geolocalizzazione negato. Prova a cercare manualmente una località nel campo di ricerca qui sopra.';
             break;
           case err.POSITION_UNAVAILABLE:
-            errorMessage = 'Informazioni sulla posizione non disponibili. Prova a cercare manualmente una località.';
+            errorMessage = 'Informazioni sulla posizione non disponibili. Prova a cercare manualmente una località nel campo di ricerca qui sopra.';
             break;
           case err.TIMEOUT:
-            errorMessage = 'Tempo scaduto per la richiesta di posizione. Prova a cercare manualmente una località.';
+            errorMessage = 'Tempo scaduto per la richiesta di posizione. Prova a cercare manualmente una località nel campo di ricerca qui sopra.';
             break;
         }
       } else {
@@ -617,32 +714,206 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
   };
 
   useEffect(() => {
-    const unsubscribe = useTrackStore.subscribe(
-      (state) => state.currentTrack?.coordinates,
-      (coordinates) => {
-        if (coordinates && coordinates.length > 0) {
-          const lastPosition = coordinates[coordinates.length - 1];
-          fetchWeatherData(lastPosition[1], lastPosition[0]);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Verifica se abbiamo una località selezionata
+        if (!selectedLocation) {
+          console.warn('Nessuna località selezionata per il meteo');
+          // Richiedi automaticamente la posizione GPS all'avvio
+          handleGpsActivation();
+          return;
         }
-      }
-    );
-
-    // Osserva i cambiamenti della località selezionata nello store
-    const unsubscribeLocation = useWeatherStore.subscribe(
-      (state) => state.selectedLocation,
-      (location) => {
-        if (location) {
-          fetchWeatherData(location.lat, location.lon);
+        
+        const locationQuery = `${selectedLocation.lat},${selectedLocation.lon}`;
+        
+        // Recupera il meteo attuale con gestione errori migliorata
+        try {
+          const weatherData = await retryFetch(
+            `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&aqi=no&lang=it`
+          );
+          
+          if (!weatherData) throw new Error('Dati meteo non disponibili');
+          
+          // Formatta i dati meteo
+          const formattedWeather = {
+            date: new Date().toISOString(),
+            temp_c: weatherData.current.temp_c,
+            temp_min: weatherData.current.temp_c, // Il meteo attuale non ha min/max
+            temp_max: weatherData.current.temp_c,
+            humidity: weatherData.current.humidity,
+            precip_mm: weatherData.current.precip_mm,
+            precip_chance: 0, // Non disponibile nel meteo attuale
+            wind_kph: weatherData.current.wind_kph,
+            wind_dir: weatherData.current.wind_dir,
+            cloud_cover: weatherData.current.cloud,
+            condition: weatherData.current.condition.text
+          };
+          
+          setCurrentWeather(formattedWeather);
+        } catch (weatherError) {
+          console.error('Errore nel recupero del meteo attuale:', weatherError);
+          // Non interrompiamo completamente il caricamento, proviamo a continuare con le previsioni
         }
+        
+        // Recupera le previsioni
+        try {
+          const forecastData = await retryFetch(
+            `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&days=3&aqi=no&alerts=no&lang=it`
+          );
+          
+          if (forecastData && forecastData.forecast && forecastData.forecast.forecastday) {
+            const formattedForecast = await Promise.all(forecastData.forecast.forecastday.map(async (day: any) => {
+              // Recupera i dati astronomici per ogni giorno con gestione errori migliorata
+              let astroData = {
+                moon_phase: 'Non disponibile',
+                moon_illumination: '0',
+                moonrise: 'Non disponibile',
+                moonset: 'Non disponibile',
+                sunrise: 'Non disponibile',
+                sunset: 'Non disponibile'
+              };
+              
+              try {
+                // Utilizziamo un timeout per evitare blocchi indefiniti
+                const astroResponse = await Promise.race([
+                  fetch(`${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&dt=${day.date}&lang=it`),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                ]);
+                
+                if (astroResponse.ok) {
+                  const astroJson = await astroResponse.json();
+                  if (astroJson && astroJson.astronomy && astroJson.astronomy.astro) {
+                    astroData = astroJson.astronomy.astro;
+                  }
+                }
+              } catch (astroError) {
+                console.warn('Errore nel recupero dei dati astronomici:', astroError);
+                // Continuiamo con i dati predefiniti
+              }
+              
+              return {
+                date: day.date,
+                temp_c: day.day.avgtemp_c,
+                temp_min: day.day.mintemp_c,
+                temp_max: day.day.maxtemp_c,
+                humidity: day.day.avghumidity,
+                precip_mm: day.day.totalprecip_mm,
+                precip_chance: day.day.daily_chance_of_rain,
+                wind_kph: day.day.maxwind_kph,
+                wind_dir: 'N/A', // Non disponibile nelle previsioni giornaliere
+                cloud_cover: 0, // Non disponibile nelle previsioni giornaliere
+                condition: day.day.condition.text,
+                // Dati astronomici
+                moonPhase: astroData.moon_phase || 'Non disponibile',
+                moonIllumination: parseInt(astroData.moon_illumination || '0', 10),
+                moonrise: astroData.moonrise || 'Non disponibile',
+                moonset: astroData.moonset || 'Non disponibile',
+                sunrise: astroData.sunrise || 'Non disponibile',
+                sunset: astroData.sunset || 'Non disponibile'
+              };
+            }));
+            
+            setForecast(formattedForecast);
+          }
+        } catch (forecastError) {
+          console.error('Errore nel recupero delle previsioni:', forecastError);
+          // Non interrompiamo completamente il caricamento
+        }
+        
+        // Recupera i dati storici
+        try {
+          const dates = Array.from({ length: 7 }, (_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - (i + 1));
+            return date.toISOString().split('T')[0];
+          });
+          
+          const historicalDataPromises = dates.map(async (date) => {
+            try {
+              const historyData = await retryFetch(
+                `${BASE_URL}/history.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&dt=${date}&lang=it`
+              );
+              
+              if (!historyData || !historyData.forecast || !historyData.forecast.forecastday || historyData.forecast.forecastday.length === 0) {
+                return null;
+              }
+              
+              const dayData = historyData.forecast.forecastday[0].day;
+              
+              // Recupera i dati astronomici storici con gestione errori migliorata
+              let astroData = {
+                moon_phase: 'Non disponibile',
+                moon_illumination: '0',
+                moonrise: 'Non disponibile',
+                moonset: 'Non disponibile',
+                sunrise: 'Non disponibile',
+                sunset: 'Non disponibile'
+              };
+              
+              try {
+                const astroResponse = await Promise.race([
+                  fetch(`${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&dt=${date}&lang=it`),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                ]);
+                
+                if (astroResponse.ok) {
+                  const astroJson = await astroResponse.json();
+                  if (astroJson && astroJson.astronomy && astroJson.astronomy.astro) {
+                    astroData = astroJson.astronomy.astro;
+                  }
+                }
+              } catch (astroError) {
+                console.warn('Errore nel recupero dei dati astronomici storici:', astroError);
+                // Continuiamo con i dati predefiniti
+              }
+              
+              return {
+                date,
+                temp_c: dayData.avgtemp_c,
+                temp_min: dayData.mintemp_c,
+                temp_max: dayData.maxtemp_c,
+                humidity: dayData.avghumidity,
+                precip_mm: dayData.totalprecip_mm,
+                precip_chance: dayData.daily_chance_of_rain || 0,
+                wind_kph: dayData.maxwind_kph,
+                wind_dir: 'N/A',
+                cloud_cover: 0,
+                condition: dayData.condition.text,
+                // Dati astronomici
+                moonPhase: astroData.moon_phase || 'Non disponibile',
+                moonIllumination: parseInt(astroData.moon_illumination || '0', 10),
+                moonrise: astroData.moonrise || 'Non disponibile',
+                moonset: astroData.moonset || 'Non disponibile',
+                sunrise: astroData.sunrise || 'Non disponibile',
+                sunset: astroData.sunset || 'Non disponibile'
+              };
+            } catch (dayError) {
+              console.warn(`Errore nel recupero dei dati storici per ${date}:`, dayError);
+              return null;
+            }
+          });
+          
+          const historicalResults = await Promise.all(historicalDataPromises);
+          const validHistoricalData = historicalResults.filter(data => data !== null);
+          setHistoricalData(validHistoricalData);
+        } catch (historicalError) {
+          console.error('Errore nel recupero dei dati storici:', historicalError);
+          // Non interrompiamo completamente il caricamento
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Errore generale nel caricamento dei dati meteo:', error);
+        setError(error instanceof Error ? error.message : 'Errore sconosciuto nel caricamento dei dati meteo');
+        setLoading(false);
       }
-    );
-
-    fetchWeatherData();
-    return () => {
-      unsubscribe();
-      unsubscribeLocation();
     };
-  }, []);
+
+    fetchData();
+  }, [location.pathname, selectedLocation]);
 
   // Definizione dello stato per le notifiche popup
   const [showNotification, setShowNotification] = useState<'gps' | 'connection' | 'both' | null>(null);
@@ -657,22 +928,98 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
 
   if (error) {
     return (
-      <div className="p-4 text-red-500">
-        <p>Errore: {error}</p>
+      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 m-4">
+        <div className="flex items-center">
+          <div className="py-1">
+            <svg className="w-6 h-6 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="font-bold">Errore</p>
+            <p>{error}</p>
+            <button 
+              onClick={() => fetchWeatherData()} 
+              className="mt-2 px-3 py-1 bg-red-200 hover:bg-red-300 text-red-800 rounded-md text-sm"
+            >
+              Riprova
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
+  const handleUseCurrentLocation = () => {
+    handleGpsActivation();
+  };
+
   return (
-    <div className="flex flex-col h-full pb-16">
-      {showNotification && (
-        <PopupNotification
-          type={showNotification}
-          onClose={() => setShowNotification(null)}
-        />
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-8">
+        <div className="flex items-center mb-4 md:mb-0">
+          <MeteoLogo className="w-12 h-12 mr-3" />
+          <h1 className="text-3xl font-bold text-gray-800">Meteo</h1>
+        </div>
+        
+        <div className="relative w-full md:w-64">
+          <input
+            type="text"
+            placeholder="Cerca località..."
+            value={searchQuery}
+            onChange={(e) => handleSearchInputChange(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {isSearching && (
+            <div className="absolute right-3 top-2.5">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+            </div>
+          )}
+          
+          {locationSuggestions.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {locationSuggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 flex items-center"
+                  onClick={() => handleLocationSelect(suggestion)}
+                >
+                  <MapPin className="w-4 h-4 mr-2 text-gray-500" />
+                  <div>
+                    <span className="font-medium">{suggestion.name}</span>
+                    {suggestion.region && (
+                      <span className="text-sm text-gray-500"> - {suggestion.region}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {selectedLocation && (
+        <div className="mb-6 bg-blue-50 p-4 rounded-lg flex items-center">
+          <MapPin className="w-5 h-5 text-blue-500 mr-2" />
+          <div>
+            <span className="font-medium">{selectedLocation.name}</span>
+            {selectedLocation.region && (
+              <span className="text-sm text-gray-600"> - {selectedLocation.region}</span>
+            )}
+          </div>
+          <button 
+            onClick={handleGpsActivation}
+            className="ml-auto text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-3 rounded-full flex items-center"
+          >
+            <Compass className="w-4 h-4 mr-1" />
+            Usa posizione attuale
+          </button>
+        </div>
       )}
+
+      {/* Visualizzazione degli errori */}
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 m-4">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-md">
           <div className="flex items-center">
             <div className="py-1">
               <svg className="w-6 h-6 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -682,105 +1029,181 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
             <div>
               <p className="font-bold">Errore</p>
               <p>{error}</p>
+              <button 
+                onClick={() => {
+                  setError(null);
+                  if (selectedLocation) {
+                    fetchWeatherData(selectedLocation.lat, selectedLocation.lon);
+                  }
+                }} 
+                className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm"
+              >
+                Riprova
+              </button>
             </div>
           </div>
         </div>
       )}
-      <div className="flex-1 p-4 space-y-6 overflow-y-auto">
 
-        {currentWeather && (
-          <>
-            <div className="bg-white rounded-lg shadow-md p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-500" />
-                  <h2 className="text-xl font-semibold">
-                    {selectedLocation?.name || 'Posizione attuale'}
-                    {selectedLocation && (
-                      <span className="block text-xs text-gray-500">
-                        {selectedLocation.lat.toFixed(4)}°, {selectedLocation.lon.toFixed(4)}°
-                      </span>
-                    )}
-                  </h2>
-                </div>
-                <div className="text-right">
-                  <h3 className="text-sm font-medium text-blue-600 mb-1">Condizioni in tempo reale</h3>
-                  <span className="text-base font-bold text-gray-700">
-                    {format(new Date(), "d MMMM yyyy HH:mm", { locale: it })}
-                  </span>
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <div>
+          {currentWeather ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="p-6">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Meteo Real Time - {selectedLocation?.name || 'Posizione attuale'} - {format(new Date(), "d MMMM yyyy, HH:mm", { locale: it })}</h2>
+                  <div className="flex items-center mb-6">
+                    <div className="mr-4">
+                      {getWeatherIcon(currentWeather.condition)}
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold">{currentWeather.temp_c.toFixed(1)}°C</div>
+                      <div className="text-gray-600">{currentWeather.condition}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center">
+                      <Thermometer className="w-5 h-5 text-red-500 mr-2" />
+                      <div>
+                        <div className="text-sm text-gray-500">Temperatura</div>
+                        <div>{currentWeather.temp_c.toFixed(1)}°C</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <Droplets className="w-5 h-5 text-blue-500 mr-2" />
+                      <div>
+                        <div className="text-sm text-gray-500">Umidità</div>
+                        <div>{currentWeather.humidity}%</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <Wind className={`w-5 h-5 ${getWindColor(currentWeather.wind_kph)} mr-2`} />
+                      <div>
+                        <div className="text-sm text-gray-500">Vento</div>
+                        <div>{currentWeather.wind_kph.toFixed(1)} km/h {currentWeather.wind_dir}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <CloudRain className="w-5 h-5 text-blue-400 mr-2" />
+                      <div>
+                        <div className="text-sm text-gray-500">Precipitazioni</div>
+                        <div>{currentWeather.precip_mm.toFixed(1)} mm</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Thermometer className="w-5 h-5 text-orange-500" />
-                    <h3 className="text-sm font-medium">Temperatura</h3>
-                  </div>
-                  <div className="text-2xl font-bold text-orange-600 mb-1">
-                    {currentWeather.temp_c}°C
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-600">
-                    <span>Min: {currentWeather.temp_min}°C</span>
-                    <span>Max: {currentWeather.temp_max}°C</span>
-                  </div>
+              
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="p-6">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Fase Lunare</h2>
+                  <MoonPhase />
                 </div>
-
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <CloudRain className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-sm font-medium">Precipitazioni</h3>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-600 mb-1">
-                    {currentWeather.precip_mm} mm
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    Probabilità: {currentWeather.precip_chance}%
-                  </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-lg">
+              <div className="flex items-center">
+                <div className="py-1">
+                  <svg className="w-6 h-6 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
                 </div>
-
-                <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Wind className="w-5 h-5 text-green-500" />
-                    <h3 className="text-sm font-medium">Vento</h3>
-                  </div>
-                  <div className="text-2xl font-bold text-green-600 mb-1">
-                    {currentWeather.wind_kph.toFixed(1)} km/h
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-600">
-                    <Compass className="w-3 h-3" />
-                    <span>{currentWeather.wind_dir}</span>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Droplets className="w-5 h-5 text-purple-500" />
-                    <h3 className="text-sm font-medium">Umidità</h3>
-                  </div>
-                  <div className="text-2xl font-bold text-purple-600 mb-1">
-                    {currentWeather.humidity}%
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div
-                      className="bg-purple-500 rounded-full h-1.5"
-                      style={{ width: `${currentWeather.humidity}%` }}
-                    ></div>
+                <div>
+                  <p className="font-bold">Nessun dato meteo disponibile</p>
+                  <p>{error ? error : 'Seleziona una località o utilizza la tua posizione attuale per visualizzare i dati meteo.'}</p>
+                  <div className="flex space-x-2 mt-2">
+                    <button 
+                      onClick={handleGpsActivation}
+                      className="bg-yellow-200 hover:bg-yellow-300 text-yellow-800 py-1 px-3 rounded text-sm flex items-center"
+                    >
+                      <Compass className="w-4 h-4 mr-1" />
+                      Usa posizione attuale
+                    </button>
+                    <button
+                      onClick={() => setError(null)}
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded text-sm flex items-center"
+                    >
+                      Riprova
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 gap-4 mt-3">
-          <WeatherForecast />
+          )}
+          
+          {currentWeather && (
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Previsioni</h2>
+                <Link 
+                  to="/previsioni" 
+                  className="text-blue-600 hover:text-blue-800 flex items-center"
+                >
+                  Dettagli <ChevronRight className="w-4 h-4 ml-1" />
+                </Link>
+              </div>
+              <WeatherForecast />
+            </div>
+          )}
+          
+          {currentWeather && historicalData.length > 0 && (
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Grafico Meteo - {selectedLocation?.name || 'Posizione attuale'}</h2>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow-md">
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={historicalData.map(day => ({
+                        date: format(parseISO(day.date), 'dd/MM'),
+                        temperatura: day.temp_c,
+                        umidità: day.humidity,
+                        precipitazioni: day.precip_mm
+                      }))}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis yAxisId="left" />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <Tooltip />
+                      <Legend />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="temperatura"
+                        stroke="#ef4444"
+                        activeDot={{ r: 8 }}
+                      />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="umidità"
+                        stroke="#3b82f6"
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="precipitazioni"
+                        stroke="#10b981"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        
-        {/* Sezione rimossa: Dati Storici NOAA */}
-
-            {/* Tabella Dati Storici rimossa come richiesto */}
-          </>
-        )}
-      </div>
+      )}
+      
       <FixedFooter />
     </div>
   );

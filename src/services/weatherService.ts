@@ -8,6 +8,27 @@ interface WeatherAPIError {
   message: string;
 }
 
+interface AstroResponse {
+  location: {
+    name: string;
+    region: string;
+    country: string;
+    lat: number;
+    lon: number;
+    localtime: string;
+  };
+  astronomy: {
+    astro: {
+      sunrise: string;
+      sunset: string;
+      moonrise: string;
+      moonset: string;
+      moon_phase: string;
+      moon_illumination: string;
+    };
+  };
+}
+
 interface WeatherAPIResponse {
   location: {
     name: string;
@@ -98,18 +119,31 @@ const handleWeatherAPIError = (error: WeatherAPIError) => {
   }
 };
 
-const formatWeatherData = (data: WeatherAPIResponse): WeatherData => ({
-  temperature: data.current.temp_c,
-  humidity: data.current.humidity,
-  precipitation: data.current.precip_mm,
-  windSpeed: data.current.wind_kph,
-  windDirection: data.current.wind_dir,
-  cloudCover: data.current.cloud,
-  condition: data.current.condition.text,
-  conditionIcon: data.current.condition.icon,
-  conditionCode: data.current.condition.code,
-  timestamp: new Date(data.location.localtime)
-});
+const formatWeatherData = (data: WeatherAPIResponse, astroData?: any): WeatherData => {
+  // Verifica che astroData sia un oggetto valido
+  const isValidAstroData = astroData && typeof astroData === 'object';
+  
+  return {
+    temperature: data.current.temp_c,
+    humidity: data.current.humidity,
+    precipitation: data.current.precip_mm,
+    windSpeed: data.current.wind_kph,
+    windDirection: data.current.wind_dir,
+    cloudCover: data.current.cloud,
+    condition: data.current.condition.text,
+    conditionIcon: data.current.condition.icon,
+    conditionCode: data.current.condition.code,
+    timestamp: new Date(data.location.localtime),
+    // Dati astronomici con controlli di sicurezza più rigorosi
+    moonPhase: isValidAstroData && 'moon_phase' in astroData ? astroData.moon_phase : undefined,
+    moonIllumination: isValidAstroData && 'moon_illumination' in astroData && astroData.moon_illumination ? 
+      parseInt(astroData.moon_illumination, 10) : undefined,
+    moonrise: isValidAstroData && 'moonrise' in astroData ? astroData.moonrise : undefined,
+    moonset: isValidAstroData && 'moonset' in astroData ? astroData.moonset : undefined,
+    sunrise: isValidAstroData && 'sunrise' in astroData ? astroData.sunrise : undefined,
+    sunset: isValidAstroData && 'sunset' in astroData ? astroData.sunset : undefined
+  };
+};
 
 const formatHourlyWeather = (hour: ForecastResponse['forecast']['forecastday'][0]['hour'][0]): HourlyWeather => ({
   time: hour.time,
@@ -120,7 +154,8 @@ const formatHourlyWeather = (hour: ForecastResponse['forecast']['forecastday'][0
   wind_dir: hour.wind_dir,
   condition: hour.condition.text,
   conditionIcon: hour.condition.icon,
-  conditionCode: hour.condition.code
+  conditionCode: hour.condition.code,
+  chance_of_rain: hour.chance_of_rain || 0
 });
 
 export const getCurrentWeather = async (location: string): Promise<WeatherData> => {
@@ -144,7 +179,43 @@ export const getCurrentWeather = async (location: string): Promise<WeatherData> 
     }
     
     const data: WeatherAPIResponse = await response.json();
-    return formatWeatherData(data);
+    
+    // Ottieni i dati astronomici per la data corrente
+    let astroData = null;
+    try {
+      // Verifica connessione internet prima di fare la richiesta
+      if (!navigator.onLine) {
+        console.warn('Nessuna connessione internet disponibile per i dati astronomici');
+        // Continua senza dati astronomici invece di lanciare un'eccezione
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        // Aggiungiamo un timeout alla richiesta per evitare blocchi
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondi di timeout
+        
+        try {
+          astroData = await Promise.race([
+            getAstroData(location, today),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout nel recupero dei dati astronomici')), 5000))
+          ]);
+          clearTimeout(timeoutId);
+        } catch (timeoutErr) {
+          console.warn('Timeout durante il recupero dei dati astronomici:', timeoutErr);
+          // Continua senza dati astronomici
+        }
+      }
+    } catch (astroError) {
+      console.error('Errore nel recupero dei dati astronomici attuali:', astroError);
+      // Continua senza dati astronomici
+    }
+    
+    // Verifica che astroData sia un oggetto valido prima di passarlo a formatWeatherData
+    if (astroData && typeof astroData !== 'object') {
+      console.warn('Dati astronomici non validi, verranno ignorati');
+      astroData = null;
+    }
+    
+    return formatWeatherData(data, astroData);
   } catch (error) {
     if (error instanceof Error) throw error;
     throw new Error('Errore nel recupero del meteo attuale');
@@ -172,17 +243,46 @@ export const getForecast = async (location: string): Promise<WeatherData[]> => {
     }
     
     const data: ForecastResponse = await response.json();
-    return data.forecast.forecastday.map(day => ({
-      temperature: day.day.avgtemp_c,
-      humidity: day.day.avghumidity,
-      precipitation: day.day.totalprecip_mm,
-      windSpeed: day.day.maxwind_kph,
-      windDirection: 'N/A', // Daily forecast doesn't include wind direction
-      cloudCover: 0, // Daily forecast doesn't include cloud cover
-      condition: day.day.condition.text,
-      conditionIcon: day.day.condition.icon,
-      conditionCode: day.day.condition.code,
-      timestamp: new Date(day.date)
+    return await Promise.all(data.forecast.forecastday.map(async day => {
+      // Ottieni i dati astronomici per ogni giorno
+      let moonPhase = 'N/A';
+      let moonIllumination = 0;
+      let moonrise = 'N/A';
+      let moonset = 'N/A';
+      let sunrise = 'N/A';
+      let sunset = 'N/A';
+      
+      try {
+        const astroData = await getAstroData(location, day.date);
+        moonPhase = astroData.moon_phase || 'N/A';
+        moonIllumination = parseInt(astroData.moon_illumination || '0', 10);
+        moonrise = astroData.moonrise || 'N/A';
+        moonset = astroData.moonset || 'N/A';
+        sunrise = astroData.sunrise || 'N/A';
+        sunset = astroData.sunset || 'N/A';
+      } catch (astroError) {
+        console.error('Errore nel recupero dei dati astronomici:', astroError);
+      }
+      
+      return {
+        temperature: day.day.avgtemp_c,
+        humidity: day.day.avghumidity,
+        precipitation: day.day.totalprecip_mm,
+        windSpeed: day.day.maxwind_kph,
+        windDirection: 'N/A', // Daily forecast doesn't include wind direction
+        cloudCover: 0, // Daily forecast doesn't include cloud cover
+        condition: day.day.condition.text,
+        conditionIcon: day.day.condition.icon,
+        conditionCode: day.day.condition.code,
+        timestamp: new Date(day.date),
+        // Aggiungi i dati astronomici
+        moonPhase,
+        moonIllumination,
+        moonrise,
+        moonset,
+        sunrise,
+        sunset
+      };
     }));
   } catch (error) {
     if (error instanceof Error) throw error;
@@ -221,6 +321,34 @@ export const getHistoricalWeather = async (location: string): Promise<WeatherDat
         const data: ForecastResponse = await response.json();
         const dayData = data.forecast.forecastday[0].day;
         
+        // Recupera anche i dati astronomici per questa data
+        let moonPhase = 'N/A';
+        let moonIllumination = 0;
+        let moonrise = 'N/A';
+        let moonset = 'N/A';
+        let sunrise = 'N/A';
+        let sunset = 'N/A';
+        
+        try {
+          const astroResponse = await fetch(
+            `${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&dt=${date}&lang=it`
+          );
+          
+          if (astroResponse.ok) {
+            const astroData = await astroResponse.json();
+            const astro = astroData.astronomy.astro;
+            
+            moonPhase = astro.moon_phase || 'N/A';
+            moonIllumination = parseInt(astro.moon_illumination || '0', 10);
+            moonrise = astro.moonrise || 'N/A';
+            moonset = astro.moonset || 'N/A';
+            sunrise = astro.sunrise || 'N/A';
+            sunset = astro.sunset || 'N/A';
+          }
+        } catch (astroError) {
+          console.error('Errore nel recupero dei dati astronomici storici:', astroError);
+        }
+        
         return {
           temperature: dayData.avgtemp_c,
           maxTemp: dayData.maxtemp_c,
@@ -233,7 +361,14 @@ export const getHistoricalWeather = async (location: string): Promise<WeatherDat
           condition: dayData.condition.text,
           conditionIcon: dayData.condition.icon,
           conditionCode: dayData.condition.code,
-          timestamp: new Date(data.forecast.forecastday[0].date)
+          timestamp: new Date(data.forecast.forecastday[0].date),
+          // Aggiungi i dati astronomici
+          moonPhase,
+          moonIllumination,
+          moonrise,
+          moonset,
+          sunrise,
+          sunset
         };
       })
     );
@@ -282,29 +417,59 @@ export const getHourlyForecast = async (location: string): Promise<HourlyWeather
 
 // Funzione per ottenere i dati astro (fase lunare, alba, tramonto)
 export const getAstroData = async (location: string, date: string): Promise<any> => {
+  // Dati predefiniti da restituire in caso di errore
+  const defaultAstroData = {
+    moon_phase: 'New Moon',  // Valore predefinito più sicuro per la fase lunare
+    moon_illumination: '0',
+    moonrise: 'Non disponibile',
+    moonset: 'Non disponibile',
+    sunrise: 'Non disponibile',
+    sunset: 'Non disponibile'
+  };
+  
   try {
     if (!WEATHER_API_KEY) {
-      throw new Error('Chiave API WeatherAPI non configurata. Controlla il file .env');
+      console.error('Chiave API WeatherAPI non configurata. Controlla il file .env');
+      return {...defaultAstroData};
     }
 
-    const response = await fetch(
-      `${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&dt=${date}&lang=it`
-    );
+    // Verifica connessione internet prima di fare la richiesta
+    if (!navigator.onLine) {
+      console.warn('Nessuna connessione internet disponibile per i dati astronomici');
+      return {...defaultAstroData};
+    }
+
+    // Aggiungiamo un timeout alla richiesta per evitare blocchi
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondi di timeout
     
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.error('Errore di autenticazione 401 - Unauthorized');
-        throw new Error('Errore di autenticazione: La chiave API non è valida o è scaduta. Verifica le impostazioni.');
+    try {
+      const response = await fetch(
+        `${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&dt=${date}&lang=it`,
+        { signal: controller.signal }
+      );
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Errore di autenticazione 401 - Unauthorized');
+          return {...defaultAstroData};
+        }
+        
+        console.error(`Errore nel recupero dei dati astronomici: ${response.status}`);
+        return {...defaultAstroData};
       }
       
-      const error = await response.json();
-      handleWeatherAPIError(error.error);
+      // Parsing della risposta
+      const data: AstroResponse = await response.json();
+      return data.astronomy.astro;
+    } catch (error) {
+      console.error('Errore nel recupero dei dati astronomici:', error);
+      return {...defaultAstroData};
     }
-    
-    const data = await response.json();
-    return data.astronomy.astro;
   } catch (error) {
-    if (error instanceof Error) throw error;
-    throw new Error('Errore nel recupero dei dati astronomici');
+    console.error('Errore nel recupero dei dati astronomici:', error);
+    return {...defaultAstroData};
   }
 };

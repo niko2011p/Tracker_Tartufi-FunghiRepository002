@@ -35,6 +35,13 @@ export interface WeatherData {
   conditionIcon?: string;
   conditionCode?: number;
   timestamp: Date;
+  // Dati astronomici
+  moonPhase?: string;
+  moonIllumination?: number;
+  moonrise?: string;
+  moonset?: string;
+  sunrise?: string;
+  sunset?: string;
 }
 
 export interface HourlyWeather {
@@ -47,4 +54,5 @@ export interface HourlyWeather {
   condition: string;
   conditionIcon?: string;
   conditionCode?: number;
+  chance_of_rain?: number;
 }

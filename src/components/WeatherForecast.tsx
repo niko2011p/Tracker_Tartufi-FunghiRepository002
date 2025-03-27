@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Thermometer, Droplets, Wind, ArrowUpDown, Navigation, Compass, Loader2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Thermometer, Droplets, Wind, ArrowUpDown, Navigation, Compass, Loader2, AlertCircle, ArrowRight, ArrowLeft, ArrowUp, ArrowDown, Moon, Sunrise, Sunset } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useTrackStore } from '../store/trackStore';
@@ -7,7 +7,6 @@ import { useWeatherStore } from '../store/weatherStore';
 import { getForecast, getHistoricalWeather, getHourlyForecast } from '../services/weatherService';
 import { searchLocations } from '../services/locationSearchService';
 import { WeatherData as WeatherDataType, HourlyWeather as HourlyWeatherType } from '../types';
-
 interface WeatherData {
   date: string;
   temp_c: number;
@@ -36,6 +35,13 @@ interface WeatherData {
   cloud?: number;
   dewpoint_c?: number;
   chance_of_rain?: number;
+  // Informazioni lunari e solari
+  moonPhase?: string;
+  moonIllumination?: number;
+  moonrise?: string;
+  moonset?: string;
+  sunrise?: string;
+  sunset?: string;
 }
 
 interface HistoricalWeatherData {
@@ -98,8 +104,32 @@ interface WeatherStation {
 }
 
 const WeatherForecast: React.FC = () => {
+  // Funzione per tradurre le fasi lunari in italiano
+  const getItalianPhase = (phase: string): string => {
+    const phases: { [key: string]: string } = {
+      'New Moon': 'Luna Nuova',
+      'Waxing Crescent': 'Luna Crescente',
+      'First Quarter': 'Primo Quarto',
+      'Waxing Gibbous': 'Gibbosa Crescente',
+      'Full Moon': 'Luna Piena',
+      'Waning Gibbous': 'Gibbosa Calante',
+      'Last Quarter': 'Ultimo Quarto',
+      'Waning Crescent': 'Luna Calante',
+      // Aggiungi varianti per compatibilità con WeatherAPI
+      'New': 'Luna Nuova',
+      'Waxing crescent': 'Luna Crescente',
+      'First quarter': 'Primo Quarto',
+      'Waxing gibbous': 'Gibbosa Crescente',
+      'Full': 'Luna Piena',
+      'Waning gibbous': 'Gibbosa Calante',
+      'Last quarter': 'Ultimo Quarto',
+      'Waning crescent': 'Luna Calante'
+    };
+    return phases[phase] || phase;
+  };
   const [forecast, setForecast] = useState<WeatherData[]>([]);
   const [hourlyForecast, setHourlyForecast] = useState<any[]>([]);
+  const [filteredHourlyForecast, setFilteredHourlyForecast] = useState<any[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalWeatherData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -181,6 +211,74 @@ const WeatherForecast: React.FC = () => {
     };
     loadWeatherData();
   }, [selectedLocation]);
+  
+  // Filtra le previsioni orarie in base al giorno selezionato
+  useEffect(() => {
+    if (hourlyForecast.length > 0 && forecast.length > 0) {
+      // Ottieni la data del giorno selezionato
+      const selectedDate = forecast[currentIndex].timestamp;
+      const selectedDateStr = selectedDate.toISOString().split('T')[0];
+      
+      // Filtra le previsioni orarie per mostrare solo quelle del giorno selezionato
+      const filteredHours = hourlyForecast.filter(hour => {
+        const hourDate = new Date(hour.time).toISOString().split('T')[0];
+        return hourDate === selectedDateStr;
+      });
+      
+      setFilteredHourlyForecast(filteredHours);
+    }
+  }, [hourlyForecast, forecast, currentIndex]);
+
+  // Funzione per determinare il colore del vento in base alla velocità
+  const getWindColor = (speed: number) => {
+    if (speed < 20) return 'text-green-500';
+    if (speed < 40) return 'text-yellow-500';
+    if (speed < 60) return 'text-orange-500';
+    return 'text-red-500';
+  };
+
+  // Funzione per determinare il colore dell'umidità in base alla percentuale
+  const getHumidityColor = (humidity: number) => {
+    if (humidity < 30) return 'text-red-500';
+    if (humidity < 50) return 'text-green-500';
+    if (humidity < 70) return 'text-blue-500';
+    return 'text-purple-500';
+  };
+
+  // Funzione per ottenere il colore di sfondo in base all'umidità
+  const getHumidityBackgroundColor = (humidity: number) => {
+    if (humidity < 30) return 'bg-red-100';
+    if (humidity < 50) return 'bg-green-100';
+    if (humidity < 70) return 'bg-blue-100';
+    return 'bg-purple-100';
+  };
+
+  // Funzione per renderizzare l'icona direzionale del vento
+  const renderWindDirectionIcon = (direction: string, speed: number) => {
+    const colorClass = getWindColor(speed);
+    
+    // Determina l'icona in base alla direzione del vento
+    switch(direction) {
+      case 'N':
+        return <ArrowUp className={`w-4 h-4 ${colorClass}`} />;
+      case 'NE':
+        return <ArrowUp className={`w-4 h-4 ${colorClass} rotate-45`} />;
+      case 'E':
+        return <ArrowRight className={`w-4 h-4 ${colorClass}`} />;
+      case 'SE':
+        return <ArrowRight className={`w-4 h-4 ${colorClass} rotate-45`} />;
+      case 'S':
+        return <ArrowDown className={`w-4 h-4 ${colorClass}`} />;
+      case 'SW':
+        return <ArrowDown className={`w-4 h-4 ${colorClass} rotate-45`} />;
+      case 'W':
+        return <ArrowLeft className={`w-4 h-4 ${colorClass}`} />;
+      case 'NW':
+        return <ArrowLeft className={`w-4 h-4 ${colorClass} rotate-45`} />;
+      default:
+        return <Compass className={`w-4 h-4 ${colorClass}`} />;
+    }
+  };
 
   const renderWeatherIcon = (weather: WeatherData | HourlyWeatherType) => {
     // Se abbiamo l'icona dalla API, usiamo quella
@@ -286,13 +384,35 @@ const WeatherForecast: React.FC = () => {
                 <p className="text-xs text-gray-500">Condizioni: {weather.condition}</p>
               </div>
             </div>
+            
+            {/* Dati astronomici */}
+            <div className="flex items-center">
+              <Moon className="w-5 h-5 mr-2 text-yellow-500" />
+              <div>
+                <p className="text-sm text-gray-600">Fase Lunare</p>
+                <p className="font-semibold">{getItalianPhase(weather.moonPhase) || 'Luna Nuova'}</p>
+                <p className="text-xs text-gray-500">Illuminazione: {typeof weather.moonIllumination === 'number' ? weather.moonIllumination : 0}%</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center">
+              <div className="flex mr-2">
+                <Sunrise className="w-5 h-5 text-orange-500" />
+                <Sunset className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Alba/Tramonto</p>
+                <p className="text-xs text-gray-500">Alba: {weather.sunrise || 'N/A'}</p>
+                <p className="text-xs text-gray-500">Tramonto: {weather.sunset || 'N/A'}</p>
+              </div>
+            </div>
           </div>
 
-          {hourlyForecast && hourlyForecast.length > 0 && (
+          {filteredHourlyForecast && filteredHourlyForecast.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-lg font-semibold mb-2">Previsioni orarie</h3>
+              <h3 className="text-lg font-semibold mb-2">Previsioni orarie - {format(forecast[currentIndex].timestamp, 'EEEE d MMMM', { locale: it })}</h3>
               <div className="flex overflow-x-auto space-x-4 pb-2">
-                {hourlyForecast.map((hour: any, index: number) => (
+                {filteredHourlyForecast.map((hour: any, index: number) => (
                   <div key={index} className="flex-shrink-0 text-center p-2 bg-gray-50 rounded">
                     <p className="text-sm">{format(new Date(hour.time), 'HH:mm')}</p>
                     {renderWeatherIcon(hour)}
@@ -345,31 +465,138 @@ const WeatherForecast: React.FC = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Data</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Temperatura massima</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Temperatura minima</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Umidità</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Precipitazioni</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Vento</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Condizioni</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                      <div className="flex items-center">
+                        <Thermometer className="w-4 h-4 mr-1 text-red-500" />
+                        <span>Temp. max</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                      <div className="flex items-center">
+                        <Thermometer className="w-4 h-4 mr-1 text-blue-500" />
+                        <span>Temp. min</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                      <div className="flex items-center">
+                        <Droplets className="w-4 h-4 mr-1 text-teal-500" />
+                        <span>Umidità</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                      <div className="flex items-center">
+                        <CloudRain className="w-4 h-4 mr-1 text-blue-500" />
+                        <span>Precipitazioni</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                      <div className="flex items-center">
+                        <Wind className="w-4 h-4 mr-1 text-gray-500" />
+                        <span>Vento</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                      <div className="flex items-center">
+                        <Cloud className="w-4 h-4 mr-1 text-gray-500" />
+                        <span>Condizioni</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                      <div className="flex items-center">
+                        <Moon className="w-4 h-4 mr-1 text-yellow-500" />
+                        <span>Fase Lunare</span>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {historicalData.slice(0, 7).map((day, index) => (
-                    <tr 
-                      key={index} 
-                      className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} ${day.precipitation > 20 ? 'bg-blue-700 text-white' : day.precipitation > 0 ? 'bg-blue-200' : ''}`}
-                    >
-                      <td className="px-4 py-2 text-sm text-gray-900">
-                        {format(day.timestamp, 'EEEE d MMMM yyyy', { locale: it })}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{day.maxTemp}°C</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{day.minTemp}°C</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{day.humidity}%</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{day.precipitation} mm</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{day.windSpeed} km/h ({day.windDirection || 'N/A'})</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{day.condition}</td>
-                    </tr>
-                  ))}
+                  {historicalData.slice(0, 7).map((day, index) => {
+                    // Determina la classe di colore in base alla quantità di precipitazioni
+                    let precipClass = '';
+                    let textColor = '';
+                    
+                    if (day.precipitation > 0) {
+                      if (day.precipitation > 20) {
+                        precipClass = 'bg-[#0288D1]';
+                        textColor = 'text-white';
+                      } else if (day.precipitation > 10) {
+                        precipClass = 'bg-[#81D4FA]';
+                      } else {
+                        precipClass = 'bg-[#E0F7FA]';
+                      }
+                    }
+                    
+                    return (
+                      <tr 
+                        key={index} 
+                        className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} ${precipClass} ${textColor} transition-colors duration-300`}
+                      >
+                        <td className="px-4 py-2 text-sm">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded-full text-gray-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                                <line x1="16" x2="16" y1="2" y2="6" />
+                                <line x1="8" x2="8" y1="2" y2="6" />
+                                <line x1="3" x2="21" y1="10" y2="10" />
+                              </svg>
+                            </span>
+                            <div className="flex flex-col leading-tight">
+                              <span className="font-medium text-gray-900">{format(day.timestamp, 'EEEE', { locale: it })}</span>
+                              <span className="text-xs text-gray-500">{format(day.timestamp, 'd MMM yyyy', { locale: it })}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <div className="flex items-center">
+                            <Thermometer className="w-4 h-4 mr-1 text-red-500" />
+                            <span className={`font-medium px-2 py-1 rounded ${day.maxTemp > 25 ? 'bg-red-100' : day.maxTemp > 15 ? 'bg-yellow-100' : 'bg-blue-100'}`}>{day.maxTemp}°C</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <div className="flex items-center">
+                            <Thermometer className="w-4 h-4 mr-1 text-blue-500" />
+                            <span className={`font-medium px-2 py-1 rounded ${day.minTemp < 5 ? 'bg-blue-100' : day.minTemp < 10 ? 'bg-green-100' : 'bg-yellow-100'}`}>{day.minTemp}°C</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <div className="flex items-center">
+                            <Droplets className={`w-4 h-4 mr-1 ${getHumidityColor(day.humidity)}`} />
+                            <span className={`font-medium px-2 py-1 rounded-full ${getHumidityBackgroundColor(day.humidity)}`}>{day.humidity}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <div className={`flex items-center ${day.precipitation > 0 ? 'font-semibold' : ''}`}>
+                            <CloudRain className={`w-4 h-4 mr-1 ${day.precipitation > 0 ? 'text-blue-500' : 'text-gray-400'}`} />
+                            <span className={`px-2 py-1 rounded ${day.precipitation > 20 ? 'bg-[#0288D1] text-white' : day.precipitation > 10 ? 'bg-[#81D4FA]' : day.precipitation > 0 ? 'bg-[#E0F7FA]' : ''}`}>
+                              {day.precipitation} mm
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <div className="flex items-center">
+                            {renderWindDirectionIcon(day.windDirection || 'N/A', day.windSpeed)}
+                            <span className="ml-2">{day.windSpeed} km/h ({day.windDirection || 'N/A'})</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <div className="flex items-center">
+                            {renderWeatherIcon(day)}
+                            <span className="ml-2">{day.condition}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <div className="flex items-center">
+                            <Moon className="w-4 h-4 mr-1 text-yellow-500" />
+                            <div className="flex flex-col">
+                              <span>{getItalianPhase(day.moonPhase) || 'N/A'}</span>
+                              <span>{day.moonIllumination || 0}% illuminazione</span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
