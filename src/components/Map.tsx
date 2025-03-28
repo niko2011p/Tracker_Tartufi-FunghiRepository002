@@ -7,6 +7,13 @@ import './MapControls.css';
 import { Finding } from '../types';
 import { MapPin, Crosshair } from 'lucide-react';
 
+// Stile per il contenitore della mappa con sfondo verde
+const mapContainerStyle = {
+  backgroundColor: '#8eaa36',
+  height: '100%',
+  width: '100%'
+};
+
 const useMapStyle = () => {
   const { isPaused } = useTrackStore();
   useEffect(() => {
@@ -109,8 +116,8 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
       html: `
         <div class="finding-icon-wrapper interesse-finding">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 4L28 16L16 28L4 16L16 4Z" fill="#00FF00" stroke="white" strokeWidth="2" strokeLinejoin="round" opacity="${opacity}"/>
-            <circle cx="16" cy="16" r="6" fill="rgba(0,255,0,0.2)" opacity="${opacity}"/>
+            <path d="M16 4L28 16L16 28L4 16L16 4Z" fill="#8eaa36" stroke="white" strokeWidth="2" strokeLinejoin="round" opacity="${opacity}"/>
+            <circle cx="16" cy="16" r="6" fill="rgba(142,170,54,0.2)" opacity="${opacity}"/>
           </svg>
         </div>
       `,
@@ -369,11 +376,17 @@ function MapView() {
     if (mapContainer) {
       if (isRecording || currentTrack?.isPaused) {
         mapContainer.classList.add('map-fullscreen');
-        // Forza il ridisegno del container
+        // Forza il ridisegno del container con un timeout più lungo
         mapContainer.style.display = 'none';
         setTimeout(() => {
-          if (mapContainer) mapContainer.style.display = 'block';
-        }, 10);
+          if (mapContainer) {
+            mapContainer.style.display = 'block';
+            // Forza un reflow del DOM
+            void mapContainer.offsetHeight;
+            // Forza un aggiornamento delle dimensioni della mappa
+            window.dispatchEvent(new Event('resize'));
+          }
+        }, 100);
       } else {
         mapContainer.classList.remove('map-fullscreen');
       }
@@ -387,7 +400,7 @@ function MapView() {
         zoom={mapZoom}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
-        style={{ height: '100%', width: '100%' }}
+        style={mapContainerStyle}
         zoomControl={false}
         whenCreated={(map) => {
           mapRef.current = map;
@@ -482,11 +495,17 @@ export default function Map() {
     if (mapContainer) {
       if (isRecording || currentTrack?.isPaused) {
         mapContainer.classList.add('map-fullscreen');
-        // Forza il ridisegno del container
+        // Forza il ridisegno del container con un timeout più lungo
         mapContainer.style.display = 'none';
         setTimeout(() => {
-          if (mapContainer) mapContainer.style.display = 'block';
-        }, 10);
+          if (mapContainer) {
+            mapContainer.style.display = 'block';
+            // Forza un reflow del DOM
+            void mapContainer.offsetHeight;
+            // Forza un aggiornamento delle dimensioni della mappa
+            window.dispatchEvent(new Event('resize'));
+          }
+        }, 100);
       } else {
         mapContainer.classList.remove('map-fullscreen');
       }

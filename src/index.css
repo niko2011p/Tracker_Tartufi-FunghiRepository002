@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Transizioni per la navigazione tra pagine */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 500ms ease, transform 500ms ease;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 500ms ease, transform 500ms ease;
+}
+
 /* Animazioni pulsanti per le precipitazioni */
 @keyframes pulse-slow {
   0%, 100% { opacity: 1; }
@@ -39,23 +62,40 @@
   body {
     @apply text-gray-900 bg-gray-50;
   }
+  
+  /* Transizioni globali per elementi interattivi */
+  a, button, input, select, textarea, [role="button"] {
+    transition: all 0.4s ease-in-out;
+  }
+  
+  /* Transizioni per i componenti che si caricano */
+  .component-enter {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  
+  .component-enter-active {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 500ms ease, transform 500ms ease;
+  }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-all duration-300 ease-in-out;
   }
 
   .btn-primary {
-    @apply bg-green-500 text-white hover:bg-green-600;
+    @apply bg-[#8eaa36] text-white hover:bg-[#7d9830];
   }
 
   .btn-secondary {
-    @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+    @apply bg-[#fd9a3c] text-white hover:bg-[#e88a2c];
   }
 
   .input {
-    @apply w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-shadow;
+    @apply w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#8eaa36] focus:border-[#8eaa36] transition-shadow;
   }
 
   .card {
@@ -65,7 +105,7 @@
 
 /* Finding icon styles */
 .finding-icon {
-  transition: transform 0.2s ease-in-out;
+  transition: transform 0.4s ease-in-out;
 }
 
 .finding-icon-wrapper {
@@ -88,7 +128,7 @@
 
 /* Custom walker icon styles */
 .walker-icon {
-  transition: transform 0.3s ease-in-out;
+  transition: transform 0.5s ease-in-out;
 }
 
 .walker-icon-wrapper {
@@ -103,7 +143,7 @@
 
 /* GPS Arrow icon styles */
 .gps-arrow-icon {
-  transition: transform 0.3s ease-in-out;
+  transition: transform 0.5s ease-in-out;
 }
 
 .gps-arrow-wrapper {

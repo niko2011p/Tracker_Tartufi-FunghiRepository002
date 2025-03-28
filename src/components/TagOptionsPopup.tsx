@@ -59,7 +59,7 @@ function TagOptionsPopup({ onClose, onCenterMap }: TagOptionsPopupProps) {
             className="w-full flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             <div className="flex items-center">
-              <MapPin className="w-5 h-5 mr-3 text-blue-600" />
+              <MapPin className="w-5 h-5 mr-3 text-[#fd9a3c]" />
               <span className="font-medium">Aggiungi Ritrovamento</span>
             </div>
           </button>

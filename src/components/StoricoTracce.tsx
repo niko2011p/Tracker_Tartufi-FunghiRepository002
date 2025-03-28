@@ -42,7 +42,7 @@ const ExportModal = ({ onClose, onExportLocal, onExportDrive }: ExportModalProps
 
       <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
         <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <Info className="w-5 h-5 text-[#fd9a3c] mt-0.5 flex-shrink-0" />
           <div className="text-sm text-blue-700">
             <p className="mb-2">Prima di esportare le tracce GPX su Google Drive:</p>
             <ol className="list-decimal ml-4 space-y-1">
@@ -56,14 +56,14 @@ const ExportModal = ({ onClose, onExportLocal, onExportDrive }: ExportModalProps
       <div className="space-y-4">
         <button
           onClick={onExportLocal}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
         >
           <Save className="w-5 h-5" />
           <span>Salva sul dispositivo</span>
         </button>
         <button
           onClick={onExportDrive}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#fd9a3c] text-white rounded-lg hover:bg-[#e88a2c] transition-colors"
         >
           <Upload className="w-5 h-5" />
           <span>Esporta su Google Drive</span>
@@ -95,14 +95,14 @@ const ImportModal = ({ onClose, onImportLocal, onImportDrive }: ImportModalProps
       <div className="space-y-4">
         <button
           onClick={onImportLocal}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
         >
           <Save className="w-5 h-5" />
           <span>Importa dal dispositivo</span>
         </button>
         <button
           onClick={onImportDrive}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#fd9a3c] text-white rounded-lg hover:bg-[#e88a2c] transition-colors"
         >
           <Upload className="w-5 h-5" />
           <span>Importa da Google Drive</span>
@@ -207,7 +207,7 @@ export default function StoricoTracce() {
 
     // Show confirmation message
     const confirmationMessage = document.createElement('div');
-    confirmationMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-[10000]';
+    confirmationMessage.className = 'fixed bottom-4 right-4 bg-[#8eaa36] text-white px-4 py-2 rounded-lg shadow-lg z-[10000]';
     confirmationMessage.textContent = `${tracks.length} tracce esportate con successo`;
     document.body.appendChild(confirmationMessage);
     setTimeout(() => document.body.removeChild(confirmationMessage), 3000);
@@ -406,14 +406,14 @@ export default function StoricoTracce() {
             <div className="flex gap-4">
               <button
                 onClick={() => setShowExportModal(true)}
-                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                className="bg-[#8eaa36] text-white px-4 py-2 rounded-lg hover:bg-[#7d9830] transition-colors duration-400 flex items-center gap-2"
               >
                 <Download className="w-5 h-5" />
                 <span className="hidden sm:inline">Esporta GPX</span>
               </button>
               <button
                 onClick={() => setShowImportModal(true)}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                className="bg-[#fd9a3c] text-white px-4 py-2 rounded-lg hover:bg-[#e88a2c] transition-colors duration-400 flex items-center gap-2"
               >
                 <Upload className="w-5 h-5" />
                 <span className="hidden sm:inline">Importa GPX</span>
@@ -434,7 +434,7 @@ export default function StoricoTracce() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cerca per località o ritrovamento..."
-              className="w-full px-4 py-2 pl-10 pr-10 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-shadow"
+              className="w-full px-4 py-2 pl-10 pr-10 border rounded-lg focus:ring-2 focus:ring-[#8eaa36] focus:border-[#8eaa36] transition-shadow"
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             {searchQuery && (
@@ -523,13 +523,13 @@ export default function StoricoTracce() {
                 <div className="flex gap-2 mt-4">
                   <button 
                     onClick={() => setSelectedTrack(track)}
-                    className="flex-1 bg-green-50 text-green-600 py-2 rounded-lg hover:bg-green-100 transition-colors"
+                    className="flex-1 bg-[#8eaa36]/10 text-[#8eaa36] py-2 rounded-lg hover:bg-[#8eaa36]/20 transition-colors duration-400"
                   >
                     Visualizza dettagli
                   </button>
                   <button
                     onClick={() => handleLoadAndNavigate(track)}
-                    className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 bg-[#fd9a3c]/10 text-[#fd9a3c] py-2 rounded-lg hover:bg-[#fd9a3c]/20 transition-colors duration-400 flex items-center justify-center gap-2"
                   >
                     <Navigation className="w-5 h-5" />
                     <span>Carica Ritrovamento e Avvia</span>

@@ -10,6 +10,7 @@ import Impostazioni from './components/Impostazioni';
 import FixedFooter from './components/FixedFooter';
 import MapLogo from './components/MapLogo';
 import PausePage from './components/PausePage';
+import NavigationPage from './components/NavigationPage';
 import FindingForm from './components/FindingForm';
 import { useTrackStore } from './store/trackStore';
 import './components/FixedFooter.css';
@@ -34,12 +35,17 @@ function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType
 }
 
 function MainApp() {
-  const { currentTrack, showFindingForm, setShowFindingForm } = useTrackStore();
+  const { currentTrack, showFindingForm, setShowFindingForm, isRecording } = useTrackStore();
   const isPaused = currentTrack?.isPaused;
 
   // If track is paused, show the pause page
   if (isPaused) {
     return <PausePage />;
+  }
+  
+  // If track is recording (active navigation), show the navigation page
+  if (isRecording) {
+    return <NavigationPage />;
   }
 
   return (

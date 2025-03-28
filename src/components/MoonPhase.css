@@ -27,7 +27,7 @@
 .scroll-progress-bar {
   position: relative;
   height: 4px;
-  background-color: rgba(99, 102, 241, 0.2);
+  background-color: rgba(253, 154, 60, 0.2); /* #fd9a3c */
   border-radius: 9999px;
   margin-top: 8px;
 }
@@ -35,7 +35,7 @@
 .scroll-progress-indicator {
   position: absolute;
   height: 100%;
-  background-color: rgb(99, 102, 241);
+  background-color: rgb(253, 154, 60); /* #fd9a3c */
   border-radius: 9999px;
   transition: left 0.3s ease;
 }

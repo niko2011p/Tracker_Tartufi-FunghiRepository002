@@ -13,15 +13,25 @@
 }
 
 .leaflet-container {
-  height: calc(100vh - 80px); /* Altezza standard */
+  height: calc(100vh - 80px); /* Altezza standard - altezza del footer */
   width: 100%;
   transition: height 0.3s ease, transform 0.3s ease;
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 80px; /* Altezza del footer */
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+/* Riquadro della mappa ingrandito del 10% nella pagina Meteo */
+.meteo-container .leaflet-container {
+  height: calc((100vh - 80px) * 1.1); /* Aumentato del 10% */
+  width: 110%; /* Aumentato del 10% */
+  transform: translate(-5%, -5%); /* Centrato dopo l'ingrandimento */
 }
 
 .leaflet-container.map-paused,
@@ -38,6 +48,9 @@
   margin: 0;
   padding: 0;
   overflow: hidden;
+  /* Forza il rendering a schermo intero */
+  max-height: 100vh !important;
+  max-width: 100vw !important;
 }
 
 .zoom-button {
@@ -99,7 +112,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #4a89dc;
+  background-color: #fd9a3c; /* Arancione */
   color: white;
   width: 60px;
   height: 60px;
@@ -108,12 +121,12 @@
   border: none;
   cursor: pointer;
   font-weight: bold;
-  transition: all 0.2s ease;
+  transition: all 0.4s ease;
 }
 
 .tag-button:hover {
   transform: scale(1.05);
-  background-color: #3a79cc;
+  background-color: #e68a36; /* Versione più scura di #fd9a3c */
 }
 
 .tag-button svg {
@@ -134,14 +147,14 @@
   align-items: center;
   justify-content: center;
   background-color: white;
-  color: #4a89dc;
+  color: #fd9a3c; /* Arancione */
   width: 50px;
   height: 50px;
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.4s ease;
 }
 
 .center-button:hover {

@@ -186,7 +186,7 @@ function TrackingControls() {
                     setSpeciesName('');
                     setShowSuggestions(false);
                   }}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#8eaa36] focus:ring-[#8eaa36]"
                   required
                 >
                   <option value="Fungo">Fungo</option>
@@ -206,7 +206,7 @@ function TrackingControls() {
                     setShowSuggestions(true);
                   }}
                   onFocus={() => setShowSuggestions(true)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#8eaa36] focus:ring-[#8eaa36]"
                   placeholder={`Cerca ${findingType.toLowerCase()}...`}
                   required
                 />
@@ -250,7 +250,7 @@ function TrackingControls() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                      className="w-full h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-[#fd9a3c] hover:bg-[#fd9a3c]/10 transition-colors duration-400"
                     >
                       <Upload className="w-6 h-6 text-gray-400" />
                       <span className="text-sm text-gray-500">Carica foto</span>
@@ -267,7 +267,7 @@ function TrackingControls() {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+                        className="p-2 bg-[#8eaa36] text-white rounded-full hover:bg-[#7d9830] transition-colors duration-400"
                         title="Carica nuova foto"
                       >
                         <Upload className="w-4 h-4" />
@@ -298,7 +298,7 @@ function TrackingControls() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                  className="px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
                 >
                   Salva
                 </button>
@@ -336,7 +336,7 @@ function TrackingControls() {
                     </button>
                     <button
                       onClick={() => setShowFindingForm(true)}
-                      className="w-full sm:w-auto bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-3 font-medium"
+                      className="w-full sm:w-auto bg-[#fd9a3c] text-white px-6 py-3 rounded-lg hover:bg-[#e88a2c] transition-colors duration-400 flex items-center justify-center gap-3 font-medium"
                     >
                       <MapPin className="w-6 h-6" />
                       <span>Aggiungi Ritrovamento</span>
@@ -352,7 +352,7 @@ function TrackingControls() {
               to="/"
               className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                 location.pathname === '/' 
-                  ? 'bg-green-100 text-green-700' 
+                  ? 'bg-[#8eaa36]/10 text-[#8eaa36]' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
@@ -363,7 +363,7 @@ function TrackingControls() {
               to="/storico"
               className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                 location.pathname === '/storico'
-                  ? 'bg-green-100 text-green-700'
+                  ? 'bg-[#8eaa36]/10 text-[#8eaa36]'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
@@ -374,7 +374,7 @@ function TrackingControls() {
               to="/meteo"
               className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                 location.pathname === '/meteo'
-                  ? 'bg-green-100 text-green-700'
+                  ? 'bg-[#8eaa36]/10 text-[#8eaa36]'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >

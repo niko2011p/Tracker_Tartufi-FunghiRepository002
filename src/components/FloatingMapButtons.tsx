@@ -118,7 +118,7 @@ function FloatingMapButtons() {
             aria-label="Logger"
           >
             <History className="w-5 h-5" />
-            <span className="text-[#4b5320]">Logger</span>
+            <span>Logger</span>
           </Link>
         </>
       ) : (

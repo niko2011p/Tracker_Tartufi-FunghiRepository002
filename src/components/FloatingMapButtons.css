@@ -1,14 +1,15 @@
 .floating-map-buttons {
   position: fixed;
-  bottom: 120px;
+  top: 20px; /* Posizionato in alto */
   left: 50%;
   transform: translateX(-50%);
   z-index: 1001;
   display: flex;
-  flex-direction: row;
-  gap: 16px;
+  flex-direction: row; /* Cambiato da column a row per allineare orizzontalmente */
+  gap: 24px;
   pointer-events: none;
-  transition: opacity 0.3s ease;
+  transition: all 0.4s ease;
+  align-items: center; /* Centra verticalmente gli elementi */
 }
 
 .floating-map-buttons.paused {
@@ -23,14 +24,14 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 1001;
-  background-color: rgba(34, 197, 94, 0.9);
+  background-color: rgba(142, 170, 54, 0.9); /* #8eaa36 */
   color: white;
   padding: 16px 28px;
   border-radius: 9999px;
   font-weight: 600;
   font-size: 1.1rem;
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
+  transition: all 0.4s ease;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   pointer-events: auto;
@@ -46,7 +47,7 @@
 }
 
 .resume-button:hover {
-  background-color: rgba(22, 163, 74, 0.95);
+  background-color: rgba(125, 152, 48, 0.95); /* Versione più scura di #8eaa36 */
   transform: translateX(-50%) translateY(-3px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
 }
@@ -61,7 +62,7 @@
   font-weight: 600;
   font-size: 1.1rem;
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
+  transition: all 0.4s ease;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   pointer-events: auto;
@@ -80,27 +81,136 @@
 }
 
 .floating-button-start {
-  background-color: rgba(34, 197, 94, 0.9);
+  background-color: rgba(142, 170, 54, 0.9); /* #8eaa36 */
   color: white;
-  transform: scale(1.1);
-  padding: 14px 24px;
+  transform: scale(1.2);
+  padding: 20px 32px;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  animation: pulseStart 2s infinite;
+  transition: all 0.4s ease;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@keyframes pulseStart {
+  0% {
+    transform: scale(1.2);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    transform: scale(1.3);
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4);
+  }
+  100% {
+    transform: scale(1.2);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  }
 }
 
 .floating-button-start:hover {
-  background-color: rgba(22, 163, 74, 0.95);
-  transform: scale(1.3) translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  background-color: rgba(125, 152, 48, 0.95); /* Versione più scura di #8eaa36 */
+  transform: scale(1.35) translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Stile migliorato per l'icona e il testo del pulsante Avvia */
+.floating-button-start .w-5 {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.7));
+}
+
+.floating-button-start span {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+/* Effetto brillantezza */
+.floating-button-start::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
+  animation: glitter 4s infinite;
+}
+
+@keyframes glitter {
+  0% {
+    transform: scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.2) rotate(360deg);
+    opacity: 0;
+  }
 }
 
 .floating-button-history {
-  background-color: rgba(245, 158, 11, 0.9);
+  background-color: rgba(253, 154, 60, 0.9);
   color: white;
+  width: 102px;
+  height: 102px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  animation: pulse 2s infinite;
+  transition: all 0.4s ease;
+  transform: scale(1.0);
 }
 
 .floating-button-history:hover {
-  background-color: rgba(217, 119, 6, 0.95);
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  background-color: rgba(230, 138, 54, 0.95);
+  transform: scale(1.15) translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Aggiunto effetto brillantezza al pulsante Logger */
+.floating-button-history::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
+  animation: glitter 4s infinite;
 }
 
 .floating-button-pause {

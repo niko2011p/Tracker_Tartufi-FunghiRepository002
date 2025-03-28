@@ -63,7 +63,7 @@ export default function Impostazioni() {
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#8eaa36]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#8eaa36]"></div>
               </label>
             </div>
           </div>
@@ -92,13 +92,13 @@ export default function Impostazioni() {
               <button
                 onClick={handleTestWeatherApi}
                 disabled={isLoading}
-                className="flex items-center text-gray-700 hover:text-gray-900 bg-blue-100 px-4 py-2 rounded-md disabled:opacity-50"
+                className="flex items-center text-gray-700 hover:text-gray-900 bg-[#fd9a3c]/10 px-4 py-2 rounded-md disabled:opacity-50"
               >
                 <span>{isLoading ? 'Verifica in corso...' : 'Verifica API WeatherAPI'}</span>
               </button>
 
               {weatherApiStatus && (
-                <div className={`mt-3 p-3 rounded ${weatherApiStatus.isValid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                <div className={`mt-3 p-3 rounded ${weatherApiStatus.isValid ? 'bg-[#8eaa36]/10 text-[#8eaa36]/90' : 'bg-red-100 text-red-800'}`}>
                   {weatherApiStatus.message}
                 </div>
               )}
@@ -121,7 +121,7 @@ export default function Impostazioni() {
                 </div>
               )}
               <div className="mt-4 flex flex-col items-center space-y-2">
-                <a href="https://www.weatherapi.com/" title="Free Weather API" className="text-blue-600 hover:text-blue-800">
+                <a href="https://www.weatherapi.com/" title="Free Weather API" className="text-[#fd9a3c] hover:text-[#e88a2c]">
                   Powered by WeatherAPI.com
                 </a>
                 <a href="https://www.weatherapi.com/" title="Free Weather API">

@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import { useTrackStore } from '../store/trackStore';
-import { Play } from 'lucide-react';
+import { Pause, Square, MapPin, AlertCircle } from 'lucide-react';
 import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
+import './PausePage.css';
 import { Finding } from '../types';
+import FindingForm from './FindingForm';
+import TagOptionsPopup from './TagOptionsPopup';
 
 // Constants from Map.tsx
 const MIN_ZOOM = 4;
@@ -38,15 +41,16 @@ const createGpsArrowIcon = (direction = 0) => {
   });
 };
 
-const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false) => {
+const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: boolean = false) => {
+  const opacity = isLoaded ? '0.5' : '1';
+  const pulseAnimation = isLoaded ? '' : 'animate-pulse';
+  
   if (type === 'Fungo') {
-    const color = '#DC2626';
-    const opacity = isLoaded ? '0.5' : '1';
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper fungo-finding ${pulseAnimation}">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="8" fill="${color}" stroke="white" stroke-width="2" opacity="${opacity}"/>
+            <circle cx="12" cy="12" r="8" fill="#DC2626" stroke="white" stroke-width="2" opacity="${opacity}"/>
             <circle cx="12" cy="12" r="4" fill="rgba(255,255,255,0.3)" opacity="${opacity}"/>
           </svg>
         </div>
@@ -56,8 +60,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false)
       iconAnchor: [12, 12],
       popupAnchor: [0, -12]
     });
-  } else {
-    const opacity = isLoaded ? '0.5' : '1';
+  } else if (type === 'Tartufo') {
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper tartufo-finding ${pulseAnimation}">
@@ -85,11 +88,29 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isLoaded: boolean = false)
       iconAnchor: [16, 16],
       popupAnchor: [0, -16]
     });
+  } else {
+    // Punto di interesse
+    return new DivIcon({
+      html: `
+        <div class="finding-icon-wrapper interesse-finding ${pulseAnimation}">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 4L28 16L16 28L4 16L16 4Z" fill="#8eaa36" stroke="white" stroke-width="2" stroke-linejoin="round" opacity="${opacity}"/>
+            <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.2)" opacity="${opacity}"/>
+          </svg>
+        </div>
+      `,
+      className: 'finding-icon interesse-finding',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16]
+    });
   }
 };
 
-const PausePage: React.FC = () => {
-  const { currentTrack, resumeTrack, currentDirection, loadedFindings } = useTrackStore();
+const NavigationPage: React.FC = () => {
+  const { currentTrack, pauseTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection, loadedFindings } = useTrackStore();
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [showTagOptions, setShowTagOptions] = useState(false);
   
   // Helper function to determine if a finding is from loaded findings
   const isLoadedFinding = (finding: Finding) => {
@@ -140,7 +161,10 @@ const PausePage: React.FC = () => {
                 <Marker
                   key={finding.id}
                   position={finding.coordinates}
-                  icon={createFindingIcon(finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo')}
+                  icon={createFindingIcon(
+                    finding.type === 'poi' ? 'Interesse' : 
+                    finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo'
+                  )}
                 />
               ))}
           </>
@@ -152,6 +176,7 @@ const PausePage: React.FC = () => {
             key={`loaded-${finding.id}`}
             position={finding.coordinates}
             icon={createFindingIcon(
+              finding.type === 'poi' ? 'Interesse' : 
               finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo',
               true
             )}
@@ -159,18 +184,82 @@ const PausePage: React.FC = () => {
         ))}
       </MapContainer>
       
-      {/* Riavvia button */}
-      <div className="fixed bottom-10 left-0 right-0 flex justify-center z-[10000]">
+      {/* Control buttons */}
+      <div className="fixed bottom-10 left-0 right-0 flex justify-center gap-4 z-[10000]">
         <button
-          onClick={resumeTrack}
-          className="bg-[#8eaa36] text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg flex items-center gap-2 hover:bg-[#7d9830] transition-colors duration-400"
+          onClick={pauseTrack}
+          className="bg-yellow-500 text-white px-6 py-4 rounded-full font-bold text-lg shadow-lg flex items-center gap-2 hover:bg-yellow-600 transition-colors"
         >
-          <Play className="w-6 h-6" />
-          Riavvia
+          <Pause className="w-6 h-6" />
+          Pausa
+        </button>
+        
+        <button
+          onClick={() => setShowStopConfirm(true)}
+          className="bg-red-500 text-white px-6 py-4 rounded-full font-bold text-lg shadow-lg flex items-center gap-2 hover:bg-red-600 transition-colors"
+        >
+          <Square className="w-6 h-6" />
+          Stop
+        </button>
+        
+        <button
+          onClick={() => setShowTagOptions(true)}
+          className="bg-[#fd9a3c] text-white px-6 py-4 rounded-full font-bold text-lg shadow-lg flex items-center gap-2 hover:bg-[#e88a2c] transition-colors"
+        >
+          <MapPin className="w-6 h-6" />
+          Tag
         </button>
       </div>
+      
+      {/* Mostra il form per aggiungere un ritrovamento quando richiesto */}
+      {showFindingForm && <FindingForm onClose={() => setShowFindingForm(false)} />}
+      
+      {/* Popup opzioni Tag */}
+      {showTagOptions && (
+        <TagOptionsPopup 
+          onClose={() => setShowTagOptions(false)}
+          onCenterMap={() => {}}
+        />
+      )}
+      
+      {/* Popup di conferma per lo Stop */}
+      {showStopConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertCircle className="w-6 h-6 text-yellow-500" />
+              <h3 className="text-lg font-semibold">Conferma interruzione</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-2">
+              Sei sicuro di voler interrompere la registrazione della traccia?
+            </p>
+            <p className="text-gray-600 mb-6">
+              La traccia verrà salvata automaticamente nello storico.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowStopConfirm(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  stopTrack();
+                  setShowStopConfirm(false);
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Salva Log e Interrompi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default PausePage;
+export default NavigationPage;

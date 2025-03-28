@@ -18,7 +18,7 @@ export default function NavigationTrail() {
   useEffect(() => {
     // Create the trail polyline
     trailRef.current = L.polyline([], {
-      color: '#4CAF50',
+      color: '#8eaa36',
       weight: 2,
       opacity: 0.7,
       smoothFactor: 1,

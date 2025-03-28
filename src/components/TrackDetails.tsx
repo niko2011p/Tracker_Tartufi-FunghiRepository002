@@ -60,7 +60,7 @@ const ShareModal = ({ onClose, onShare, isGenerating }: ShareModalProps) => (
         </p>
         <ul className="mt-2 space-y-2 text-sm text-gray-600">
           <li className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-green-500" />
+            <MapPin className="w-4 h-4 text-[#8eaa36]" />
             <span>La traccia GPS completa del percorso</span>
           </li>
           <li className="flex items-center gap-2">
@@ -72,7 +72,7 @@ const ShareModal = ({ onClose, onShare, isGenerating }: ShareModalProps) => (
             <span>Marker per i tartufi trovati</span>
           </li>
           <li className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-blue-500" />
+            <MapPin className="w-4 h-4 text-[#fd9a3c]" />
             <span>Legenda con il significato delle icone</span>
           </li>
         </ul>
@@ -83,7 +83,7 @@ const ShareModal = ({ onClose, onShare, isGenerating }: ShareModalProps) => (
         className={`w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-colors ${
           isGenerating 
             ? 'bg-gray-300 cursor-not-allowed' 
-            : 'bg-blue-500 hover:bg-blue-600 text-white'
+            : 'bg-[#fd9a3c] hover:bg-[#e88a2c] text-white'
         }`}
       >
         {isGenerating ? (
@@ -124,14 +124,14 @@ const ExportModal = ({ onClose, onExportLocal, onExportDrive }: ExportModalProps
       <div className="space-y-4">
         <button
           onClick={onExportLocal}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
         >
           <Save className="w-5 h-5" />
           <span>Salva sul dispositivo</span>
         </button>
         <button
           onClick={onExportDrive}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#fd9a3c] text-white rounded-lg hover:bg-[#e88a2c] transition-colors"
         >
           <Upload className="w-5 h-5" />
           <span>Esporta su Google Drive</span>
@@ -257,7 +257,7 @@ export default function TrackDetails({ track, onClose }: TrackDetailsProps) {
     
     // Show confirmation message
     const confirmationMessage = document.createElement('div');
-    confirmationMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-[10000]';
+    confirmationMessage.className = 'fixed bottom-4 right-4 bg-[#8eaa36] text-white px-4 py-2 rounded-lg shadow-lg z-[10000]';
     confirmationMessage.textContent = `File salvato come: ${generateFileName(track)}`;
     document.body.appendChild(confirmationMessage);
     setTimeout(() => document.body.removeChild(confirmationMessage), 3000);
@@ -459,14 +459,14 @@ ${track.findings.map(f => `${f.name.startsWith('Fungo') ? '🍄' : '🎯'} ${f.n
           <div className="flex gap-3">
             <button
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-[#fd9a3c] hover:bg-[#fd9a3c]/10 rounded-lg transition-colors"
             >
               <Share2 className="w-5 h-5" />
               <span>Condividi</span>
             </button>
             <button
               onClick={() => setShowExportModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
             >
               <Download className="w-5 h-5" />
               <span>Esporta GPX</span>

@@ -231,7 +231,7 @@ const WeatherForecast: React.FC = () => {
 
   // Funzione per determinare il colore del vento in base alla velocità
   const getWindColor = (speed: number) => {
-    if (speed < 20) return 'text-green-500';
+    if (speed < 20) return 'text-[#8eaa36]';
     if (speed < 40) return 'text-yellow-500';
     if (speed < 60) return 'text-orange-500';
     return 'text-red-500';
@@ -240,16 +240,16 @@ const WeatherForecast: React.FC = () => {
   // Funzione per determinare il colore dell'umidità in base alla percentuale
   const getHumidityColor = (humidity: number) => {
     if (humidity < 30) return 'text-red-500';
-    if (humidity < 50) return 'text-green-500';
-    if (humidity < 70) return 'text-blue-500';
+    if (humidity < 50) return 'text-[#8eaa36]';
+    if (humidity < 70) return 'text-[#fd9a3c]';
     return 'text-purple-500';
   };
 
   // Funzione per ottenere il colore di sfondo in base all'umidità
   const getHumidityBackgroundColor = (humidity: number) => {
     if (humidity < 30) return 'bg-red-100';
-    if (humidity < 50) return 'bg-green-100';
-    if (humidity < 70) return 'bg-blue-100';
+    if (humidity < 50) return 'bg-[#8eaa36]/10';
+    if (humidity < 70) return 'bg-[#fd9a3c]/10';
     return 'bg-purple-100';
   };
 
@@ -311,14 +311,14 @@ const WeatherForecast: React.FC = () => {
       case 'patchy light rain':
       case 'moderate rain at times':
       case 'heavy rain at times':
-        return <CloudRain className="w-8 h-8 text-blue-500" />;
+        return <CloudRain className="w-8 h-8 text-[#fd9a3c]" />;
       case 'snow':
       case 'light snow':
       case 'heavy snow':
       case 'patchy snow possible':
       case 'patchy light snow':
       case 'moderate or heavy snow showers':
-        return <CloudSnow className="w-8 h-8 text-blue-200" />;
+        return <CloudSnow className="w-8 h-8 text-[#fd9a3c]/70" />;
       case 'thunderstorm':
       case 'thundery outbreaks possible':
       case 'patchy light rain with thunder':
@@ -359,7 +359,7 @@ const WeatherForecast: React.FC = () => {
             </div>
 
             <div className="flex items-center">
-              <Droplets className="w-5 h-5 mr-2 text-blue-500" />
+              <Droplets className="w-5 h-5 mr-2 text-[#fd9a3c]" />
               <div>
                 <p className="text-sm text-gray-600">Umidità</p>
                 <p className="font-semibold">{weather.humidity}%</p>
@@ -441,7 +441,7 @@ const WeatherForecast: React.FC = () => {
       if (loading) {
         return (
           <div className="text-center py-4">
-            <Loader2 className="animate-spin h-8 w-8 text-blue-500 mx-auto" />
+            <Loader2 className="animate-spin h-8 w-8 text-[#fd9a3c] mx-auto" />
             <p className="mt-2 text-gray-600">Caricamento dati meteo...</p>
           </div>
         );
@@ -467,7 +467,7 @@ const WeatherForecast: React.FC = () => {
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Data</th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
                       <div className="flex items-center">
-                        <CloudRain className="w-4 h-4 mr-1 text-blue-500" />
+                        <CloudRain className="w-4 h-4 mr-1 text-[#fd9a3c]" />
                         <span>Precipitazioni</span>
                       </div>
                     </th>
@@ -479,7 +479,7 @@ const WeatherForecast: React.FC = () => {
                     </th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
                       <div className="flex items-center">
-                        <Thermometer className="w-4 h-4 mr-1 text-blue-500" />
+                        <Thermometer className="w-4 h-4 mr-1 text-[#fd9a3c]" />
                         <span>Temp. min</span>
                       </div>
                     </th>
@@ -549,7 +549,7 @@ const WeatherForecast: React.FC = () => {
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">
                           <div className={`flex items-center ${day.precipitation > 0 ? 'font-semibold' : ''}`}>
-                            <CloudRain className={`w-4 h-4 mr-1 ${day.precipitation > 0 ? 'text-blue-500' : 'text-gray-400'}`} />
+                            <CloudRain className={`w-4 h-4 mr-1 ${day.precipitation > 0 ? 'text-[#fd9a3c]' : 'text-gray-400'}`} />
                             <span className={`px-2 py-1 rounded ${day.precipitation > 20 ? 'bg-[#0288D1] text-white' : day.precipitation > 10 ? 'bg-[#81D4FA]' : day.precipitation > 0 ? 'bg-[#E0F7FA]' : ''}`}>
                               {day.precipitation} mm
                             </span>
@@ -563,8 +563,8 @@ const WeatherForecast: React.FC = () => {
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">
                           <div className="flex items-center">
-                            <Thermometer className="w-4 h-4 mr-1 text-blue-500" />
-                            <span className={`font-medium px-2 py-1 rounded ${day.minTemp < 5 ? 'bg-blue-100' : day.minTemp < 10 ? 'bg-green-100' : 'bg-yellow-100'}`}>{day.minTemp}°C</span>
+                            <Thermometer className="w-4 h-4 mr-1 text-[#fd9a3c]" />
+                            <span className={`font-medium px-2 py-1 rounded ${day.minTemp < 5 ? 'bg-[#fd9a3c]/10' : day.minTemp < 10 ? 'bg-[#8eaa36]/10' : 'bg-yellow-100'}`}>{day.minTemp}°C</span>
                           </div>
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">
@@ -755,7 +755,7 @@ const WeatherForecast: React.FC = () => {
               value={searchQuery}
               onChange={(e) => handleSearchInputChange(e.target.value)}
               placeholder="Cerca località..."
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#fd9a3c] focus:border-[#fd9a3c]"
             />
             {suggestions.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
@@ -778,13 +778,13 @@ const WeatherForecast: React.FC = () => {
           </div>
           <button
             onClick={handleSearch}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-[#fd9a3c] text-white rounded-lg hover:bg-[#e88a2c] transition-colors duration-400 flex items-center justify-center gap-2"
           >
             <span>Cerca</span>
           </button>
           <button
             onClick={handleGpsLocation}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400 flex items-center justify-center gap-2"
             disabled={isLoadingLocation}
           >
             {isLoadingLocation ? (
@@ -804,7 +804,7 @@ const WeatherForecast: React.FC = () => {
           <button 
             onClick={handlePrevDay} 
             disabled={currentIndex === 0}
-            className={`p-2 rounded ${currentIndex === 0 ? 'text-gray-400' : 'text-blue-500 hover:bg-blue-50'}`}
+            className={`p-2 rounded ${currentIndex === 0 ? 'text-gray-400' : 'text-[#fd9a3c] hover:bg-[#fd9a3c]/10'}`}
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
@@ -819,7 +819,7 @@ const WeatherForecast: React.FC = () => {
           <button 
             onClick={handleNextDay} 
             disabled={currentIndex === forecast.length - 1}
-            className={`p-2 rounded ${currentIndex === forecast.length - 1 ? 'text-gray-400' : 'text-blue-500 hover:bg-blue-50'}`}
+            className={`p-2 rounded ${currentIndex === forecast.length - 1 ? 'text-gray-400' : 'text-[#fd9a3c] hover:bg-[#fd9a3c]/10'}`}
           >
             <ChevronRight className="w-6 h-6" />
           </button>

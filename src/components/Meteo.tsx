@@ -189,11 +189,11 @@ const getWeatherIcon = (condition: string) => {
     case 'rain':
     case 'light rain':
     case 'heavy rain':
-      return <CloudRain className="w-8 h-8 text-blue-500" />;
+      return <CloudRain className="w-8 h-8 text-[#fd9a3c]" />;
     case 'snow':
     case 'light snow':
     case 'heavy snow':
-      return <CloudSnow className="w-8 h-8 text-blue-300" />;
+      return <CloudSnow className="w-8 h-8 text-[#fd9a3c]/70" />;
     case 'thunderstorm':
       return <CloudLightning className="w-8 h-8 text-yellow-600" />;
     default:
@@ -202,7 +202,7 @@ const getWeatherIcon = (condition: string) => {
 };
 
 const getWindColor = (speed: number) => {
-  if (speed < 20) return 'text-green-500';
+  if (speed < 20) return 'text-[#8eaa36]';
   if (speed < 40) return 'text-yellow-500';
   if (speed < 60) return 'text-orange-500';
   return 'text-red-500';
@@ -210,8 +210,8 @@ const getWindColor = (speed: number) => {
 
 const getHumidityColor = (humidity: number) => {
   if (humidity < 30) return 'bg-red-100';
-  if (humidity < 50) return 'bg-green-100';
-  if (humidity < 70) return 'bg-blue-100';
+  if (humidity < 50) return 'bg-[#8eaa36]/10';
+  if (humidity < 70) return 'bg-[#fd9a3c]/10';
   return 'bg-purple-100';
 };
 
@@ -1069,7 +1069,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8eaa36]"></div>
       </div>
     );
   }
@@ -1119,11 +1119,11 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
                 value={searchQuery}
                 onChange={(e) => handleSearchInputChange(e.target.value)}
                 placeholder="Cerca località..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#fd9a3c]"
               />
               {isSearching && (
                 <div className="absolute right-3 top-2.5">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#fd9a3c]"></div>
                 </div>
               )}
               
@@ -1145,7 +1145,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
             
             <button
               onClick={handleSearch}
-              className="w-full md:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              className="w-full md:w-auto px-4 py-2 bg-[#fd9a3c] text-white rounded-lg hover:bg-[#e88a2c] transition-colors"
             >
               Cerca
             </button>
@@ -1153,7 +1153,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
             <button
               onClick={handleGpsActivation}
               disabled={isGpsLoading}
-              className="w-full md:w-auto px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center"
+              className="w-full md:w-auto px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors flex items-center justify-center"
             >
               {isGpsLoading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -1197,8 +1197,8 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         )}
       
       {selectedLocation && (
-        <div className="mb-6 bg-blue-50 p-4 rounded-lg flex items-center">
-          <MapPin className="w-5 h-5 text-blue-500 mr-2" />
+        <div className="mb-6 bg-[#fd9a3c]/10 p-4 rounded-lg flex items-center">
+          <MapPin className="w-5 h-5 text-[#fd9a3c] mr-2" />
           <div>
             <span className="font-medium">{selectedLocation.name}</span>
             {selectedLocation.region && (
@@ -1207,7 +1207,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
           </div>
           <button 
             onClick={handleGpsActivation}
-            className="ml-auto text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-3 rounded-full flex items-center"
+            className="ml-auto text-sm bg-[#fd9a3c]/10 hover:bg-[#fd9a3c]/20 text-[#fd9a3c] py-1 px-3 rounded-full flex items-center"
           >
             <Compass className="w-4 h-4 mr-1" />
             Usa posizione attuale
@@ -1219,7 +1219,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#fd9a3c]"></div>
         </div>
       ) : (
         <div>
@@ -1248,7 +1248,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <Droplets className="w-5 h-5 text-blue-500 mr-2" />
+                      <Droplets className="w-5 h-5 text-[#fd9a3c] mr-2" />
                       <div>
                         <div className="text-sm text-gray-500">Umidità</div>
                         <div>{currentWeather.humidity}%</div>
@@ -1262,7 +1262,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <CloudRain className="w-5 h-5 text-blue-400 mr-2" />
+                      <CloudRain className="w-5 h-5 text-[#fd9a3c]/80 mr-2" />
                       <div>
                         <div className="text-sm text-gray-500">Precipitazioni</div>
                         <div>{currentWeather.precip_mm.toFixed(1)} mm</div>
@@ -1332,7 +1332,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
                 <h2 className="text-2xl font-bold text-gray-800">Previsioni</h2>
                 <Link 
                   to="/previsioni" 
-                  className="text-blue-600 hover:text-blue-800 flex items-center"
+                  className="text-[#fd9a3c] hover:text-[#e88a2c] flex items-center"
                 >
                   Dettagli <ChevronRight className="w-4 h-4 ml-1" />
                 </Link>
@@ -1369,20 +1369,20 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
                         yAxisId="left"
                         type="monotone"
                         dataKey="temperatura"
-                        stroke="#ef4444"
+                        stroke="#fd9a3c"
                         activeDot={{ r: 8 }}
                       />
                       <Line
                         yAxisId="left"
                         type="monotone"
                         dataKey="umidità"
-                        stroke="#3b82f6"
+                        stroke="#fd9a3c"
                       />
                       <Line
                         yAxisId="right"
                         type="monotone"
                         dataKey="precipitazioni"
-                        stroke="#10b981"
+                        stroke="#8eaa36"
                       />
                     </LineChart>
                   </ResponsiveContainer>

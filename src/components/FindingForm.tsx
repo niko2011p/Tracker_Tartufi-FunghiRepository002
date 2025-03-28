@@ -119,7 +119,7 @@ function FindingForm({ onClose }: FindingFormProps) {
               <label className="inline-flex items-center">
                 <input
                   type="radio"
-                  className="form-radio text-green-600"
+                  className="form-radio text-[#8eaa36]"
                   name="findingType"
                   value="Fungo"
                   checked={findingType === 'Fungo'}
@@ -134,7 +134,7 @@ function FindingForm({ onClose }: FindingFormProps) {
               <label className="inline-flex items-center">
                 <input
                   type="radio"
-                  className="form-radio text-green-600"
+                  className="form-radio text-[#8eaa36]"
                   name="findingType"
                   value="Tartufo"
                   checked={findingType === 'Tartufo'}
@@ -161,7 +161,7 @@ function FindingForm({ onClose }: FindingFormProps) {
                 setShowSuggestions(true);
               }}
               onFocus={() => setShowSuggestions(true)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#8eaa36] focus:ring-[#8eaa36]"
               placeholder={`Cerca ${findingType.toLowerCase()}...`}
               required
             />
@@ -215,7 +215,7 @@ function FindingForm({ onClose }: FindingFormProps) {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                    className="flex-1 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-[#fd9a3c] hover:bg-[#fd9a3c]/10 transition-colors"
                   >
                     <Upload className="w-6 h-6 text-gray-400" />
                     <span className="text-sm text-gray-500">Carica foto</span>
@@ -224,7 +224,7 @@ function FindingForm({ onClose }: FindingFormProps) {
                   <button
                     type="button"
                     onClick={handleCameraCapture}
-                    className="flex-1 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                    className="flex-1 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-[#fd9a3c] hover:bg-[#fd9a3c]/10 transition-colors"
                   >
                     <Camera className="w-6 h-6 text-gray-400" />
                     <span className="text-sm text-gray-500">Scatta foto</span>
@@ -241,7 +241,7 @@ function FindingForm({ onClose }: FindingFormProps) {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+                      className="p-2 bg-[#8eaa36] text-white rounded-full hover:bg-[#7d9830] transition-colors duration-400"
                       title="Carica nuova foto"
                     >
                       <Upload className="w-4 h-4" />
@@ -249,7 +249,7 @@ function FindingForm({ onClose }: FindingFormProps) {
                     <button
                       type="button"
                       onClick={handleCameraCapture}
-                      className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+                      className="p-2 bg-[#fd9a3c] text-white rounded-full hover:bg-[#e88a2c] transition-colors duration-400"
                       title="Scatta nuova foto"
                     >
                       <Camera className="w-4 h-4" />
@@ -281,7 +281,7 @@ function FindingForm({ onClose }: FindingFormProps) {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              className="px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
             >
               Salva
             </button>
