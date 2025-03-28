@@ -1,0 +1,41 @@
+/* Stili per il widget delle fasi lunari */
+
+/* Stile per il carousel orizzontale */
+.lunar-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; /* Per una migliore inerzia di scorrimento su iOS */
+  scrollbar-width: none; /* Nasconde la scrollbar su Firefox */
+  -ms-overflow-style: none; /* Nasconde la scrollbar su IE/Edge */
+  padding-bottom: 8px;
+}
+
+/* Nasconde la scrollbar su Chrome/Safari */
+.lunar-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+/* Stile per gli elementi del carousel */
+.lunar-item {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  transition: all 0.2s ease;
+}
+
+/* Stile per la barra di scorrimento personalizzata */
+.scroll-progress-bar {
+  position: relative;
+  height: 4px;
+  background-color: rgba(99, 102, 241, 0.2);
+  border-radius: 9999px;
+  margin-top: 8px;
+}
+
+.scroll-progress-indicator {
+  position: absolute;
+  height: 100%;
+  background-color: rgb(99, 102, 241);
+  border-radius: 9999px;
+  transition: left 0.3s ease;
+}

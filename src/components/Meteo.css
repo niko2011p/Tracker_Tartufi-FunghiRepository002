@@ -1,0 +1,23 @@
+/* Stili per la pagina Meteo */
+
+/* Contenitore principale della pagina Meteo */
+.meteo-container {
+  padding-top: 70px; /* Spazio per evitare sovrapposizioni con il logo */
+}
+
+/* Stile per il contenuto della pagina Meteo */
+.meteo-content {
+  padding-top: 10px;
+}
+
+/* Stile per il campo di ricerca e altri elementi in alto */
+.meteo-search-container {
+  margin-top: 10px;
+}
+
+/* Responsive: riduce il padding su schermi più piccoli */
+@media (max-width: 768px) {
+  .meteo-container {
+    padding-top: 60px;
+  }
+}

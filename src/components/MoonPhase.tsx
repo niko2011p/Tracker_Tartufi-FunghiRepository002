@@ -4,6 +4,7 @@ import { format, addDays, subDays, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { getAstroData } from '../services/weatherService';
 import { useWeatherStore } from '../store/weatherStore';
+import './MoonPhase.css';
 
 interface MoonData {
   phase: string;
@@ -357,20 +358,35 @@ const MoonPhase: React.FC = () => {
               <span className="font-medium text-indigo-700">{moonData.sunset || 'Non disponibile'}</span>
             </div>
           </div>
-          <div className="flex justify-center mt-4 space-x-1 col-span-1 md:col-span-2">
-            {Array.from({ length: 11 }, (_, i) => {
-              // Mostra 7 giorni indietro, oggi, e 3 giorni avanti
-              const date = subDays(new Date(), 7 - i);
-              const isSelected = format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
-              return (
-                <div
-                  key={i}
-                  className={`w-2 h-2 rounded-full ${isSelected ? 'bg-indigo-600' : 'bg-indigo-200'}`}
-                  onClick={() => setSelectedDate(date)}
-                  style={{ cursor: 'pointer' }}
-                />
-              );
-            })}
+          <div className="col-span-1 md:col-span-2 mt-4">
+            <div className="lunar-carousel overflow-x-auto scroll-snap-type-x mandatory flex pb-2 hide-scrollbar">
+              {Array.from({ length: 11 }, (_, i) => {
+                // Mostra 7 giorni indietro, oggi, e 3 giorni avanti
+                const date = subDays(new Date(), 7 - i);
+                const isSelected = format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+                return (
+                  <div
+                    key={i}
+                    className={`lunar-item flex-none scroll-snap-align-start px-3 py-2 mx-1 rounded-md ${isSelected ? 'bg-indigo-100 border border-indigo-300' : 'bg-white/50 hover:bg-indigo-50'}`}
+                    onClick={() => setSelectedDate(date)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className="text-sm font-medium text-indigo-800">
+                      {format(date, 'd MMM', { locale: it })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="relative h-1 bg-indigo-100 rounded-full mt-2">
+              <div 
+                className="absolute h-1 bg-indigo-500 rounded-full" 
+                style={{ 
+                  width: `${100/11}%`, 
+                  left: `${(100/11) * (7 - (subDays(new Date(), 7).getTime() - selectedDate.getTime()) / (24 * 60 * 60 * 1000))}%` 
+                }}
+              />
+            </div>
           </div>
         </div>
       ) : (

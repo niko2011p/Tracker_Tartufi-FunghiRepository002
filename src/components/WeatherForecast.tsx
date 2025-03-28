@@ -467,6 +467,12 @@ const WeatherForecast: React.FC = () => {
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Data</th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
                       <div className="flex items-center">
+                        <CloudRain className="w-4 h-4 mr-1 text-blue-500" />
+                        <span>Precipitazioni</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                      <div className="flex items-center">
                         <Thermometer className="w-4 h-4 mr-1 text-red-500" />
                         <span>Temp. max</span>
                       </div>
@@ -481,12 +487,6 @@ const WeatherForecast: React.FC = () => {
                       <div className="flex items-center">
                         <Droplets className="w-4 h-4 mr-1 text-teal-500" />
                         <span>Umidità</span>
-                      </div>
-                    </th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
-                      <div className="flex items-center">
-                        <CloudRain className="w-4 h-4 mr-1 text-blue-500" />
-                        <span>Precipitazioni</span>
                       </div>
                     </th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
@@ -548,6 +548,14 @@ const WeatherForecast: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">
+                          <div className={`flex items-center ${day.precipitation > 0 ? 'font-semibold' : ''}`}>
+                            <CloudRain className={`w-4 h-4 mr-1 ${day.precipitation > 0 ? 'text-blue-500' : 'text-gray-400'}`} />
+                            <span className={`px-2 py-1 rounded ${day.precipitation > 20 ? 'bg-[#0288D1] text-white' : day.precipitation > 10 ? 'bg-[#81D4FA]' : day.precipitation > 0 ? 'bg-[#E0F7FA]' : ''}`}>
+                              {day.precipitation} mm
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
                           <div className="flex items-center">
                             <Thermometer className="w-4 h-4 mr-1 text-red-500" />
                             <span className={`font-medium px-2 py-1 rounded ${day.maxTemp > 25 ? 'bg-red-100' : day.maxTemp > 15 ? 'bg-yellow-100' : 'bg-blue-100'}`}>{day.maxTemp}°C</span>
@@ -563,14 +571,6 @@ const WeatherForecast: React.FC = () => {
                           <div className="flex items-center">
                             <Droplets className={`w-4 h-4 mr-1 ${getHumidityColor(day.humidity)}`} />
                             <span className={`font-medium px-2 py-1 rounded-full ${getHumidityBackgroundColor(day.humidity)}`}>{day.humidity}%</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-900">
-                          <div className={`flex items-center ${day.precipitation > 0 ? 'font-semibold' : ''}`}>
-                            <CloudRain className={`w-4 h-4 mr-1 ${day.precipitation > 0 ? 'text-blue-500' : 'text-gray-400'}`} />
-                            <span className={`px-2 py-1 rounded ${day.precipitation > 20 ? 'bg-[#0288D1] text-white' : day.precipitation > 10 ? 'bg-[#81D4FA]' : day.precipitation > 0 ? 'bg-[#E0F7FA]' : ''}`}>
-                              {day.precipitation} mm
-                            </span>
                           </div>
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900">

@@ -16,11 +16,12 @@ import {
   History,
   ChevronRight
 } from 'lucide-react';
+import './Meteo.css';
 
 // Costanti per WeatherAPI
 const WEATHER_API_KEY = import.meta.env.VITE_WEATHERAPI_KEY;
 const BASE_URL = 'https://api.weatherapi.com/v1';
-import MeteoLogo from './MeteoLogo';
+// Logo rimosso come richiesto
 import { useTrackStore } from '../store/trackStore';
 import { useWeatherStore } from '../store/weatherStore';
 import WeatherForecast from './WeatherForecast';
@@ -49,6 +50,7 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import PopupNotification from './PopupNotification';
 import FixedFooter from './FixedFooter';
+import MeteoLogo from './MeteoLogo';
 
 interface WeatherData {
   date: string;
@@ -85,6 +87,10 @@ const columns = [
     header: 'Data',
     cell: info => format(parseISO(info.getValue()), "d MMMM yyyy", { locale: it }),
   }),
+  columnHelper.accessor('precip_mm', {
+    header: 'Precipitazioni (mm)',
+    cell: info => info.getValue().toFixed(1),
+  }),
   columnHelper.accessor('temp_min', {
     header: 'Min °C',
     cell: info => info.getValue().toFixed(1),
@@ -97,10 +103,6 @@ const columns = [
     header: 'Umidità (%)',
     cell: info => info.getValue(),
   }),
-  columnHelper.accessor('precip_mm', {
-    header: 'Precipitazioni (mm)',
-    cell: info => info.getValue().toFixed(1),
-  }),
   columnHelper.accessor('wind_kph', {
     header: 'Vento (km/h)',
     cell: info => info.getValue().toFixed(1),
@@ -110,6 +112,70 @@ const columns = [
     cell: info => info.getValue(),
   }),
 ];
+
+// Funzione per tradurre le condizioni meteo in italiano
+const translateWeatherCondition = (condition: string): string => {
+  const translations: { [key: string]: string } = {
+    'clear': 'Sereno',
+    'sunny': 'Soleggiato',
+    'partly cloudy': 'Parzialmente nuvoloso',
+    'cloudy': 'Nuvoloso',
+    'overcast': 'Coperto',
+    'rain': 'Pioggia',
+    'light rain': 'Pioggia leggera',
+    'heavy rain': 'Pioggia intensa',
+    'snow': 'Neve',
+    'light snow': 'Neve leggera',
+    'heavy snow': 'Neve intensa',
+    'thunderstorm': 'Temporale',
+    'mist': 'Nebbia',
+    'fog': 'Nebbia fitta',
+    'patchy rain possible': 'Possibili piogge sparse',
+    'patchy snow possible': 'Possibili nevicate sparse',
+    'patchy sleet possible': 'Possibile nevischio sparso',
+    'patchy freezing drizzle possible': 'Possibile pioviggine gelata sparsa',
+    'thundery outbreaks possible': 'Possibili temporali',
+    'blowing snow': 'Neve soffiata',
+    'blizzard': 'Bufera di neve',
+    'freezing fog': 'Nebbia gelata',
+    'patchy light drizzle': 'Pioviggine leggera sparsa',
+    'light drizzle': 'Pioviggine leggera',
+    'freezing drizzle': 'Pioviggine gelata',
+    'heavy freezing drizzle': 'Pioviggine gelata intensa',
+    'patchy light rain': 'Pioggia leggera sparsa',
+    'moderate rain at times': 'Pioggia moderata a tratti',
+    'moderate rain': 'Pioggia moderata',
+    'heavy rain at times': 'Pioggia intensa a tratti',
+    'heavy rain': 'Pioggia intensa',
+    'light freezing rain': 'Pioggia gelata leggera',
+    'moderate or heavy freezing rain': 'Pioggia gelata moderata o intensa',
+    'light sleet': 'Nevischio leggero',
+    'moderate or heavy sleet': 'Nevischio moderato o intenso',
+    'patchy light snow': 'Neve leggera sparsa',
+    'light snow': 'Neve leggera',
+    'patchy moderate snow': 'Neve moderata sparsa',
+    'moderate snow': 'Neve moderata',
+    'patchy heavy snow': 'Neve intensa sparsa',
+    'heavy snow': 'Neve intensa',
+    'ice pellets': 'Granelli di ghiaccio',
+    'light rain shower': 'Rovescio di pioggia leggero',
+    'moderate or heavy rain shower': 'Rovescio di pioggia moderato o intenso',
+    'torrential rain shower': 'Rovescio di pioggia torrenziale',
+    'light sleet showers': 'Rovesci di nevischio leggeri',
+    'moderate or heavy sleet showers': 'Rovesci di nevischio moderati o intensi',
+    'light snow showers': 'Rovesci di neve leggeri',
+    'moderate or heavy snow showers': 'Rovesci di neve moderati o intensi',
+    'light showers of ice pellets': 'Rovesci leggeri di granelli di ghiaccio',
+    'moderate or heavy showers of ice pellets': 'Rovesci moderati o intensi di granelli di ghiaccio',
+    'patchy light rain with thunder': 'Pioggia leggera sparsa con tuoni',
+    'moderate or heavy rain with thunder': 'Pioggia moderata o intensa con tuoni',
+    'patchy light snow with thunder': 'Neve leggera sparsa con tuoni',
+    'moderate or heavy snow with thunder': 'Neve moderata o intensa con tuoni'
+  };
+
+  const lowerCondition = condition.toLowerCase();
+  return translations[lowerCondition] || condition;
+};
 
 const getWeatherIcon = (condition: string) => {
   switch (condition.toLowerCase()) {
@@ -187,12 +253,16 @@ function Meteo() {
       const locations = await response.json();
       
       if (locations.length > 0) {
-        setSelectedLocation({
+        const locationData = {
           name: locations[0].name,
           region: locations[0].region || '',
           lat: locations[0].lat,
           lon: locations[0].lon
-        });
+        };
+        
+        // Salva la posizione nello store e nel localStorage
+        setSelectedLocation(locationData);
+        localStorage.setItem('weatherLocation', JSON.stringify(locationData));
       }
     } catch (err) {
       console.error('Errore nel recupero del nome della località:', err);
@@ -562,7 +632,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
       });
 
       setLoading(false);
-    } catch (err) {
+    } catch (error) {
       let errorMessage = 'Errore nel caricamento dei dati meteo';
       
       if (err instanceof Error) {
@@ -627,6 +697,8 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     setSelectedLocation(location);
     setSearchQuery(location.name);
     setLocationSuggestions([]);
+    // Salva la posizione nel localStorage per recuperarla quando l'utente rientra nella pagina
+    localStorage.setItem('weatherLocation', JSON.stringify(location));
     fetchWeatherData(location.lat, location.lon);
   };
 
@@ -713,6 +785,66 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     tryGetPosition();
   };
 
+  // Effetto per verificare se esiste già una posizione salvata nello store quando si carica il componente
+  useEffect(() => {
+    const initializeLocation = async () => {
+      // Prima verifica se c'è una posizione selezionata nello store
+      if (selectedLocation) {
+        console.log('Posizione già selezionata nello store:', selectedLocation.name);
+        await fetchWeatherData(selectedLocation.lat, selectedLocation.lon);
+        return;
+      }
+      
+      // Se non c'è una posizione nello store, verifica nel localStorage
+      const savedLocationData = localStorage.getItem('weatherLocation');
+      if (savedLocationData) {
+        try {
+          const savedLocation = JSON.parse(savedLocationData);
+          if (savedLocation && savedLocation.lat && savedLocation.lon) {
+            console.log('Recuperata posizione salvata dal localStorage:', savedLocation.name);
+            setSelectedLocation(savedLocation);
+            await fetchWeatherData(savedLocation.lat, savedLocation.lon);
+            return;
+          }
+        } catch (err) {
+          console.error('Errore nel recupero della posizione salvata:', err);
+        }
+      }
+      
+      // Se non c'è una posizione salvata, prova a rilevare automaticamente la posizione GPS
+      console.log('Nessuna posizione salvata, tentativo di rilevamento GPS automatico...');
+      setIsGpsLoading(true);
+      
+      if (!navigator.geolocation) {
+        setError('Il tuo browser non supporta la geolocalizzazione. Prova a cercare manualmente una località.');
+        setIsGpsLoading(false);
+        return;
+      }
+      
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          });
+        });
+        
+        const { latitude, longitude } = position.coords;
+        await fetchLocationName(latitude, longitude);
+        await fetchWeatherData(latitude, longitude);
+      } catch (err) {
+        console.error('Errore nel rilevamento automatico della posizione:', err);
+        setError('Nessun dato meteo disponibile. Seleziona una località o utilizza la tua posizione attuale per visualizzare i dati meteo.');
+      } finally {
+        setIsGpsLoading(false);
+      }
+    };
+    
+    initializeLocation();
+  }, [location.pathname]); // Riesegui quando cambia il pathname (quando l'utente torna nella sezione Meteo)
+
+  // Effetto per inizializzare i dati meteo quando si carica il componente o cambia la posizione
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -722,7 +854,23 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         // Verifica se abbiamo una località selezionata
         if (!selectedLocation) {
           console.warn('Nessuna località selezionata per il meteo');
-          // Richiedi automaticamente la posizione GPS all'avvio
+          // Verifica se c'è una posizione salvata nel localStorage prima di richiedere il GPS
+          const savedLocationData = localStorage.getItem('weatherLocation');
+          if (savedLocationData) {
+            try {
+              const savedLocation = JSON.parse(savedLocationData);
+              if (savedLocation && savedLocation.lat && savedLocation.lon) {
+                console.log('Recuperata posizione salvata:', savedLocation.name);
+                setSelectedLocation(savedLocation);
+                // Carica immediatamente i dati meteo con la posizione salvata
+                await fetchWeatherData(savedLocation.lat, savedLocation.lon);
+                return;
+              }
+            } catch (err) {
+              console.error('Errore nel recupero della posizione salvata:', err);
+            }
+          }
+          // Se non c'è una posizione salvata o c'è stato un errore, richiedi il GPS
           handleGpsActivation();
           return;
         }
@@ -955,48 +1103,98 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col md:flex-row items-center justify-between mb-8">
-        <div className="flex items-center mb-4 md:mb-0">
-          <MeteoLogo className="w-12 h-12 mr-3" />
-          <h1 className="text-3xl font-bold text-gray-800">Meteo</h1>
+    <div className="flex flex-col min-h-screen bg-gray-50 meteo-container">
+      <MeteoLogo />
+      <div className="meteo-content">
+      <div className="container mx-auto px-4 py-6 flex-grow pt-28"> {/* Padding-top aumentato per evitare sovrapposizione con il logo */}
+        <div className="flex flex-col md:flex-row items-center justify-between mb-6">
+          <div className="flex items-center mb-4 md:mb-0">
+            <h1 className="text-2xl font-bold text-gray-800">Meteo</h1>
+          </div>
+          
+          <div className="w-full md:w-auto flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-2">
+            <div className="relative w-full md:w-64">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
+                placeholder="Cerca località..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-2.5">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                </div>
+              )}
+              
+              {locationSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {locationSuggestions.map((location, index) => (
+                    <div
+                      key={index}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
+                      onClick={() => handleLocationSelect(location)}
+                    >
+                      <MapPin className="w-4 h-4 mr-2 text-gray-500" />
+                      <span>{location.name}, {location.region}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={handleSearch}
+              className="w-full md:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Cerca
+            </button>
+            
+            <button
+              onClick={handleGpsActivation}
+              disabled={isGpsLoading}
+              className="w-full md:w-auto px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center"
+            >
+              {isGpsLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <>
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Usa GPS
+                </>
+              )}
+            </button>
+          </div>
         </div>
         
-        <div className="relative w-full md:w-64">
-          <input
-            type="text"
-            placeholder="Cerca località..."
-            value={searchQuery}
-            onChange={(e) => handleSearchInputChange(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {isSearching && (
-            <div className="absolute right-3 top-2.5">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-            </div>
-          )}
-          
-          {locationSuggestions.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {locationSuggestions.map((suggestion, index) => (
-                <div
-                  key={index}
-                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 flex items-center"
-                  onClick={() => handleLocationSelect(suggestion)}
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+            <div className="flex items-center">
+              <div className="py-1">
+                <svg
+                  className="w-6 h-6 mr-4 text-red-500 fill-current"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
                 >
-                  <MapPin className="w-4 h-4 mr-2 text-gray-500" />
-                  <div>
-                    <span className="font-medium">{suggestion.name}</span>
-                    {suggestion.region && (
-                      <span className="text-sm text-gray-500"> - {suggestion.region}</span>
-                    )}
+                  <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold">{error}</p>
+                <p className="text-sm">Prova a selezionare un'altra località o a utilizzare il GPS.</p>
+                {error.includes('API') && (
+                  <div className="mt-2 text-sm">
+                    <p className="font-semibold">Possibili soluzioni:</p>
+                    <ul className="list-disc list-inside ml-2">
+                      <li>Verifica che la chiave API sia valida nel file .env</li>
+                      <li>La chiave API potrebbe essere scaduta, consulta il file WEATHER_API_TROUBLESHOOTING.md</li>
+                    </ul>
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
       
       {selectedLocation && (
         <div className="mb-6 bg-blue-50 p-4 rounded-lg flex items-center">
@@ -1016,34 +1214,8 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
           </button>
         </div>
       )}
+      </div>
 
-      {/* Visualizzazione degli errori */}
-      {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-md">
-          <div className="flex items-center">
-            <div className="py-1">
-              <svg className="w-6 h-6 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-bold">Errore</p>
-              <p>{error}</p>
-              <button 
-                onClick={() => {
-                  setError(null);
-                  if (selectedLocation) {
-                    fetchWeatherData(selectedLocation.lat, selectedLocation.lon);
-                  }
-                }} 
-                className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm"
-              >
-                Riprova
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
@@ -1055,14 +1227,15 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
               <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <div className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Meteo Real Time - {selectedLocation?.name || 'Posizione attuale'} - {format(new Date(), "d MMMM yyyy, HH:mm", { locale: it })}</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-1">Meteo Real Time - {selectedLocation?.name || 'Posizione attuale'}</h2>
+                  <p className="text-sm text-gray-500 mb-4">{format(new Date(), "d MMMM yyyy, HH:mm", { locale: it })}</p>
                   <div className="flex items-center mb-6">
                     <div className="mr-4">
                       {getWeatherIcon(currentWeather.condition)}
                     </div>
                     <div>
                       <div className="text-3xl font-bold">{currentWeather.temp_c.toFixed(1)}°C</div>
-                      <div className="text-gray-600">{currentWeather.condition}</div>
+                      <div className="text-gray-600">{translateWeatherCondition(currentWeather.condition)}</div>
                     </div>
                   </div>
                   
@@ -1093,6 +1266,22 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
                       <div>
                         <div className="text-sm text-gray-500">Precipitazioni</div>
                         <div>{currentWeather.precip_mm.toFixed(1)} mm</div>
+                      </div>
+                    </div>
+                    
+                    {/* Dati meteo aggiuntivi */}
+                    <div className="flex items-center">
+                      <ArrowUpDown className="w-5 h-5 text-purple-500 mr-2" />
+                      <div>
+                        <div className="text-sm text-gray-500">Nuvolosità</div>
+                        <div>{currentWeather.cloud_cover}%</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <Thermometer className="w-5 h-5 text-orange-500 mr-2" />
+                      <div>
+                        <div className="text-sm text-gray-500">Probabilità pioggia</div>
+                        <div>{currentWeather.precip_chance || 0}%</div>
                       </div>
                     </div>
                   </div>
@@ -1205,6 +1394,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
       )}
       
       <FixedFooter />
+      </div>
     </div>
   );
 }
