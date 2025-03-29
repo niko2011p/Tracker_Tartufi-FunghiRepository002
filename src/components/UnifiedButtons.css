@@ -102,14 +102,14 @@
 .unified-button.logger {
   background-color: rgba(253, 154, 60, 0.9); /* Arancione */
   color: white;
-  width: 77px; /* Aumentato del 10% rispetto a 70px */
-  height: 77px; /* Aumentato del 10% rispetto a 70px */
+  width: 100px; /* Aumentato per una migliore visibilità */
+  height: 100px; /* Aumentato per una migliore visibilità */
   display: flex;
   flex-direction: column;
   position: relative;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 /* Effetto brillantezza per i pulsanti */

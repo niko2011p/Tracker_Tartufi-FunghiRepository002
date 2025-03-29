@@ -103,7 +103,11 @@ function FloatingMapButtons() {
         {isRecording && !isPaused && (
           <div className="floating-map-buttons">
             <button
-              onClick={() => pauseTrack()}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                pauseTrack();
+              }}
               className="unified-button pause"
               aria-label="Pausa tracciamento"
             >
@@ -112,7 +116,11 @@ function FloatingMapButtons() {
             </button>
             
             <button
-              onClick={handleStopClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleStopClick();
+              }}
               className="unified-button stop"
               aria-label="Interrompi tracciamento"
             >
@@ -121,7 +129,11 @@ function FloatingMapButtons() {
             </button>
             
             <button
-              onClick={handleTagClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleTagClick();
+              }}
               className="unified-button tag"
               aria-label="Aggiungi tag"
             >
@@ -134,7 +146,11 @@ function FloatingMapButtons() {
         {!isRecording && (
           <div className="floating-map-buttons">
             <button
-              onClick={() => startTrack()}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                startTrack();
+              }}
               className="unified-button start"
               aria-label="Avvia tracciamento"
             >
@@ -154,7 +170,11 @@ function FloatingMapButtons() {
         )}
         
         <button
-          onClick={() => resumeTrack()}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            resumeTrack();
+          }}
           className={`unified-button resume ${isPaused ? 'visible' : ''}`}
           aria-label="Riprendi tracciamento"
         >
