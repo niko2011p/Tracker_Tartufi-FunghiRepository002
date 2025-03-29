@@ -107,7 +107,7 @@ function FloatingMapButtons() {
               className="unified-button pause"
               aria-label="Pausa tracciamento"
             >
-              <Pause className="w-5 h-5" />
+              <Pause className="w-7 h-7" />
               <span>Pausa</span>
             </button>
             
@@ -116,7 +116,7 @@ function FloatingMapButtons() {
               className="unified-button stop"
               aria-label="Interrompi tracciamento"
             >
-              <Square className="w-5 h-5" />
+              <Square className="w-7 h-7" />
               <span>Stop</span>
             </button>
             
@@ -125,7 +125,7 @@ function FloatingMapButtons() {
               className="unified-button tag"
               aria-label="Aggiungi tag"
             >
-              <MapPin className="w-5 h-5" />
+              <MapPin className="w-7 h-7" />
               <span>Tag</span>
             </button>
           </div>
@@ -138,8 +138,8 @@ function FloatingMapButtons() {
               className="unified-button start"
               aria-label="Avvia tracciamento"
             >
-              <Play className="w-5 h-5" />
-              <span>Avvia</span>
+              <Play className="w-7 h-7" />
+              <span>Start Track</span>
             </button>
             
             <Link
@@ -147,7 +147,7 @@ function FloatingMapButtons() {
               className="unified-button logger"
               aria-label="Vai al logger"
             >
-              <History className="w-5 h-5" />
+              <History className="w-7 h-7" />
               <span>Logger</span>
             </Link>
           </div>
@@ -158,7 +158,7 @@ function FloatingMapButtons() {
           className={`unified-button resume ${isPaused ? 'visible' : ''}`}
           aria-label="Riprendi tracciamento"
         >
-          <Play className="w-5 h-5" />
+          <Play className="w-7 h-7" />
           <span>Riavvia</span>
         </button>
       </div>
