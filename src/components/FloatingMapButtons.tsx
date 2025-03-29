@@ -1,14 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, History, Pause, Square, MapPin, AlertCircle } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
 import './FloatingMapButtons.css';
 import TagOptionsPopup from './TagOptionsPopup';
+import { useGps } from '../services/GpsService';
+import GpsStatusIndicator from './GpsStatusIndicator';
 
 function FloatingMapButtons() {
   const { startTrack, stopTrack, isRecording, currentTrack } = useTrackStore();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
+  const [isStartingTrack, setIsStartingTrack] = useState(false);
+  
+  // Utilizzo dell'hook GPS per gestire l'acquisizione della posizione
+  const {
+    position,
+    error,
+    isLoading: isAcquiringGps,
+    isAvailable: isGpsAvailable,
+    accuracy,
+    requestPosition
+  } = useGps({
+    maxRetries: 3,
+    retryInterval: 2000,
+    positionOptions: {
+      enableHighAccuracy: true,
+      timeout: 20000,
+      maximumAge: 10000
+    }
+  });
 
   const handleStopClick = () => {
     setShowStopConfirm(true);
@@ -21,6 +42,26 @@ function FloatingMapButtons() {
 
   const handleTagClick = () => {
     setShowTagOptions(true);
+  };
+
+  // Gestione dell'avvio della traccia con acquisizione GPS robusta
+  const handleStartTrack = async () => {
+    try {
+      setIsStartingTrack(true);
+      
+      // Richiedi la posizione GPS prima di avviare la traccia
+      await requestPosition();
+      
+      // Avvia la traccia solo dopo aver acquisito la posizione
+      startTrack();
+    } catch (error) {
+      console.error('Errore durante l\'avvio della traccia:', error);
+      // Anche in caso di errore, avvia comunque la traccia ma con la posizione predefinita
+      // L'utente vedrà l'indicatore di errore GPS
+      startTrack();
+    } finally {
+      setIsStartingTrack(false);
+    }
   };
 
   const handleCenterMap = () => {
@@ -38,20 +79,18 @@ function FloatingMapButtons() {
           const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
           // Center the map on the current position with zoom level 15
           mapInstance.setView(lastPosition, 15, { animate: true, duration: 0.5 });
+        } else if (position) {
+          // Usa la posizione dal servizio GPS se disponibile
+          mapInstance.setView(position, 15, { animate: true, duration: 0.5 });
         } else {
           // Fallback to geolocation API if no track is available
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              mapInstance.setView(
-                [position.coords.latitude, position.coords.longitude],
-                15,
-                { animate: true, duration: 0.5 }
-              );
-            },
-            (error) => {
+          requestPosition()
+            .then(newPosition => {
+              mapInstance.setView(newPosition, 15, { animate: true, duration: 0.5 });
+            })
+            .catch(error => {
               console.error('Error getting current position:', error);
-            }
-          );
+            });
         }
       }
     }
@@ -60,6 +99,14 @@ function FloatingMapButtons() {
 
   return (
     <>
+      {/* Indicatore di stato GPS */}
+      <GpsStatusIndicator 
+        isAcquiring={isAcquiringGps || isStartingTrack}
+        isAvailable={isGpsAvailable}
+        error={error}
+        accuracy={accuracy}
+      />
+
       {showTagOptions && (
         <TagOptionsPopup 
           onClose={() => setShowTagOptions(false)}
@@ -141,13 +188,23 @@ function FloatingMapButtons() {
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                startTrack();
+                handleStartTrack();
               }}
-              className="unified-button start"
+              className={`unified-button start ${isStartingTrack ? 'opacity-75 cursor-wait' : ''}`}
               aria-label="Avvia tracciamento"
+              disabled={isStartingTrack}
             >
-              <Play className="w-7 h-7" />
-              <span>Start Track</span>
+              {isStartingTrack ? (
+                <>
+                  <div className="w-7 h-7 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
+                  <span>Acquisizione GPS...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-7 h-7" />
+                  <span>Start Track</span>
+                </>
+              )}
             </button>
             
             <Link

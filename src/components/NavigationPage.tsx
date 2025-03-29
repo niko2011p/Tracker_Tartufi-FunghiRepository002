@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import { useTrackStore } from '../store/trackStore';
-import { Pause, Square, MapPin, AlertCircle } from 'lucide-react';
+import { Square, MapPin, AlertCircle } from 'lucide-react';
 import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
@@ -108,7 +108,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
 };
 
 const NavigationPage: React.FC = () => {
-  const { currentTrack, pauseTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection, loadedFindings } = useTrackStore();
+  const { currentTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection, loadedFindings } = useTrackStore();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
   
@@ -125,10 +125,28 @@ const NavigationPage: React.FC = () => {
   // Create the GPS arrow icon with the current direction
   const gpsArrowIcon = createGpsArrowIcon(currentDirection);
 
+  const mapRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (currentTrack && mapRef.current) {
+      const map = mapRef.current;
+      // Zoom out animation
+      setTimeout(() => {
+        map.setZoom(MIN_ZOOM, { animate: true, duration: 2 });
+      }, 500);
+      
+      // Zoom in animation after zoom out
+      setTimeout(() => {
+        map.setZoom(MAX_ZOOM, { animate: true, duration: 2 });
+      }, 3000);
+    }
+  }, [currentTrack]);
+
   return (
     <div className="fixed inset-0 z-[9999] bg-white">
       {/* Full screen map */}
       <MapContainer
+        ref={mapRef}
         center={lastPosition}
         zoom={MAX_ZOOM}
         minZoom={MIN_ZOOM}
@@ -186,14 +204,6 @@ const NavigationPage: React.FC = () => {
       
       {/* Control buttons */}
       <div className="fixed bottom-10 left-0 right-0 flex justify-center gap-4 z-[10000]">
-        <button
-          onClick={pauseTrack}
-          className="unified-button pause"
-        >
-          <Pause className="w-6 h-6" />
-          Pausa
-        </button>
-        
         <button
           onClick={() => setShowStopConfirm(true)}
           className="unified-button stop"

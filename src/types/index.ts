@@ -10,7 +10,7 @@ export interface Track {
     name: string;
     region?: string;
     coordinates: [number, number];
-  };
+  }
 }
 
 export interface Finding {

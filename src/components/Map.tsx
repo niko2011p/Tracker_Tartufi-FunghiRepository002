@@ -6,6 +6,9 @@ import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import { Finding } from '../types';
 import { MapPin, Crosshair } from 'lucide-react';
+import { useGps } from '../services/GpsService';
+import GpsStatusIndicator from './GpsStatusIndicator';
+import GpsSignalIndicator from './GpsSignalIndicator';
 
 // Stile per il contenitore della mappa con sfondo verde e copertura completa dell'area disponibile
 const mapContainerStyle = {
@@ -113,96 +116,121 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
   }
 };
 
-function LocationTracker() {
+function LocationTracker({ onGpsStatusChange }: { onGpsStatusChange?: (accuracy: number | null, isAcquiring: boolean) => void }) {
   const map = useMap();
   const { currentTrack, isRecording, updateCurrentPosition } = useTrackStore();
   const lastGpsPosition = useRef<[number, number] | null>(null);
-  const retryCount = useRef(0);
   const watchId = useRef<number | null>(null);
-  const MAX_RETRIES = 3;
   
-  const updateLocation = useCallback((position: GeolocationPosition) => {
-    const { latitude, longitude } = position.coords;
-    const newPosition: [number, number] = [latitude, longitude];
-    
-    retryCount.current = 0;
-    
-    if (!lastGpsPosition.current || 
-        Math.abs(latitude - lastGpsPosition.current[0]) > 0.00001 || 
-        Math.abs(longitude - lastGpsPosition.current[1]) > 0.00001) {
-      // Center the map on the user's position with animation
-      map.setView(newPosition, MAX_ZOOM, { animate: true, duration: 0.5 });
-      lastGpsPosition.current = newPosition;
-    }
-    
-    updateCurrentPosition(newPosition);
-  }, [map, updateCurrentPosition]);
-
-  const handleError = useCallback((error: GeolocationPositionError) => {
-    console.warn('Geolocation error:', error.message);
-    
-    if (retryCount.current < MAX_RETRIES) {
-      const options = {
-        enableHighAccuracy: retryCount.current < 1,
-        timeout: (retryCount.current + 1) * 10000,
-        maximumAge: (retryCount.current + 1) * 10000
-      };
+  // Utilizzo dell'hook GPS per una gestione più robusta della geolocalizzazione
+  const {
+    position,
+    error,
+    isLoading: isAcquiringGps,
+    isAvailable: isGpsAvailable,
+    accuracy,
+    requestPosition,
+    startWatching,
+    stopWatching
+  } = useGps({
+    maxRetries: 3,
+    retryInterval: 2000,
+    positionOptions: {
+      enableHighAccuracy: true,
+      timeout: 20000,
+      maximumAge: 10000
+    },
+    onSuccess: (position) => {
+      const { latitude, longitude, accuracy } = position.coords;
+      const newPosition: [number, number] = [latitude, longitude];
       
-      retryCount.current += 1;
-      navigator.geolocation.getCurrentPosition(
-        updateLocation,
-        handleError,
-        options
-      );
-    } else if (!lastGpsPosition.current) {
-      console.warn('Using default position after all retries failed');
-      map.panTo(DEFAULT_POSITION);
-      lastGpsPosition.current = DEFAULT_POSITION;
+      // Notifica il cambiamento dello stato GPS
+      if (onGpsStatusChange) {
+        onGpsStatusChange(accuracy, false);
+      }
+      
+      if (!lastGpsPosition.current || 
+          Math.abs(latitude - lastGpsPosition.current[0]) > 0.00001 || 
+          Math.abs(longitude - lastGpsPosition.current[1]) > 0.00001) {
+        // Aggiorniamo la posizione senza cambiare lo zoom e senza animazioni che potrebbero causare l'effetto zoom out/in
+        const currentZoom = map.getZoom();
+        map.setView(newPosition, currentZoom, { animate: false });
+        lastGpsPosition.current = newPosition;
+        
+        // Log per debug
+        console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}], precisione: ${accuracy}m`);
+      }
+      
+      // Aggiorniamo sempre la posizione corrente per assicurarci che il marker sia aggiornato
+      updateCurrentPosition(newPosition);
+    },
+    onError: (error) => {
+      console.warn('Errore di geolocalizzazione:', error);
+      
+      // Notifica l'errore GPS
+      if (onGpsStatusChange) {
+        onGpsStatusChange(null, false);
+      }
+      
+      // Se non abbiamo ancora una posizione, usa quella predefinita
+      if (!lastGpsPosition.current) {
+        console.warn('Utilizzo della posizione predefinita dopo il fallimento di tutti i tentativi');
+        map.panTo(DEFAULT_POSITION);
+        lastGpsPosition.current = DEFAULT_POSITION;
+        updateCurrentPosition(DEFAULT_POSITION);
+      }
     }
-  }, [map, updateLocation]);
+  });
 
   useEffect(() => {
     if (!isRecording) {
-      if (watchId.current !== null) {
-        navigator.geolocation.clearWatch(watchId.current);
-        watchId.current = null;
+      stopWatching();
+      // Notifica che non stiamo più acquisendo il GPS
+      if (onGpsStatusChange) {
+        onGpsStatusChange(null, false);
       }
       return;
     }
+    
+    // Notifica che stiamo iniziando ad acquisire il GPS
+    if (onGpsStatusChange) {
+      onGpsStatusChange(null, true);
+    }
 
-    const startWatching = () => {
-      watchId.current = navigator.geolocation.watchPosition(
-        updateLocation,
-        handleError,
-        GEOLOCATION_OPTIONS
-      );
-    };
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        // When starting recording, ensure we center the map on user's position with proper zoom
-        const { latitude, longitude } = position.coords;
-        map.setView([latitude, longitude], MAX_ZOOM, { animate: true });
-        updateLocation(position);
+    // Quando inizia la registrazione, richiedi la posizione corrente senza modificare lo zoom
+    requestPosition()
+      .then(newPosition => {
+        // Quando inizia la registrazione, centra la mappa sulla posizione dell'utente senza cambiare lo zoom
+        // e senza animazioni che potrebbero causare l'effetto zoom out/in indesiderato
+        const currentZoom = map.getZoom();
+        map.setView(newPosition, currentZoom, { animate: false });
+        
+        // Aggiorna la posizione corrente
+        lastGpsPosition.current = newPosition;
+        updateCurrentPosition(newPosition);
+        
+        // Avvia il monitoraggio continuo della posizione
         startWatching();
-      },
-      (error) => {
-        handleError(error);
+      })
+      .catch(error => {
+        console.error('Errore durante l\'acquisizione della posizione iniziale:', error);
+        
+        // Anche in caso di errore, avvia il monitoraggio
         startWatching();
-      },
-      {
-        ...GEOLOCATION_OPTIONS,
-        timeout: 30000
-      }
-    );
+        
+        // Se non abbiamo una posizione, usa quella predefinita
+        if (!lastGpsPosition.current) {
+          const currentZoom = map.getZoom();
+          map.setView(DEFAULT_POSITION, currentZoom, { animate: true, duration: 0.3 });
+          lastGpsPosition.current = DEFAULT_POSITION;
+          updateCurrentPosition(DEFAULT_POSITION);
+        }
+      });
     
     return () => {
-      if (watchId.current !== null) {
-        navigator.geolocation.clearWatch(watchId.current);
-        watchId.current = null;
-      }
+      stopWatching();
     };
-  }, [isRecording, updateLocation, handleError, map]);
+  }, [isRecording, map, requestPosition, startWatching, stopWatching, updateCurrentPosition]);
   
   return null;
 }
@@ -210,24 +238,16 @@ function LocationTracker() {
 function MouseTracker() {
   const map = useMapEvents({
     mousemove: (e) => {
-      if (!map.getBounds().contains(e.latlng)) {
+      const bounds = map.getBounds();
+      if (bounds && !bounds.contains(e.latlng)) {
         map.panTo(e.latlng, { 
           animate: true,
           duration: 0.5,
           easeLinearity: 0.5
         });
       }
-    },
-    zoom: () => {
-      const currentZoom = map.getZoom();
-      if (currentZoom > MAX_ZOOM) {
-        map.setZoom(MAX_ZOOM);
-      } else if (currentZoom < MIN_ZOOM) {
-        map.setZoom(MIN_ZOOM);
-      }
     }
   });
-  
   return null;
 }
 
@@ -244,12 +264,8 @@ function ZoomControl() {
     };
   }, [map]);
 
-  // Set zoom to 15 when recording starts
-  useEffect(() => {
-    if (isRecording && map.getZoom() < MAX_ZOOM) {
-      map.setZoom(MAX_ZOOM);
-    }
-  }, [isRecording, map]);
+  // Non applichiamo alcun effetto di zoom automatico quando inizia la registrazione
+  // per evitare l'effetto zoom out/in indesiderato
 
   return (
     <div className="zoom-control">
@@ -298,18 +314,21 @@ function CenterButton() {
   const { currentTrack } = useTrackStore();
   
   const handleCenterClick = () => {
+    // Manteniamo lo zoom corrente per evitare l'effetto zoom out/in indesiderato
+    const currentZoom = map.getZoom();
+    
     if (currentTrack?.coordinates.length) {
       const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-      map.setView(lastPosition, MAX_ZOOM, { animate: true });
-    } else if (type === 'Tartufo') {
+      map.setView(lastPosition, currentZoom, { animate: false });
+    } else {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          map.setView([latitude, longitude], MAX_ZOOM, { animate: true });
+          map.setView([latitude, longitude], currentZoom, { animate: false });
         },
         (error) => {
           console.warn('Geolocation error:', error.message);
-          map.setView(DEFAULT_POSITION, MAX_ZOOM, { animate: true });
+          map.setView(DEFAULT_POSITION, currentZoom, { animate: false });
         },
         GEOLOCATION_OPTIONS
       );
@@ -334,6 +353,8 @@ function MapView() {
   const [mapZoom, setMapZoom] = useState(INITIAL_ZOOM);
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_POSITION);
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [isAcquiringGps, setIsAcquiringGps] = useState<boolean>(false);
   const gpsArrowIcon = useMemo(() => createGpsArrowIcon(currentDirection), [currentDirection]);
   const mapRef = useRef<L.Map | null>(null);
   
@@ -379,6 +400,20 @@ function MapView() {
 
   return (
     <div style={mapContainerStyle}>
+      {/* Indicatore dello stato GPS */}
+      <GpsStatusIndicator 
+        isAcquiring={isAcquiringGps}
+        isAvailable={isRecording}
+        error={null}
+        accuracy={gpsAccuracy}
+      />
+      
+      {/* Indicatore del livello del segnale GPS */}
+      {isRecording && <GpsSignalIndicator 
+        accuracy={gpsAccuracy}
+        isAcquiringGps={isAcquiringGps}
+      />}
+      
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
@@ -397,7 +432,12 @@ function MapView() {
           url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
           attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        <LocationTracker />
+        <LocationTracker 
+          onGpsStatusChange={(accuracy, isAcquiring) => {
+            setGpsAccuracy(accuracy);
+            setIsAcquiringGps(isAcquiring);
+          }} 
+        />
         <MouseTracker />
         {isRecording && <Marker position={currentPosition} icon={gpsArrowIcon} />}
         {currentTrack && (
@@ -439,112 +479,5 @@ function MapView() {
 }
 
 export default function Map() {
-  const { currentTrack, isRecording, loadedFindings, currentDirection } = useTrackStore();
-  const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
-  const positionUpdateRequested = useRef(false);
-  const gpsArrowIcon = useMemo(() => createGpsArrowIcon(currentDirection), [currentDirection]);
-
-  useEffect(() => {
-    if (isRecording && !positionUpdateRequested.current) {
-      positionUpdateRequested.current = true;
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentPosition([position.coords.latitude, position.coords.longitude]);
-          positionUpdateRequested.current = false;
-        },
-        () => {
-          setCurrentPosition(DEFAULT_POSITION);
-          positionUpdateRequested.current = false;
-        },
-        GEOLOCATION_OPTIONS
-      );
-    }
-  }, [isRecording]);
-
-  useEffect(() => {
-    if (currentTrack?.coordinates.length) {
-      const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-      setCurrentPosition(lastPosition);
-    }
-  }, [currentTrack?.coordinates]);
-
-  // Helper function to determine if a finding is from loaded findings
-  const isLoadedFinding = (finding: Finding) => {
-    return loadedFindings?.some(f => f.id === finding.id) ?? false;
-  };
-
-  // Applica la classe fullscreen quando il tracciamento è attivo o in pausa
-  useEffect(() => {
-    const mapContainer = document.querySelector('.leaflet-container');
-    if (mapContainer) {
-      if (isRecording) {
-        mapContainer.classList.add('map-fullscreen');
-        // Forza il ridisegno del container con un timeout più lungo
-        mapContainer.style.display = 'none';
-        setTimeout(() => {
-          if (mapContainer) {
-            mapContainer.style.display = 'block';
-            // Forza un reflow del DOM
-            void mapContainer.offsetHeight;
-            // Forza un aggiornamento delle dimensioni della mappa
-            window.dispatchEvent(new Event('resize'));
-          }
-        }, 100);
-      } else {
-        mapContainer.classList.remove('map-fullscreen');
-      }
-    }
-  }, [isRecording]);
-
-  return (
-    <div className="fixed top-0 left-0 right-0 bottom-0 z-10">
-      <MapContainer
-        center={currentPosition}
-        zoom={INITIAL_ZOOM}
-        minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
-        className="h-full w-full fixed top-0 left-0"
-        attributionControl={false}
-        zoomControl={false}
-      >
-        <ZoomControl />
-        <TileLayer
-          url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-          attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        <LocationTracker />
-        <MouseTracker />
-        {isRecording && <Marker position={currentPosition} icon={gpsArrowIcon} />}
-        {currentTrack && (
-          <>
-            <Polyline
-              positions={currentTrack.coordinates}
-              color="#FF9800"
-              weight={3}
-              opacity={0.8}
-            />
-            {currentTrack.findings
-              .filter(finding => !isLoadedFinding(finding))
-              .map((finding) => (
-                <Marker
-                  key={finding.id}
-                  position={finding.coordinates}
-                  icon={createFindingIcon(finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo')}
-                />
-              ))}
-          </>
-        )}
-        {loadedFindings?.map((finding) => (
-          <Marker
-            key={`loaded-${finding.id}`}
-            position={finding.coordinates}
-            icon={createFindingIcon(
-              finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo',
-              true
-            )}
-          />
-        ))}
-      </MapContainer>
-    </div>
-  );
+  return <MapView />;
 }

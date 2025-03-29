@@ -62,6 +62,7 @@ export const useTrackStore = create<TrackState>()(
       showFindingForm: false,
       
       startTrack: () => {
+        // Crea una nuova traccia con timestamp corrente
         const newTrack: Track = {
           id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           startTime: new Date(),
@@ -71,21 +72,58 @@ export const useTrackStore = create<TrackState>()(
           isPaused: false
         };
         
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(async (position) => {
-            const location = await getLocationName(position.coords.latitude, position.coords.longitude);
-            if (location) {
-              set(state => ({
-                currentTrack: state.currentTrack ? {
-                  ...state.currentTrack,
-                  location
-                } : null
-              }));
-            }
-          });
-        }
-        
+        // Avvia immediatamente la registrazione per garantire una buona esperienza utente
         set({ currentTrack: newTrack, isRecording: true });
+        
+        // Richiedi la posizione per ottenere il nome della località
+        // Questa operazione avviene in background e non blocca l'avvio della traccia
+        if (navigator.geolocation) {
+          // Configurazione robusta per la geolocalizzazione
+          const geoOptions: PositionOptions = {
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 10000
+          };
+          
+          // Funzione per gestire i tentativi di acquisizione della posizione
+          const tryGetPosition = (retryCount = 0, maxRetries = 3) => {
+            navigator.geolocation.getCurrentPosition(
+              async (position) => {
+                // Successo: ottieni il nome della località e aggiorna la traccia
+                const location = await getLocationName(position.coords.latitude, position.coords.longitude);
+                if (location) {
+                  set(state => ({
+                    currentTrack: state.currentTrack ? {
+                      ...state.currentTrack,
+                      location
+                    } : null
+                  }));
+                }
+              },
+              (error) => {
+                // Errore: riprova se non abbiamo raggiunto il numero massimo di tentativi
+                console.warn(`Errore di geolocalizzazione (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
+                
+                if (retryCount < maxRetries) {
+                  // Modifica le opzioni per ogni retry
+                  const retryOptions: PositionOptions = {
+                    ...geoOptions,
+                    enableHighAccuracy: retryCount < 1, // Disabilita high accuracy dopo il primo retry
+                    timeout: geoOptions.timeout + (retryCount * 5000),
+                    maximumAge: (geoOptions.maximumAge || 10000) * (retryCount + 1)
+                  };
+                  
+                  // Riprova dopo un breve intervallo
+                  setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 2000);
+                }
+              },
+              geoOptions
+            );
+          };
+          
+          // Avvia il primo tentativo di acquisizione della posizione
+          tryGetPosition();
+        }
       },
       
       
@@ -95,8 +133,7 @@ export const useTrackStore = create<TrackState>()(
         if (currentTrack) {
           const completedTrack: Track = {
             ...currentTrack,
-            endTime: new Date(),
-            isPaused: false
+            endTime: new Date()
           };
           set({
             tracks: [...tracks, completedTrack],
