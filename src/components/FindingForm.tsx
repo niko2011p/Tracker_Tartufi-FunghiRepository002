@@ -98,21 +98,30 @@ function FindingForm({ onClose }: FindingFormProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 border-b pb-3">
           <h3 className="text-lg font-semibold">Nuovo Ritrovamento</h3>
-          <button 
-            onClick={() => {
-              onClose();
-              setPhotoUrl(null);
-            }} 
-            className="text-gray-500 hover:text-gray-700"
-            aria-label="Chiudi"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setPhotoUrl(null);
+              }}
+              className="px-3 py-1 text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              Annulla
+            </button>
+            <button
+              type="submit"
+              form="finding-form"
+              className="px-3 py-1 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
+            >
+              Salva
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleFindingSubmit} className="space-y-4">
+        <form id="finding-form" onSubmit={handleFindingSubmit} className="space-y-4">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">Tipo</label>
             <div className="flex space-x-4">
@@ -169,7 +178,7 @@ function FindingForm({ onClose }: FindingFormProps) {
             {showSuggestions && filteredSpecies.length > 0 && (
               <div 
                 ref={suggestionsRef}
-                className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto"
+                className="absolute z-10 w-full top-0 transform -translate-y-full bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto"
               >
                 {filteredSpecies.map((s, index) => (
                   <button
@@ -268,24 +277,7 @@ function FindingForm({ onClose }: FindingFormProps) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                setPhotoUrl(null);
-              }}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
-            >
-              Annulla
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
-            >
-              Salva
-            </button>
-          </div>
+
         </form>
       </div>
     </div>

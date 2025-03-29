@@ -143,26 +143,92 @@ export default function StoricoTracce() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [uniqueId] = useState(() => `storico-${Math.random().toString(36).substr(2, 9)}`);
 
+  // Organizza i ritrovamenti per mese/anno
+  const organizedTracks = useMemo(() => {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
+    const result = {
+      currentMonth: [] as Track[],
+      archives: {} as Record<string, Track[]>
+    };
+    
+    tracks.forEach(track => {
+      const trackMonth = track.startTime.getMonth();
+      const trackYear = track.startTime.getFullYear();
+      
+      if (trackMonth === currentMonth && trackYear === currentYear) {
+        // Ritrovamenti del mese corrente
+        result.currentMonth.push(track);
+      } else {
+        // Ritrovamenti di mesi precedenti
+        const monthYearKey = format(track.startTime, "MMMM yyyy", { locale: it });
+        if (!result.archives[monthYearKey]) {
+          result.archives[monthYearKey] = [];
+        }
+        result.archives[monthYearKey].push(track);
+      }
+    });
+    
+    // Ordina i ritrovamenti del mese corrente in ordine decrescente (più recenti prima)
+    result.currentMonth.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+    
+    // Ordina anche i ritrovamenti negli archivi
+    Object.keys(result.archives).forEach(key => {
+      result.archives[key].sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+    });
+    
+    return result;
+  }, [tracks]);
+  
   const filteredTracks = useMemo(() => {
-    if (!searchQuery.trim()) return tracks;
+    if (!searchQuery.trim()) {
+      // Se non c'è ricerca, restituisci l'organizzazione normale
+      return organizedTracks;
+    }
     
     const query = searchQuery.toLowerCase().trim();
-    return tracks.filter(track => {
-      const hasMatchingFindings = track.findings.some(finding => 
-        finding.name.toLowerCase().includes(query) ||
-        finding.description?.toLowerCase().includes(query)
-      );
-
-      const locationMatch = track.location?.name.toLowerCase().includes(query) ||
-                          track.location?.region?.toLowerCase().includes(query);
-
-      const coordinates = track.coordinates.map(coord => 
-        `${coord[0].toFixed(3)},${coord[1].toFixed(3)}`
-      ).join(' ');
-
-      return hasMatchingFindings || locationMatch || coordinates.includes(query);
+    const filteredResult = {
+      currentMonth: [] as Track[],
+      archives: {} as Record<string, Track[]>
+    };
+    
+    // Filtra i ritrovamenti del mese corrente
+    filteredResult.currentMonth = organizedTracks.currentMonth.filter(track => {
+      return filterTrackByQuery(track, query);
     });
-  }, [tracks, searchQuery]);
+    
+    // Filtra i ritrovamenti negli archivi
+    Object.keys(organizedTracks.archives).forEach(key => {
+      const filteredArchive = organizedTracks.archives[key].filter(track => {
+        return filterTrackByQuery(track, query);
+      });
+      
+      if (filteredArchive.length > 0) {
+        filteredResult.archives[key] = filteredArchive;
+      }
+    });
+    
+    return filteredResult;
+  }, [organizedTracks, searchQuery]);
+  
+  // Funzione di supporto per filtrare i ritrovamenti
+  const filterTrackByQuery = (track: Track, query: string) => {
+    const hasMatchingFindings = track.findings.some(finding => 
+      finding.name.toLowerCase().includes(query) ||
+      finding.description?.toLowerCase().includes(query)
+    );
+
+    const locationMatch = track.location?.name.toLowerCase().includes(query) ||
+                        track.location?.region?.toLowerCase().includes(query);
+
+    const coordinates = track.coordinates.map(coord => 
+      `${coord[0].toFixed(3)},${coord[1].toFixed(3)}`
+    ).join(' ');
+
+    return hasMatchingFindings || locationMatch || coordinates.includes(query);
+  };
 
   const generateFileName = (track: Track) => {
     const locationName = track.location?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'track';
@@ -448,13 +514,17 @@ export default function StoricoTracce() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          {filteredTracks.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              {searchQuery ? 'Nessuna traccia trovata per questa ricerca' : 'Nessuna traccia salvata'}
-            </div>
-          ) : (
-            filteredTracks.map((track, index) => (
+        <div className="space-y-6">
+          {/* Ritrovamenti del mese corrente */}
+          <div>
+            <h3 className="text-xl font-semibold mb-3">Mese corrente</h3>
+            {filteredTracks.currentMonth.length === 0 ? (
+              <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
+                {searchQuery ? 'Nessuna traccia trovata per questa ricerca' : 'Nessun ritrovamento questo mese'}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredTracks.currentMonth.map((track, index) => (
               <div 
                 key={`track-${uniqueId}-${track.id}-${index}-${renderCount}`}
                 className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow"
@@ -532,7 +602,7 @@ export default function StoricoTracce() {
                     className="flex-1 bg-[#fd9a3c]/10 text-[#fd9a3c] py-2 rounded-lg hover:bg-[#fd9a3c]/20 transition-colors duration-400 flex items-center justify-center gap-2"
                   >
                     <Navigation className="w-5 h-5" />
-                    <span>Carica Ritrovamento e Avvia</span>
+                    <span>Carica Ritrovamento</span>
                   </button>
                   <button
                     onClick={() => setShowDeleteConfirm(track.id)}
@@ -543,7 +613,122 @@ export default function StoricoTracce() {
                   </button>
                 </div>
               </div>
-            ))
+            ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Archivi per mese/anno */}
+          {Object.keys(filteredTracks.archives).length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-xl font-semibold mb-3">Archivi</h3>
+              {Object.entries(filteredTracks.archives).map(([monthYear, archiveTracks]) => (
+                <div key={`archive-${monthYear}`} className="mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-lg font-medium text-[#4b5320]">{monthYear}</h4>
+                    <span className="text-sm text-gray-500">({archiveTracks.length} ritrovamenti)</span>
+                  </div>
+                  <div className="space-y-4">
+                    {archiveTracks.map((track, index) => (
+                      <div 
+                        key={`track-${uniqueId}-${track.id}-${index}-${renderCount}`}
+                        className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="text-lg font-semibold">
+                              {format(track.startTime, "d MMMM yyyy", { locale: it })}
+                            </h3>
+                            {track.location && (
+                              <div className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                                <MapIcon className="w-4 h-4" />
+                                <span>{track.location.name}</span>
+                                {track.location.region && (
+                                  <span className="text-gray-400">({track.location.region})</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-sm text-gray-500">
+                            {format(track.startTime, "HH:mm", { locale: it })}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                          <div className="flex items-center">
+                            <Clock className="w-5 h-5 text-gray-500 mr-2" />
+                            <span className="text-sm">
+                              {formatDuration(track.startTime, track.endTime)}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <Route className="w-5 h-5 text-[#FF9800] mr-2" />
+                            <span className="text-sm">{track.distance.toFixed(2)} km</span>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <MapPin className="w-5 h-5 text-gray-500 mr-2" />
+                            <span className="text-sm">{track.findings.length} ritrovamenti</span>
+                          </div>
+                        </div>
+
+                        {track.findings.length > 0 && (
+                          <div className="border-t pt-3">
+                            <h4 className="text-sm font-semibold mb-2">Ritrovamenti:</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                              {track.findings.map((finding, findingIndex) => {
+                                const styles = getFindingStyles(finding);
+                                return (
+                                  <div 
+                                    key={`finding-${uniqueId}-${track.id}-${finding.id}-${findingIndex}-${renderCount}`}
+                                    className={`flex items-center p-2 rounded ${styles.bg} ${styles.hover} transition-colors`}
+                                  >
+                                    <MapPin className={`w-4 h-4 mr-2 ${styles.text}`} />
+                                    <span className={`text-sm truncate ${styles.text}`} title={finding.name}>
+                                      {finding.name}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-2 mt-4">
+                          <button 
+                            onClick={() => setSelectedTrack(track)}
+                            className="flex-1 bg-[#8eaa36]/10 text-[#8eaa36] py-2 rounded-lg hover:bg-[#8eaa36]/20 transition-colors duration-400"
+                          >
+                            Visualizza dettagli
+                          </button>
+                          <button
+                            onClick={() => handleLoadAndNavigate(track)}
+                            className="flex-1 bg-[#fd9a3c]/10 text-[#fd9a3c] py-2 rounded-lg hover:bg-[#fd9a3c]/20 transition-colors duration-400 flex items-center justify-center gap-2"
+                          >
+                            <Navigation className="w-5 h-5" />
+                            <span>Carica Ritrovamento</span>
+                          </button>
+                          <button
+                            onClick={() => setShowDeleteConfirm(track.id)}
+                            className="px-4 py-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Elimina traccia"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {tracks.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              {searchQuery ? 'Nessuna traccia trovata per questa ricerca' : 'Nessuna traccia salvata'}
+            </div>
           )}
         </div>
 
