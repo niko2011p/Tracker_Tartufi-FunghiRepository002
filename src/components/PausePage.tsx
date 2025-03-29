@@ -163,7 +163,7 @@ const PausePage: React.FC = () => {
       <div className="fixed bottom-10 left-0 right-0 flex justify-center z-[10000]">
         <button
           onClick={resumeTrack}
-          className="bg-[#8eaa36] text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg flex items-center gap-2 hover:bg-[#7d9830] transition-colors duration-400"
+          className="unified-button resume"
         >
           <Play className="w-6 h-6" />
           Riavvia

@@ -6,6 +6,7 @@ import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import './PausePage.css';
+import './UnifiedButtons.css';
 import { Finding } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
@@ -188,7 +189,7 @@ const NavigationPage: React.FC = () => {
       <div className="fixed bottom-10 left-0 right-0 flex justify-center gap-4 z-[10000]">
         <button
           onClick={pauseTrack}
-          className="bg-yellow-500 text-white px-6 py-4 rounded-full font-bold text-lg shadow-lg flex items-center gap-2 hover:bg-yellow-600 transition-colors"
+          className="unified-button pause"
         >
           <Pause className="w-6 h-6" />
           Pausa
@@ -196,7 +197,7 @@ const NavigationPage: React.FC = () => {
         
         <button
           onClick={() => setShowStopConfirm(true)}
-          className="bg-red-500 text-white px-6 py-4 rounded-full font-bold text-lg shadow-lg flex items-center gap-2 hover:bg-red-600 transition-colors"
+          className="unified-button stop"
         >
           <Square className="w-6 h-6" />
           Stop
@@ -204,7 +205,7 @@ const NavigationPage: React.FC = () => {
         
         <button
           onClick={() => setShowTagOptions(true)}
-          className="bg-[#fd9a3c] text-white px-6 py-4 rounded-full font-bold text-lg shadow-lg flex items-center gap-2 hover:bg-[#e88a2c] transition-colors"
+          className="unified-button tag"
         >
           <MapPin className="w-6 h-6" />
           Tag

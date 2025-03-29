@@ -6,7 +6,7 @@
   z-index: 1001;
   display: flex;
   flex-direction: column; /* Allineamento verticale */
-  gap: 24px;
+  gap: 16px; /* Spazio tra i pulsanti */
   pointer-events: none;
   transition: all 0.4s ease;
   align-items: center; /* Centra orizzontalmente gli elementi */
@@ -69,6 +69,8 @@
   min-width: 0;
   border: 3px solid rgba(255, 255, 255, 0.3);
   transform: scale(1.0);
+  /* Animazione uniforme per tutti i pulsanti */
+  animation: buttonPulse 2s infinite;
 }
 
 .floating-button:hover {
@@ -80,24 +82,7 @@
   transform: translateY(0);
 }
 
-.floating-button-start {
-  background-color: rgba(142, 170, 54, 0.9); /* #8eaa36 */
-  color: white;
-  transform: scale(1.0);
-  padding: 16px 26px;
-  width: 96px;
-  height: 96px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 24px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-  position: relative;
-  overflow: hidden;
-  animation: pulseStart 2s infinite;
-  transition: all 0.4s ease;
-}
+/* Stili rimossi perché ora utilizziamo la classe unified-button */
 
 @keyframes pulse {
   0% {
@@ -116,16 +101,29 @@
 
 @keyframes pulseStart {
   0% {
+    box-shadow: 0 0 0 0 rgba(142, 170, 54, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(142, 170, 54, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(142, 170, 54, 0);
+  }
+}
+
+/* Animazione uniforme per tutti i pulsanti */
+@keyframes buttonPulse {
+  0% {
     transform: scale(1.0);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
   }
   50% {
-    transform: scale(1.1);
-    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4);
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
   }
   100% {
     transform: scale(1.0);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -177,16 +175,19 @@
   }
 }
 
-.floating-button-history {
-  background-color: rgba(253, 154, 60, 0.9);
+/* Stili rimossi perché ora utilizziamo la classe unified-button */
+
+.floating-button-pause {
+  background-color: rgba(253, 154, 60, 0.9); /* #fd9a3c */
   color: white;
-  width: 70px;
-  height: 70px;
+  /* Mantenere le proporzioni originali */
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 24px;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
@@ -195,14 +196,14 @@
   transform: scale(0.85);
 }
 
-.floating-button-history:hover {
-  background-color: rgba(230, 138, 54, 0.95);
+.floating-button-pause:hover {
+  background-color: rgba(217, 119, 6, 0.95);
   transform: scale(1.15) translateY(-3px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
 }
 
-/* Aggiunto effetto brillantezza al pulsante Logger */
-.floating-button-history::before {
+/* Effetto brillantezza per il pulsante Pausa */
+.floating-button-pause::before {
   content: '';
   position: absolute;
   top: -50%;
@@ -213,37 +214,78 @@
   animation: glitter 4s infinite;
 }
 
-.floating-button-pause {
-  background-color: rgba(245, 158, 11, 0.9);
-  color: white;
-}
-
-.floating-button-pause:hover {
-  background-color: rgba(217, 119, 6, 0.95);
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-
 .floating-button-stop {
-  background-color: rgba(239, 68, 68, 0.9);
+  background-color: rgba(220, 38, 38, 0.9); /* #dc2626 */
   color: white;
+  /* Mantenere le proporzioni originali */
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  animation: pulse 2s infinite;
+  transition: all 0.4s ease;
+  transform: scale(0.85);
 }
 
 .floating-button-stop:hover {
   background-color: rgba(220, 38, 38, 0.95);
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  transform: scale(1.15) translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
 }
 
-.floating-button-finding {
-  background-color: rgba(59, 130, 246, 0.9);
+/* Effetto brillantezza per il pulsante Stop */
+.floating-button-stop::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
+  animation: glitter 4s infinite;
+}
+
+.floating-button-tag {
+  background-color: rgba(142, 170, 54, 0.9); /* #8eaa36 */
   color: white;
+  /* Mantenere le proporzioni originali */
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  animation: pulse 2s infinite;
+  transition: all 0.4s ease;
+  transform: scale(0.85);
 }
 
 .floating-button-finding:hover {
   background-color: rgba(37, 99, 235, 0.95);
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  transform: scale(1.15) translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Effetto brillantezza per il pulsante Tag */
+.floating-button-finding::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
+  animation: glitter 4s infinite;
 }
 
 /* Rimosso il posizionamento in alto a sinistra per il pulsante Tag */

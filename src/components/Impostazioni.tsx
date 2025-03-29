@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Moon, Sun, Map as MapIcon, Bell, Share2, Database, HelpCircle } from 'lucide-react';
 import { testWeatherApiKey } from '../utils/weatherApiTest';
+import MapLogo from './MapLogo';
 
 export default function Impostazioni() {
   const [weatherApiStatus, setWeatherApiStatus] = useState<{ isValid: boolean; message: string } | null>(null);
@@ -15,8 +16,9 @@ export default function Impostazioni() {
   };
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Impostazioni</h2>
+    <div className="p-4 max-w-3xl mx-auto relative">
+      <MapLogo className="absolute top-4 left-1/2 transform -translate-x-1/2" />
+      <h2 className="text-2xl font-bold mb-6 mt-32">Impostazioni</h2>
       
       <div className="space-y-6">
         <section className="bg-white rounded-lg shadow-md p-4">

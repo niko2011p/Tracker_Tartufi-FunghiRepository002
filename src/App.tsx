@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
-import { Map as MapIcon, History, Cloud, Settings, Menu, X } from 'lucide-react';
+import { Map as MapIcon, History, Cloud, Settings as SettingsIcon, Menu, X } from 'lucide-react';
 import Map from './components/Map';
 import TrackingControls from './components/TrackingControls';
 import FloatingMapButtons from './components/FloatingMapButtons';
@@ -12,6 +12,7 @@ import MapLogo from './components/MapLogo';
 import PausePage from './components/PausePage';
 import NavigationPage from './components/NavigationPage';
 import FindingForm from './components/FindingForm';
+import ScrollToTop from './components/ScrollToTop';
 import { useTrackStore } from './store/trackStore';
 import './components/FixedFooter.css';
 
@@ -59,16 +60,19 @@ function MainApp() {
   );
 }
 
+
+
 function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gray-50 flex flex-col has-fixed-footer">
+        <ScrollToTop />
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<MainApp />} />
             <Route path="/storico" element={<StoricoTracce />} />
             <Route path="/meteo" element={<Meteo />} />
-            <Route path="/impostazioni" element={<Impostazioni />} />
+            <Route path="/settings" element={<Impostazioni />} />
           </Routes>
         </main>
         <FixedFooter />

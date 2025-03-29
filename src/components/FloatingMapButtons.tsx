@@ -99,60 +99,69 @@ function FloatingMapButtons() {
           </div>
         </div>
       )}
-      <div className={`floating-map-buttons ${isPaused ? 'paused' : ''}`}>
-      {!isRecording ? (
-        // Buttons when not recording
-        <>
-          <button
-            onClick={startTrack}
-            className="floating-button floating-button-start"
-            aria-label="Avvia traccia"
-          >
-            <Play className="w-5 h-5" />
-            <span>Avvia</span>
-          </button>
-          
-          <Link
-            to="/storico"
-            className="floating-button floating-button-history"
-            aria-label="Logger"
-          >
-            <History className="w-5 h-5" />
-            <span>Logger</span>
-          </Link>
-        </>
-      ) : (
-        // Buttons when recording
-        <>
-          <button
-            onClick={isRecording ? pauseTrack : resumeTrack}
-            className="floating-button floating-button-pause"
-            aria-label={isRecording ? "Pausa traccia" : "Riprendi traccia"}
-          >
-            <Pause className="w-5 h-5" />
-            <span>Pausa</span>
-          </button>
-          
-          <button
-            onClick={handleStopClick}
-            className="floating-button floating-button-stop"
-            aria-label="Interrompi traccia"
-          >
-            <Square className="w-5 h-5" />
-            <span>Stop</span>
-          </button>
-
-          <button
-            onClick={handleTagClick}
-            className="floating-button floating-button-finding"
-            aria-label="Opzioni Tag"
-          >
-            <MapPin className="w-5 h-5" />
-            <span>Tag</span>
-          </button>
-        </>
-      )}
-    </div>
+      <div className="floating-map-buttons-container">
+        {isRecording && !isPaused && (
+          <div className="floating-map-buttons">
+            <button
+              onClick={() => pauseTrack()}
+              className="unified-button pause"
+              aria-label="Pausa tracciamento"
+            >
+              <Pause className="w-5 h-5" />
+              <span>Pausa</span>
+            </button>
+            
+            <button
+              onClick={handleStopClick}
+              className="unified-button stop"
+              aria-label="Interrompi tracciamento"
+            >
+              <Square className="w-5 h-5" />
+              <span>Stop</span>
+            </button>
+            
+            <button
+              onClick={handleTagClick}
+              className="unified-button tag"
+              aria-label="Aggiungi tag"
+            >
+              <MapPin className="w-5 h-5" />
+              <span>Tag</span>
+            </button>
+          </div>
+        )}
+        
+        {!isRecording && (
+          <div className="floating-map-buttons">
+            <button
+              onClick={() => startTrack()}
+              className="unified-button start"
+              aria-label="Avvia tracciamento"
+            >
+              <Play className="w-5 h-5" />
+              <span>Avvia</span>
+            </button>
+            
+            <Link
+              to="/storico"
+              className="unified-button logger"
+              aria-label="Vai al logger"
+            >
+              <History className="w-5 h-5" />
+              <span>Logger</span>
+            </Link>
+          </div>
+        )}
+        
+        <button
+          onClick={() => resumeTrack()}
+          className={`unified-button resume ${isPaused ? 'visible' : ''}`}
+          aria-label="Riprendi tracciamento"
+        >
+          <Play className="w-5 h-5" />
+          <span>Riavvia</span>
+        </button>
+      </div>
     </>
   );
 }

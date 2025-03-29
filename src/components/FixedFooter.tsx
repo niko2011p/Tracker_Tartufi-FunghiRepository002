@@ -33,12 +33,12 @@ const FixedFooter: React.FC = () => {
           <span>Meteo</span>
         </Link>
         <Link
-          to="/impostazioni"
-          className={`footer-link ${location.pathname === '/impostazioni' ? 'active' : ''}`}
-          aria-label="Impostazioni"
+          to="/settings"
+          className={`footer-link ${location.pathname === '/settings' ? 'active' : ''}`}
+          aria-label="Settings"
         >
           <Settings className="w-5 h-5" />
-          <span>Impostazioni</span>
+          <span>Settings</span>
         </Link>
       </div>
     </div>

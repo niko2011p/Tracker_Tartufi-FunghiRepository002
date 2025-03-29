@@ -1,0 +1,141 @@
+.unified-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 24px;
+  border-radius: 24px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+  min-width: 0;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  transform: scale(1.0);
+  animation: buttonPulse 2s infinite;
+}
+
+.unified-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.unified-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Animazione pulsante */
+@keyframes buttonPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Varianti di colore per i diversi pulsanti */
+.unified-button.pause {
+  background-color: rgba(234, 179, 8, 0.9); /* Giallo */
+  color: white;
+  border-radius: 24px;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.unified-button.stop {
+  background-color: rgba(220, 38, 38, 0.9); /* Rosso */
+  color: white;
+  border-radius: 24px;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.unified-button.tag {
+  background-color: rgba(253, 154, 60, 0.9); /* Arancione */
+  color: white;
+  border-radius: 24px;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.unified-button.resume {
+  background-color: rgba(142, 170, 54, 0.9); /* Verde */
+  color: white;
+  border-radius: 24px;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.unified-button.start {
+  background-color: rgba(142, 170, 54, 0.9); /* Verde */
+  color: white;
+  width: 115px;
+  height: 115px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.unified-button.logger {
+  background-color: rgba(253, 154, 60, 0.9); /* Arancione */
+  color: white;
+  width: 70px;
+  height: 70px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Effetto brillantezza per i pulsanti */
+.unified-button.start::before,
+.unified-button.logger::before,
+.unified-button.pause::before,
+.unified-button.stop::before,
+.unified-button.tag::before,
+.unified-button.resume::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
+  animation: glitter 4s infinite;
+}
+
+@keyframes glitter {
+  0% {
+    transform: scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.2) rotate(360deg);
+    opacity: 0;
+  }
+}

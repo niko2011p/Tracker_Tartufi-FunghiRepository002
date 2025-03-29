@@ -7,11 +7,19 @@ import './MapControls.css';
 import { Finding } from '../types';
 import { MapPin, Crosshair } from 'lucide-react';
 
-// Stile per il contenitore della mappa con sfondo verde
+// Stile per il contenitore della mappa con sfondo verde e copertura completa dell'area disponibile
 const mapContainerStyle = {
   backgroundColor: '#8eaa36',
-  height: '100%',
-  width: '100%'
+  height: '100vh',
+  width: '100vw',
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  overflow: 'hidden',
+  margin: 0,
+  padding: 0
 };
 
 const useMapStyle = () => {
