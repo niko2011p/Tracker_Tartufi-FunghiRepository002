@@ -5,7 +5,7 @@ export interface Track {
   coordinates: [number, number][];
   distance: number;
   findings: Finding[];
-  isPaused: boolean;
+  
   location?: {
     name: string;
     region?: string;

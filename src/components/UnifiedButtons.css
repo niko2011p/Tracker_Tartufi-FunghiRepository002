@@ -45,16 +45,7 @@
 }
 
 /* Varianti di colore per i diversi pulsanti */
-.unified-button.pause {
-  background-color: rgba(234, 179, 8, 0.9); /* Giallo */
-  color: white;
-  border-radius: 24px;
-  width: 100px;
-  height: 100px;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
+
 
 .unified-button.stop {
   background-color: rgba(220, 38, 38, 0.9); /* Rosso */
@@ -115,7 +106,7 @@
 /* Effetto brillantezza per i pulsanti */
 .unified-button.start::before,
 .unified-button.logger::before,
-.unified-button.pause::before,
+
 .unified-button.stop::before,
 .unified-button.tag::before,
 .unified-button.resume::before {

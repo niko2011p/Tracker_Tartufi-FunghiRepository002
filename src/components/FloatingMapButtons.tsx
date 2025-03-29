@@ -6,7 +6,7 @@ import './FloatingMapButtons.css';
 import TagOptionsPopup from './TagOptionsPopup';
 
 function FloatingMapButtons() {
-  const { startTrack, pauseTrack, resumeTrack, stopTrack, isRecording, isPaused, currentTrack } = useTrackStore();
+  const { startTrack, stopTrack, isRecording, currentTrack } = useTrackStore();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
 
@@ -100,46 +100,38 @@ function FloatingMapButtons() {
         </div>
       )}
       <div className="floating-map-buttons-container">
-        {isRecording && !isPaused && (
+        {isRecording && (
           <div className="floating-map-buttons">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                pauseTrack();
-              }}
-              className="unified-button pause"
-              aria-label="Pausa tracciamento"
-            >
-              <Pause className="w-7 h-7" />
-              <span>Pausa</span>
-            </button>
-            
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleStopClick();
-              }}
-              className="unified-button stop"
-              aria-label="Interrompi tracciamento"
-            >
-              <Square className="w-7 h-7" />
-              <span>Stop</span>
-            </button>
-            
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleTagClick();
-              }}
-              className="unified-button tag"
-              aria-label="Aggiungi tag"
-            >
-              <MapPin className="w-7 h-7" />
-              <span>Tag</span>
-            </button>
+            <div className="button-group">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (!e.target.closest('.unified-button.stop')) return;
+                  handleStopClick();
+                }}
+                className="unified-button stop"
+                aria-label="Interrompi tracciamento"
+                role="button"
+                tabIndex={0}
+              >
+                <Square className="w-7 h-7" />
+                <span>Stop</span>
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleTagClick();
+                }}
+                className="unified-button tag"
+                aria-label="Aggiungi tag"
+              >
+                <MapPin className="w-7 h-7" />
+                <span>Tag</span>
+              </button>
+            </div>
           </div>
         )}
         
@@ -169,18 +161,7 @@ function FloatingMapButtons() {
           </div>
         )}
         
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            resumeTrack();
-          }}
-          className={`unified-button resume ${isPaused ? 'visible' : ''}`}
-          aria-label="Riprendi tracciamento"
-        >
-          <Play className="w-7 h-7" />
-          <span>Riavvia</span>
-        </button>
+
       </div>
     </>
   );

@@ -1,56 +1,28 @@
 .floating-map-buttons {
   position: fixed;
-  bottom: 200px; /* Posizionato più in alto rispetto a prima */
+  bottom: 200px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1001;
   display: flex;
-  flex-direction: column; /* Allineamento verticale */
-  gap: 16px; /* Spazio tra i pulsanti */
+  flex-direction: column;
+  gap: 16px;
   pointer-events: none;
   transition: all 0.4s ease;
-  align-items: center; /* Centra orizzontalmente gli elementi */
-}
-
-.floating-map-buttons.paused {
-  opacity: 0;
-  pointer-events: none;
-  display: none;
-}
-
-.resume-button {
-  position: fixed;
-  bottom: 120px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-  background-color: rgba(142, 170, 54, 0.9); /* #8eaa36 */
-  color: white;
-  padding: 16px 28px;
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 1.1rem;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-  transition: all 0.4s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  pointer-events: auto;
-  display: none;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-}
-
-.resume-button.visible {
-  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  width: auto;
 }
 
-.resume-button:hover {
-  background-color: rgba(125, 152, 48, 0.95); /* Versione più scura di #8eaa36 */
-  transform: translateX(-50%) translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+.button-group {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  pointer-events: auto;
+  justify-content: center;
+  align-items: center;
 }
+
+
 
 .floating-button {
   display: flex;
@@ -177,42 +149,7 @@
 
 /* Stili rimossi perché ora utilizziamo la classe unified-button */
 
-.floating-button-pause {
-  background-color: rgba(253, 154, 60, 0.9); /* #fd9a3c */
-  color: white;
-  /* Mantenere le proporzioni originali */
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-  position: relative;
-  overflow: hidden;
-  animation: pulse 2s infinite;
-  transition: all 0.4s ease;
-  transform: scale(0.85);
-}
 
-.floating-button-pause:hover {
-  background-color: rgba(217, 119, 6, 0.95);
-  transform: scale(1.15) translateY(-3px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-}
-
-/* Effetto brillantezza per il pulsante Pausa */
-.floating-button-pause::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
-  animation: glitter 4s infinite;
-}
 
 .floating-button-stop {
   background-color: rgba(220, 38, 38, 0.9); /* #dc2626 */
@@ -227,10 +164,6 @@
   justify-content: center;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
   position: relative;
-  overflow: hidden;
-  animation: pulse 2s infinite;
-  transition: all 0.4s ease;
-  transform: scale(0.85);
 }
 
 .floating-button-stop:hover {
@@ -254,20 +187,14 @@
 .floating-button-tag {
   background-color: rgba(142, 170, 54, 0.9); /* #8eaa36 */
   color: white;
-  /* Mantenere le proporzioni originali */
   width: 64px;
   height: 64px;
   border-radius: 50%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
   position: relative;
-  overflow: hidden;
-  animation: pulse 2s infinite;
-  transition: all 0.4s ease;
-  transform: scale(0.85);
 }
 
 .floating-button-finding:hover {

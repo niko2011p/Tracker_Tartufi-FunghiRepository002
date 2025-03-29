@@ -22,31 +22,7 @@ const mapContainerStyle = {
   padding: 0
 };
 
-const useMapStyle = () => {
-  const { isPaused } = useTrackStore();
-  useEffect(() => {
-    const mapContainer = document.querySelector('.leaflet-container');
-    const zoomControl = document.querySelector('.zoom-control');
-    const tagButton = document.querySelector('.tag-button-container');
-    const centerButton = document.querySelector('.center-button-container');
-    
-    if (mapContainer) {
-      if (isPaused) {
-        mapContainer.classList.add('map-paused');
-        // Hide controls when paused
-        if (zoomControl) zoomControl.classList.add('hidden');
-        if (tagButton) tagButton.classList.add('hidden');
-        if (centerButton) centerButton.classList.add('hidden');
-      } else {
-        mapContainer.classList.remove('map-paused');
-        // Show controls when not paused
-        if (zoomControl) zoomControl.classList.remove('hidden');
-        if (tagButton) tagButton.classList.remove('hidden');
-        if (centerButton) centerButton.classList.remove('hidden');
-      }
-    }
-  }, [isPaused]);
-};
+
 
 const MIN_ZOOM = 4;
 const MAX_ZOOM = 15; /* Updated max zoom level to 15 */
@@ -382,7 +358,7 @@ function MapView() {
   useEffect(() => {
     const mapContainer = document.querySelector('.leaflet-container');
     if (mapContainer) {
-      if (isRecording || currentTrack?.isPaused) {
+      if (isRecording) {
         mapContainer.classList.add('map-fullscreen');
         // Forza il ridisegno del container con un timeout più lungo
         mapContainer.style.display = 'none';
@@ -399,7 +375,7 @@ function MapView() {
         mapContainer.classList.remove('map-fullscreen');
       }
     }
-  }, [isRecording, currentTrack?.isPaused]);
+  }, [isRecording]);
 
   return (
     <div style={mapContainerStyle}>
@@ -501,7 +477,7 @@ export default function Map() {
   useEffect(() => {
     const mapContainer = document.querySelector('.leaflet-container');
     if (mapContainer) {
-      if (isRecording || currentTrack?.isPaused) {
+      if (isRecording) {
         mapContainer.classList.add('map-fullscreen');
         // Forza il ridisegno del container con un timeout più lungo
         mapContainer.style.display = 'none';
@@ -518,7 +494,7 @@ export default function Map() {
         mapContainer.classList.remove('map-fullscreen');
       }
     }
-  }, [isRecording, currentTrack?.isPaused]);
+  }, [isRecording]);
 
   return (
     <div className="fixed top-0 left-0 right-0 bottom-0 z-10">

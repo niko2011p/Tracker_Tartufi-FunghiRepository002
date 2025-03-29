@@ -14,8 +14,6 @@ interface TrackState {
   nearbyFinding: Finding | null;
   isAlertPlaying: boolean;
   startTrack: () => void;
-  pauseTrack: () => void;
-  resumeTrack: () => void;
   stopTrack: () => void;
   deleteTrack: (id: string) => void;
   deleteAllTracks: () => void;
@@ -90,25 +88,7 @@ export const useTrackStore = create<TrackState>()(
         set({ currentTrack: newTrack, isRecording: true });
       },
       
-      pauseTrack: () => {
-        const { currentTrack } = get();
-        if (currentTrack) {
-          set({ 
-            currentTrack: { ...currentTrack, isPaused: true },
-            isRecording: false 
-          });
-        }
-      },
       
-      resumeTrack: () => {
-        const { currentTrack } = get();
-        if (currentTrack) {
-          set({ 
-            currentTrack: { ...currentTrack, isPaused: false },
-            isRecording: true 
-          });
-        }
-      },
       
       stopTrack: () => {
         const { currentTrack, tracks } = get();

@@ -1,12 +1,12 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
-import { Play, Pause, Square, MapPin, Upload, X, History, Cloud, Map, AlertCircle } from 'lucide-react';
+import { Play, Square, MapPin, Upload, X, History, Cloud, Map, AlertCircle } from 'lucide-react';
 import AlertPopup from './AlertPopup';
 import { useTrackStore } from '../store/trackStore';
 import { Link, useLocation } from 'react-router-dom';
 import { species } from '../data/species';
 
 function TrackingControls() {
-  const { currentTrack, isRecording, startTrack, pauseTrack, resumeTrack, stopTrack, addFinding, nearbyFinding, isAlertPlaying } = useTrackStore();
+  const { currentTrack, isRecording, startTrack, stopTrack, addFinding, nearbyFinding, isAlertPlaying } = useTrackStore();
   const [showFindingForm, setShowFindingForm] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [findingType, setFindingType] = useState<'Fungo' | 'Tartufo'>('Fungo');

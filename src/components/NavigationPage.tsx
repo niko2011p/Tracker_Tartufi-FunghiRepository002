@@ -5,7 +5,6 @@ import { Pause, Square, MapPin, AlertCircle } from 'lucide-react';
 import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
-import './PausePage.css';
 import './UnifiedButtons.css';
 import { Finding } from '../types';
 import FindingForm from './FindingForm';
