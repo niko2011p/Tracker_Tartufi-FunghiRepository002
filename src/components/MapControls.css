@@ -13,24 +13,36 @@
 }
 
 .leaflet-container {
-  height: 100vh; /* Altezza completa della viewport */
+  height: calc(100vh - 60px); /* Altezza completa della viewport meno l'altezza del footer */
   width: 100vw; /* Larghezza completa della viewport */
   transition: height 0.3s ease, transform 0.3s ease;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 60px; /* Lascia spazio per il footer */
   z-index: 1;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: hidden; /* Blocca lo scroll della pagina */
   object-fit: cover; /* Assicura che la mappa copra completamente il contenitore */
   max-width: 100%; /* Garantisce che la mappa non superi la larghezza del contenitore */
   max-height: 100%; /* Garantisce che la mappa non superi l'altezza del contenitore */
+}
+
+/* Stile per bloccare lo scroll nella pagina della mappa */
+.map-page {
+  height: 100vh;
+  overflow: hidden; /* Blocca lo scroll della pagina */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Riquadro della mappa ingrandito del 10% nella pagina Meteo */

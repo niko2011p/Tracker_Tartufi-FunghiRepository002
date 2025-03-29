@@ -1,6 +1,6 @@
 .floating-map-buttons {
   position: fixed;
-  bottom: 120px; /* Posizionato in basso */
+  bottom: 200px; /* Posizionato più in alto rispetto a prima */
   left: 50%;
   transform: translateX(-50%);
   z-index: 1001;

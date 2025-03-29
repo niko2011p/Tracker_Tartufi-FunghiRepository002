@@ -92,8 +92,8 @@
 .unified-button.start {
   background-color: rgba(142, 170, 54, 0.9); /* Verde */
   color: white;
-  width: 115px;
-  height: 115px;
+  width: 150px; /* Aumentato del 30% rispetto a 115px */
+  height: 150px; /* Aumentato del 30% rispetto a 115px */
   display: flex;
   flex-direction: column;
   position: relative;
@@ -102,11 +102,14 @@
 .unified-button.logger {
   background-color: rgba(253, 154, 60, 0.9); /* Arancione */
   color: white;
-  width: 70px;
-  height: 70px;
+  width: 77px; /* Aumentato del 10% rispetto a 70px */
+  height: 77px; /* Aumentato del 10% rispetto a 70px */
   display: flex;
   flex-direction: column;
   position: relative;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 /* Effetto brillantezza per i pulsanti */
