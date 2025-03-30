@@ -5,12 +5,16 @@ export interface Track {
   coordinates: [number, number][];
   distance: number;
   findings: Finding[];
-  
+  isPaused: boolean;
   location?: {
     name: string;
     region?: string;
     coordinates: [number, number];
-  }
+  };
+  duration?: number;       // Durata in millisecondi
+  avgSpeed?: number;       // Velocità media in km/h
+  avgAltitude?: number;    // Altitudine media in metri
+  totalDistance?: number;  // Distanza totale in km
 }
 
 export interface Finding {

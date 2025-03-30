@@ -1,77 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { Navigation, AlertCircle, Loader } from 'lucide-react';
+import { useTrackStore } from '../store/trackStore';
 
-interface GpsStatusIndicatorProps {
-  isAcquiring: boolean;
-  isAvailable: boolean;
-  error?: GeolocationPositionError | Error | null;
-  accuracy?: number | null;
-}
-
-/**
- * Componente che mostra lo stato dell'acquisizione GPS
- */
-const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
-  isAcquiring,
-  isAvailable,
-  error,
-  accuracy
-}) => {
-  const [visible, setVisible] = useState(true);
-  const [fadeOut, setFadeOut] = useState(false);
-
-  // Resetta la visibilità quando cambiano gli stati
+const GpsStatusIndicator: React.FC = () => {
+  const { gpsStatus } = useTrackStore();
+  const [visible, setVisible] = useState(false);
+  
+  // Mostra il messaggio per 3 secondi quando cambia lo stato GPS
   useEffect(() => {
-    if (isAcquiring || !isAvailable || error) {
+    if (gpsStatus) {
       setVisible(true);
-      setFadeOut(false);
-    } else if (isAvailable && !error) {
-      // Imposta un timer per nascondere l'indicatore dopo 3 secondi
       const timer = setTimeout(() => {
-        setFadeOut(true);
-        setTimeout(() => setVisible(false), 500); // Durata dell'animazione di fade out
+        setVisible(false);
       }, 3000);
+      
       return () => clearTimeout(timer);
     }
-  }, [isAcquiring, isAvailable, error]);
-
-  if (!visible) return null;
-
-  // Determina il messaggio e lo stile in base allo stato
-  let message = '';
-  let icon = null;
-  let bgColor = '';
-  let textColor = '';
-
-  if (isAcquiring) {
-    message = 'Acquisizione posizione GPS in corso...';
-    icon = <Loader className="w-5 h-5 animate-spin" />;
-    bgColor = 'bg-blue-100';
-    textColor = 'text-blue-800';
-  } else if (error) {
-    message = getErrorMessage(error);
-    icon = <AlertCircle className="w-5 h-5" />;
-    bgColor = 'bg-red-100';
-    textColor = 'text-red-800';
-  } else if (!isAvailable) {
-    message = 'GPS non disponibile. Verifica le impostazioni del dispositivo.';
-    icon = <AlertCircle className="w-5 h-5" />;
-    bgColor = 'bg-yellow-100';
-    textColor = 'text-yellow-800';
-  } else {
-    message = `Posizione GPS acquisita${accuracy ? ` (precisione: ${Math.round(accuracy)}m)` : ''}`;
-    icon = <Navigation className="w-5 h-5" />;
-    bgColor = 'bg-green-100';
-    textColor = 'text-green-800';
-  }
-
+  }, [gpsStatus]);
+  
+  if (!visible || !gpsStatus) return null;
+  
+  // Determina il colore in base allo stato
+  const getStatusColor = () => {
+    switch (gpsStatus.type) {
+      case 'error':
+        return 'bg-red-500';
+      case 'warning':
+        return 'bg-yellow-500';
+      case 'success':
+        return 'bg-green-500';
+      default:
+        return 'bg-blue-500';
+    }
+  };
+  
   return (
-    <div 
-      className={`fixed top-4 left-1/2 transform -translate-x-1/2 ${bgColor} ${textColor} px-4 py-2 rounded-full 
-                 shadow-md flex items-center gap-2 z-50 transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
-    >
-      {icon}
-      <span className="text-sm font-medium">{message}</span>
+    <div className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full text-white text-sm font-medium shadow-lg z-50 transition-all duration-300 ${getStatusColor()}`}>
+      {gpsStatus.message}
     </div>
   );
 };

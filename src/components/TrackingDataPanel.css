@@ -1,0 +1,48 @@
+.tracking-data-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: rgba(255, 255, 255, 0.8); /* Sfondo semi-trasparente per vedere la mappa sottostante */
+  border-radius: 8px;
+  padding: 10px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  width: 200px;
+}
+
+.tracking-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tracking-data-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tracking-data-icon {
+  color: #f5a149; /* Colore arancione richiesto */
+  margin-bottom: 4px;
+}
+
+.tracking-data-value {
+  margin: 0;
+  font-weight: bold;
+  color: #f5a149; /* Colore arancione richiesto */
+  font-size: 14px;
+}
+
+.gps-signal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.signal-bar {
+  width: 4px;
+  margin-left: 2px;
+  border-radius: 1px;
+}

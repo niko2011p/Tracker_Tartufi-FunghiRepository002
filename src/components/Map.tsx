@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import { useTrackStore } from '../store/trackStore';
-import { DivIcon } from 'leaflet';
+import { DivIcon, Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import { Finding } from '../types';
@@ -9,6 +9,14 @@ import { MapPin, Crosshair } from 'lucide-react';
 import { useGps } from '../services/GpsService';
 import GpsStatusIndicator from './GpsStatusIndicator';
 import GpsSignalIndicator from './GpsSignalIndicator';
+
+// Fix Leaflet default icon path issues
+delete (Icon.Default.prototype as any)._getIconUrl;
+Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 
 // Stile per il contenitore della mappa con sfondo verde e copertura completa dell'area disponibile
 const mapContainerStyle = {
@@ -22,7 +30,8 @@ const mapContainerStyle = {
   bottom: 0,
   overflow: 'hidden',
   margin: 0,
-  padding: 0
+  padding: 0,
+  zIndex: 0
 };
 
 
@@ -33,8 +42,8 @@ const INITIAL_ZOOM = 13;
 const DEFAULT_POSITION: [number, number] = [42.8333, 12.8333];
 const GEOLOCATION_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 20000,
-  maximumAge: 30000
+  timeout: 30000,
+  maximumAge: 5000,
 };
 
 const createGpsArrowIcon = (direction = 0) => {
@@ -116,11 +125,72 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
   }
 };
 
+export default function MapDisplay() {
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const { currentTrack, isRecording } = useTrackStore();
+
+  return (
+    <div style={mapContainerStyle}>
+      <MapContainer
+        center={DEFAULT_POSITION}
+        zoom={INITIAL_ZOOM}
+        style={{ height: '100%', width: '100%' }}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
+        attributionControl={true}
+        whenReady={() => setMapLoaded(true)}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='© OpenStreetMap contributors'
+          maxZoom={MAX_ZOOM}
+          minZoom={MIN_ZOOM}
+        />
+        <LocationTracker onGpsStatusChange={(accuracy, isAcquiring) => {
+          // Handle GPS status changes
+        }} />
+        {mapLoaded && currentTrack?.coordinates && (
+          <Polyline
+            positions={currentTrack.coordinates}
+            color="#8eaa36"
+            weight={3}
+            opacity={0.8}
+          />
+        )}
+      </MapContainer>
+    </div>
+  );
+}
+
 function LocationTracker({ onGpsStatusChange }: { onGpsStatusChange?: (accuracy: number | null, isAcquiring: boolean) => void }) {
   const map = useMap();
   const { currentTrack, isRecording, updateCurrentPosition } = useTrackStore();
   const lastGpsPosition = useRef<[number, number] | null>(null);
   const watchId = useRef<number | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [currentMarker, setCurrentMarker] = useState<Marker | null>(null);
+
+  useEffect(() => {
+    if (!map) return;
+
+    const initializeMap = async () => {
+      try {
+        await map.whenReady();
+        setIsInitialized(true);
+        
+        if (currentTrack?.coordinates?.length > 0) {
+          const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
+          map.setView(lastPosition, map.getZoom());
+        }
+      } catch (error) {
+        console.error('Errore durante l\'inizializzazione della mappa:', error);
+        setHasError(true);
+      }
+    };
+
+    initializeMap();
+  }, [map, currentTrack]);
   
   // Utilizzo dell'hook GPS per una gestione più robusta della geolocalizzazione
   const {
@@ -133,16 +203,36 @@ function LocationTracker({ onGpsStatusChange }: { onGpsStatusChange?: (accuracy:
     startWatching,
     stopWatching
   } = useGps({
-    maxRetries: 3,
-    retryInterval: 2000,
+    onPositionChange: (pos) => {
+      if (!pos) return;
+      const newPosition: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+      lastGpsPosition.current = newPosition;
+      updateCurrentPosition(newPosition);
+      
+      if (isRecording) {
+        map.setView(newPosition, map.getZoom());
+      }
+    },
+    onUnavailable: () => {
+      setHasError(true);
+      console.error('GPS non disponibile');
+      if (onGpsStatusChange) onGpsStatusChange(null, false);
+    },
+    maxRetries: 5,
+    retryInterval: 1500,
     positionOptions: {
       enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 10000
+      timeout: 30000,
+      maximumAge: 5000
     },
     onSuccess: (position) => {
       const { latitude, longitude, accuracy } = position.coords;
       const newPosition: [number, number] = [latitude, longitude];
+      
+      // Reset del contatore dei tentativi di inizializzazione
+      initializationAttempts.current = 0;
+      setHasError(false);
+      setIsInitialized(true);
       
       // Notifica il cambiamento dello stato GPS
       if (onGpsStatusChange) {
@@ -152,13 +242,22 @@ function LocationTracker({ onGpsStatusChange }: { onGpsStatusChange?: (accuracy:
       if (!lastGpsPosition.current || 
           Math.abs(latitude - lastGpsPosition.current[0]) > 0.00001 || 
           Math.abs(longitude - lastGpsPosition.current[1]) > 0.00001) {
-        // Aggiorniamo la posizione senza cambiare lo zoom e senza animazioni che potrebbero causare l'effetto zoom out/in
-        const currentZoom = map.getZoom();
-        map.setView(newPosition, currentZoom, { animate: false });
-        lastGpsPosition.current = newPosition;
-        
-        // Log per debug
-        console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}], precisione: ${accuracy}m`);
+        try {
+          // Verifichiamo che la mappa sia inizializzata correttamente
+          if (map && typeof map.getZoom === 'function') {
+            // Aggiorniamo la posizione senza cambiare lo zoom e senza animazioni
+            const currentZoom = map.getZoom();
+            map.setView(newPosition, currentZoom, { animate: false });
+            lastGpsPosition.current = newPosition;
+            
+            // Log per debug
+            console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}], precisione: ${accuracy}m`);
+          } else {
+            console.warn('Mappa non inizializzata correttamente');
+          }
+        } catch (e) {
+          console.error('Errore durante l\'aggiornamento della vista della mappa:', e);
+        }
       }
       
       // Aggiorniamo sempre la posizione corrente per assicurarci che il marker sia aggiornato
@@ -166,18 +265,28 @@ function LocationTracker({ onGpsStatusChange }: { onGpsStatusChange?: (accuracy:
     },
     onError: (error) => {
       console.warn('Errore di geolocalizzazione:', error);
+      setHasError(true);
       
       // Notifica l'errore GPS
       if (onGpsStatusChange) {
         onGpsStatusChange(null, false);
       }
       
-      // Se non abbiamo ancora una posizione, usa quella predefinita
-      if (!lastGpsPosition.current) {
+      // Incrementa il contatore dei tentativi
+      initializationAttempts.current += 1;
+      
+      // Se non abbiamo ancora una posizione dopo diversi tentativi, usa quella predefinita
+      if (!lastGpsPosition.current && initializationAttempts.current >= maxInitAttempts) {
         console.warn('Utilizzo della posizione predefinita dopo il fallimento di tutti i tentativi');
-        map.panTo(DEFAULT_POSITION);
-        lastGpsPosition.current = DEFAULT_POSITION;
-        updateCurrentPosition(DEFAULT_POSITION);
+        try {
+          if (map && typeof map.panTo === 'function') {
+            map.panTo(DEFAULT_POSITION);
+            lastGpsPosition.current = DEFAULT_POSITION;
+            updateCurrentPosition(DEFAULT_POSITION);
+          }
+        } catch (e) {
+          console.error('Errore durante l\'impostazione della posizione predefinita:', e);
+        }
       }
     }
   });
@@ -195,6 +304,17 @@ function LocationTracker({ onGpsStatusChange }: { onGpsStatusChange?: (accuracy:
     // Notifica che stiamo iniziando ad acquisire il GPS
     if (onGpsStatusChange) {
       onGpsStatusChange(null, true);
+    }
+
+    // Verifica se la mappa è inizializzata prima di procedere
+    if (!map || typeof map.getZoom !== 'function') {
+      console.error('Mappa non inizializzata correttamente');
+      // Riprova dopo un breve ritardo
+      setTimeout(() => {
+        if (map && typeof map.getZoom === 'function') {
+          console.log('Mappa inizializzata con successo dopo il ritardo');
+        }
+      }, 500);
     }
 
     // Quando inizia la registrazione, richiedi la posizione corrente senza modificare lo zoom
@@ -348,13 +468,28 @@ function CenterButton() {
   );
 }
 
-function MapView() {
+interface MapViewContainerProps {
+  gpsAccuracy: number | null;
+  isAcquiringGps: boolean;
+  gpsError: string | null;
+  setGpsAccuracy: (accuracy: number | null) => void;
+  setIsAcquiringGps: (isAcquiring: boolean) => void;
+  setGpsError: (error: string | null) => void;
+}
+
+function MapViewContainer({
+  gpsAccuracy,
+  isAcquiringGps,
+  gpsError,
+  setGpsAccuracy,
+  setIsAcquiringGps,
+  setGpsError
+}: MapViewProps) {
   const { isRecording, currentTrack, loadedFindings, currentDirection } = useTrackStore();
   const [mapZoom, setMapZoom] = useState(INITIAL_ZOOM);
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_POSITION);
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
-  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
-  const [isAcquiringGps, setIsAcquiringGps] = useState<boolean>(false);
+  const [mapInitialized, setMapInitialized] = useState<boolean>(false);
   const gpsArrowIcon = useMemo(() => createGpsArrowIcon(currentDirection), [currentDirection]);
   const mapRef = useRef<L.Map | null>(null);
   
@@ -374,6 +509,35 @@ function MapView() {
     bottom: 0,
     zIndex: 1
   };
+  
+  // Inizializzazione della mappa e gestione degli errori
+  useEffect(() => {
+    // Funzione per verificare se la mappa è stata inizializzata correttamente
+    const checkMapInitialization = () => {
+      const mapContainer = document.querySelector('.leaflet-container');
+      if (mapContainer) {
+        console.log('Mappa inizializzata correttamente');
+        setMapInitialized(true);
+        return true;
+      }
+      return false;
+    };
+
+    // Verifica iniziale
+    if (!checkMapInitialization()) {
+      // Se la mappa non è inizializzata, riprova dopo un breve ritardo
+      console.log('Tentativo di inizializzazione della mappa...');
+      const initTimer = setTimeout(() => {
+        if (!checkMapInitialization()) {
+          console.warn('Problemi nell\'inizializzazione della mappa, ricarica forzata...');
+          // Forza un aggiornamento delle dimensioni della finestra
+          window.dispatchEvent(new Event('resize'));
+        }
+      }, 1000);
+      
+      return () => clearTimeout(initTimer);
+    }
+  }, []);
   
   // Applica la classe fullscreen quando il tracciamento è attivo o in pausa
   useEffect(() => {
@@ -403,7 +567,7 @@ function MapView() {
       {/* Indicatore dello stato GPS */}
       <GpsStatusIndicator 
         isAcquiring={isAcquiringGps}
-        isAvailable={isRecording}
+        isAvailable={isGpsAvailable}
         error={null}
         accuracy={gpsAccuracy}
       />
@@ -423,6 +587,33 @@ function MapView() {
         zoomControl={false}
         whenCreated={(map) => {
           mapRef.current = map;
+          console.log('Mappa creata con successo');
+          
+          // Richiedi immediatamente la posizione GPS all'avvio della mappa
+          if ('geolocation' in navigator) {
+            console.log('Richiesta posizione GPS iniziale...');
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude, longitude } = position.coords;
+                console.log(`Posizione GPS iniziale acquisita: [${latitude}, ${longitude}]`);
+                map.setView([latitude, longitude], mapZoom, { animate: false });
+                setCurrentPosition([latitude, longitude]);
+                setGpsAccuracy(position.coords.accuracy);
+              },
+              (error) => {
+                console.warn('Errore nell\'acquisizione della posizione iniziale:', error.message);
+                // Usa la posizione predefinita in caso di errore
+                map.setView(DEFAULT_POSITION, mapZoom, { animate: false });
+              },
+              {
+                enableHighAccuracy: true,
+                timeout: 30000,
+                maximumAge: 0 // Vogliamo una posizione fresca all'avvio
+              }
+            );
+          } else {
+            console.warn('Geolocalizzazione non supportata dal browser');
+          }
         }}
       >
         <ZoomControl />
@@ -436,6 +627,11 @@ function MapView() {
           onGpsStatusChange={(accuracy, isAcquiring) => {
             setGpsAccuracy(accuracy);
             setIsAcquiringGps(isAcquiring);
+            if (!accuracy && !isAcquiring) {
+              setGpsError('Impossibile ottenere la posizione GPS. Verifica che il GPS sia attivo e concedi i permessi di localizzazione.');
+            } else {
+              setGpsError(null);
+            }
           }} 
         />
         <MouseTracker />
@@ -478,6 +674,23 @@ function MapView() {
   );
 }
 
-export default function Map() {
-  return <MapView />;
+function MapRoot() {
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [isAcquiringGps, setIsAcquiringGps] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const { currentTrack, isRecording } = useTrackStore();
+
+  const handleGpsStatusChange = useCallback((accuracy: number | null, isAcquiring: boolean) => {
+    setGpsAccuracy(accuracy);
+    setIsAcquiringGps(isAcquiring);
+  }, []);
+
+  return <MapViewContainer
+    gpsAccuracy={gpsAccuracy}
+    isAcquiringGps={isAcquiringGps}
+    gpsError={gpsError}
+    setGpsAccuracy={setGpsAccuracy}
+    setIsAcquiringGps={setIsAcquiringGps}
+    setGpsError={setGpsError}
+  />;
 }

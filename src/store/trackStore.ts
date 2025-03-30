@@ -131,10 +131,28 @@ export const useTrackStore = create<TrackState>()(
       stopTrack: () => {
         const { currentTrack, tracks } = get();
         if (currentTrack) {
+          // Calcola i dati finali del tracciamento
+          const endTime = new Date();
+          const durationMs = endTime.getTime() - currentTrack.startTime.getTime();
+          const durationHours = durationMs / 3600000;
+          
+          // Calcola la velocità media (km/h)
+          const avgSpeed = durationHours > 0 ? currentTrack.distance / durationHours : 0;
+          
+          // Calcola l'altitudine media (simulata per ora)
+          // In un'implementazione reale, questo valore verrebbe calcolato dai dati GPS raccolti
+          const avgAltitude = currentTrack.coordinates.length > 0 ? 
+            Math.floor(Math.random() * 200) + 400 : 0; // Simulazione tra 400-600m
+          
           const completedTrack: Track = {
             ...currentTrack,
-            endTime: new Date()
+            endTime,
+            duration: durationMs,
+            avgSpeed,
+            avgAltitude,
+            totalDistance: currentTrack.distance
           };
+          
           set({
             tracks: [...tracks, completedTrack],
             currentTrack: null,
