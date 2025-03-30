@@ -4,8 +4,8 @@
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   position: absolute;
-  bottom: 200px; /* Aumentato per evitare sovrapposizioni con altri controlli */
-  left: 10px;
+  top: 10px; /* Spostato in alto a destra come richiesto */
+  right: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: column;

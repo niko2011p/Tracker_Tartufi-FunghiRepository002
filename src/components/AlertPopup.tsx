@@ -22,8 +22,15 @@ const AlertPopup: React.FC<AlertPopupProps> = ({ finding, onClose, onMute, isAud
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Ritrovamento Vicino</h3>
           <button 
-            onClick={onClose} 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onClose();
+            }} 
             className="text-gray-500 hover:text-gray-700"
+            aria-label="Chiudi"
+            role="button"
+            tabIndex={0}
           >
             <X className="w-6 h-6" />
           </button>
@@ -53,8 +60,14 @@ const AlertPopup: React.FC<AlertPopupProps> = ({ finding, onClose, onMute, isAud
 
           <div className="flex justify-between items-center pt-4">
             <button
-              onClick={onMute}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onMute();
+              }}
               className={`px-4 py-2 rounded-lg transition-colors ${isAudioPlaying ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+              role="button"
+              tabIndex={0}
             >
               {isAudioPlaying ? 'Silenzia Alert' : 'Alert Silenziato'}
             </button>

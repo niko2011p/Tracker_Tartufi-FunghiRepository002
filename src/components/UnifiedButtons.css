@@ -15,7 +15,8 @@
   min-width: 0;
   border: 3px solid rgba(255, 255, 255, 0.3);
   transform: scale(1.0);
-  animation: buttonPulse 2s infinite;
+  /* Rimuovo l'animazione che potrebbe interferire con i clic */
+  /* animation: buttonPulse 2s infinite; */
 }
 
 .unified-button:hover {

@@ -45,9 +45,15 @@ function TagOptionsPopup({ onClose, onCenterMap }: TagOptionsPopupProps) {
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Opzioni Tag</h3>
           <button 
-            onClick={onClose} 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onClose();
+            }} 
             className="text-gray-500 hover:text-gray-700"
             aria-label="Chiudi"
+            role="button"
+            tabIndex={0}
           >
             <X className="w-6 h-6" />
           </button>
@@ -55,8 +61,14 @@ function TagOptionsPopup({ onClose, onCenterMap }: TagOptionsPopupProps) {
 
         <div className="space-y-4">
           <button
-            onClick={handleAddFinding}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              handleAddFinding();
+            }}
             className="w-full flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            role="button"
+            tabIndex={0}
           >
             <div className="flex items-center">
               <MapPin className="w-5 h-5 mr-3 text-[#fd9a3c]" />
@@ -65,8 +77,14 @@ function TagOptionsPopup({ onClose, onCenterMap }: TagOptionsPopupProps) {
           </button>
 
           <button
-            onClick={handlePointOfInterest}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              handlePointOfInterest();
+            }}
             className="w-full flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            role="button"
+            tabIndex={0}
           >
             <div className="flex items-center">
               <Crosshair className="w-5 h-5 mr-3 text-green-600" />

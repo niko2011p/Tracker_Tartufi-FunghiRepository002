@@ -143,14 +143,26 @@ function TrackingControls() {
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowStopConfirm(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setShowStopConfirm(false);
+                }}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                role="button"
+                tabIndex={0}
               >
                 Annulla
               </button>
               <button
-                onClick={handleStopConfirm}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleStopConfirm();
+                }}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                role="button"
+                tabIndex={0}
               >
                 Interrompi e salva
               </button>
@@ -165,11 +177,15 @@ function TrackingControls() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Nuovo Ritrovamento</h3>
               <button 
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
                   setShowFindingForm(false);
                   setPhotoUrl(null);
                 }} 
                 className="text-gray-500 hover:text-gray-700"
+                role="button"
+                tabIndex={0}
               >
                 <X className="w-6 h-6" />
               </button>
@@ -288,17 +304,27 @@ function TrackingControls() {
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     setShowFindingForm(false);
                     setPhotoUrl(null);
                   }}
                   className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+                  role="button"
+                  tabIndex={0}
                 >
                   Annulla
                 </button>
                 <button
                   type="submit"
+                  onClick={(e) => {
+                    // Non usiamo preventDefault qui perché vogliamo che il form venga inviato
+                    e.stopPropagation();
+                  }}
                   className="px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
+                  role="button"
+                  tabIndex={0}
                 >
                   Salva
                 </button>
@@ -322,15 +348,27 @@ function TrackingControls() {
                   <>
 
                     <button
-                      onClick={() => setShowStopConfirm(true)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setShowStopConfirm(true);
+                      }}
                       className="w-full sm:w-auto bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-3 font-medium"
+                      role="button"
+                      tabIndex={0}
                     >
                       <Square className="w-6 h-6" />
                       <span>Stop</span>
                     </button>
                     <button
-                      onClick={() => setShowFindingForm(true)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setShowFindingForm(true);
+                      }}
                       className="w-full sm:w-auto bg-[#fd9a3c] text-white px-6 py-3 rounded-lg hover:bg-[#e88a2c] transition-colors duration-400 flex items-center justify-center gap-3 font-medium"
+                      role="button"
+                      tabIndex={0}
                     >
                       <MapPin className="w-6 h-6" />
                       <span>Aggiungi Ritrovamento</span>

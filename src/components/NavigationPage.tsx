@@ -55,37 +55,38 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper fungo-finding ${pulseAnimation}">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="8" fill="#DC2626" stroke="white" stroke-width="2" opacity="${opacity}"/>
-            <circle cx="12" cy="12" r="4" fill="rgba(255,255,255,0.3)" opacity="${opacity}"/>
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));">
+            <path d="M16 4 C22 4 26 8 26 14 C26 22 18 28 16 28 C14 28 6 22 6 14 C6 8 10 4 16 4Z" fill="#FF0000" stroke="white" stroke-width="1.5" opacity="${opacity}"/>
+            <circle cx="16" cy="14" r="4" fill="rgba(255,255,255,0.3)" opacity="${opacity}"/>
+            <path d="M16 28 L16 32" stroke="#8B4513" stroke-width="2" opacity="${opacity}"/>
           </svg>
         </div>
       `,
       className: 'finding-icon fungo-finding',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12]
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+      popupAnchor: [0, -32]
     });
   } else if (type === 'Tartufo') {
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper tartufo-finding ${pulseAnimation}">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
             <path d="
-              M16 4
-              L28 16
-              Q28 24 16 28
-              Q4 24 4 16
-              L16 4
+              M16 6
+              C22 6 26 10 26 16
+              C26 22 22 26 16 26
+              C10 26 6 22 6 16
+              C6 10 10 6 16 6
               Z
             " 
-            fill="#1c1917" 
+            fill="#000000" 
             opacity="${opacity}"
             stroke="white" 
-            stroke-width="2"
+            stroke-width="1.5"
             stroke-linejoin="round"
             />
-            <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.2)" opacity="${opacity}"/>
+            <circle cx="16" cy="16" r="5" fill="rgba(255,255,255,0.2)" opacity="${opacity}"/>
           </svg>
         </div>
       `,
@@ -99,9 +100,9 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper interesse-finding ${pulseAnimation}">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 4L28 16L16 28L4 16L16 4Z" fill="#8eaa36" stroke="white" stroke-width="2" stroke-linejoin="round" opacity="${opacity}"/>
-            <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.2)" opacity="${opacity}"/>
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));">
+            <path d="M16 4 L28 16 L16 28 L4 16 Z" fill="#00FF00" stroke="white" stroke-width="1.5" stroke-linejoin="round" opacity="${opacity}"/>
+            <circle cx="16" cy="16" r="5" fill="rgba(255,255,255,0.3)" opacity="${opacity}"/>
           </svg>
         </div>
       `,
@@ -118,14 +119,33 @@ function LocationUpdater() {
   const map = useMap();
   const { currentTrack, updateCurrentPosition } = useTrackStore();
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
+  const [direction, setDirection] = useState<number>(0);
+  const lastPositionRef = useRef<[number, number] | null>(null);
   
   // Effetto per aggiornare la posizione corrente quando cambiano le coordinate del tracciamento
   useEffect(() => {
     if (currentTrack?.coordinates.length) {
       const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
       setCurrentPosition(lastPosition);
+      
+      // Calcola la direzione se abbiamo almeno due punti
+      if (currentTrack.coordinates.length > 1 && lastPositionRef.current) {
+        const prevPosition = lastPositionRef.current;
+        const newDirection = calculateDirection(prevPosition, lastPosition);
+        setDirection(newDirection);
+      }
+      
+      lastPositionRef.current = lastPosition;
     }
   }, [currentTrack]);
+  
+  // Calcola la direzione in gradi tra due punti
+  const calculateDirection = (from: [number, number], to: [number, number]): number => {
+    const deltaLat = to[0] - from[0];
+    const deltaLng = to[1] - from[1];
+    const angle = Math.atan2(deltaLng, deltaLat) * 180 / Math.PI;
+    return (angle + 360) % 360; // Normalizza a 0-360 gradi
+  };
   
   // Effetto per richiedere la posizione GPS all'avvio
   useEffect(() => {
@@ -143,7 +163,7 @@ function LocationUpdater() {
           
           // Centra la mappa sulla posizione corrente
           const currentZoom = map.getZoom();
-          map.setView(newPosition, currentZoom, { animate: false });
+          map.setView(newPosition, currentZoom, { animate: true });
           
           console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}]`);
         },
@@ -162,8 +182,18 @@ function LocationUpdater() {
           // Aggiorna la posizione corrente nello store
           updateCurrentPosition(newPosition);
           
+          // Calcola la direzione se abbiamo una posizione precedente
+          if (lastPositionRef.current) {
+            const newDirection = calculateDirection(lastPositionRef.current, newPosition);
+            setDirection(newDirection);
+          }
+          
           // Aggiorna la posizione locale
           setCurrentPosition(newPosition);
+          lastPositionRef.current = newPosition;
+          
+          // Centra automaticamente la mappa sulla posizione corrente
+          map.setView(newPosition, map.getZoom(), { animate: true });
           
           console.log(`Posizione GPS monitorata: [${latitude}, ${longitude}]`);
         },
@@ -211,7 +241,7 @@ function CenterButton() {
   };
   
   return (
-    <div className="center-button-container" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1001 }}>
+    <div className="center-button-container" style={{ position: 'absolute', top: '80px', right: '10px', zIndex: 1001 }}>
       <button 
         className="center-button"
         onClick={handleCenterClick}
@@ -251,8 +281,8 @@ function ZoomControl() {
   return (
     <div className="zoom-control" style={{
       position: 'absolute',
-      bottom: '140px', // Aumentato per evitare sovrapposizioni con il pulsante di centraggio
-      left: '10px', // Spostato a sinistra invece che a destra
+      top: '10px', // Posizionato in alto a destra
+      right: '10px',
       zIndex: 1000,
       display: 'flex',
       flexDirection: 'column',
@@ -338,6 +368,22 @@ const NavigationPage: React.FC = () => {
 
   const mapRef = React.useRef(null);
 
+  // Array per lo smoothing dell'altitudine
+  const [altitudeReadings, setAltitudeReadings] = useState<number[]>([]);
+  
+  // Funzione per stabilizzare l'altitudine con media mobile
+  const smoothAltitude = (newReading: number, readings: number[]): number => {
+    const MAX_READINGS = 5; // Numero di letture da considerare per lo smoothing
+    
+    // Aggiungi la nuova lettura all'array
+    const updatedReadings = [...readings, newReading].slice(-MAX_READINGS);
+    setAltitudeReadings(updatedReadings);
+    
+    // Calcola la media delle letture disponibili
+    const sum = updatedReadings.reduce((acc, val) => acc + val, 0);
+    return Math.round(sum / updatedReadings.length);
+  };
+  
   // Aggiorna i dati di tracking in tempo reale
   useEffect(() => {
     if (currentTrack) {
@@ -361,13 +407,16 @@ const NavigationPage: React.FC = () => {
       
       // Ottieni l'altitudine (simulata per ora)
       // In un'implementazione reale, questo valore verrebbe ottenuto dal GPS
-      const altitude = currentTrack.coordinates.length > 0 ? 
+      const rawAltitude = currentTrack.coordinates.length > 0 ? 
         Math.floor(Math.random() * 200) + 400 : 0; // Simulazione tra 400-600m
+      
+      // Applica lo smoothing all'altitudine
+      const smoothedAltitude = smoothAltitude(rawAltitude, altitudeReadings);
       
       setTrackingData({
         distance,
         avgSpeed,
-        altitude,
+        altitude: smoothedAltitude,
         duration: formattedDuration
       });
       
@@ -384,17 +433,23 @@ const NavigationPage: React.FC = () => {
         const minutes = newDurationMinutes % 60;
         const formattedDuration = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         
+        // Genera una nuova lettura di altitudine e applica lo smoothing
+        const newRawAltitude = currentTrack.coordinates.length > 0 ? 
+          Math.floor(Math.random() * 200) + 400 : 0;
+        const newSmoothedAltitude = smoothAltitude(newRawAltitude, altitudeReadings);
+        
         setTrackingData(prev => ({
           ...prev,
           distance: currentTrack.distance,
           avgSpeed: newAvgSpeed,
+          altitude: newSmoothedAltitude,
           duration: formattedDuration
         }));
       }, 1000);
       
       return () => clearInterval(timer);
     }
-  }, [currentTrack]);
+  }, [currentTrack, altitudeReadings]);
   
   // Effetto per l'animazione iniziale della mappa
   useEffect(() => {
@@ -407,7 +462,7 @@ const NavigationPage: React.FC = () => {
       }
     }
   }, [currentTrack]);
-
+  
   return (
     <div className="fixed inset-0 z-[9999] bg-white">
       {/* Pannello informazioni di tracking con sfondo quasi trasparente */}
@@ -436,23 +491,31 @@ const NavigationPage: React.FC = () => {
           </div>
         </div>
         
-        {/* Griglia dei dati di tracciamento */}
+        {/* Dati di tracciamento in formato verticale */}
         <div className="tracking-data-grid">
           <div className="tracking-data-item">
-            <Route size={18} className="tracking-data-icon" />
-            <p className="tracking-data-value">{trackingData.distance.toFixed(2)} km</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Route size={18} className="tracking-data-icon" />
+              <p className="tracking-data-value">{trackingData.distance.toFixed(2)} km</p>
+            </div>
           </div>
           <div className="tracking-data-item">
-            <ArrowUpDown size={18} className="tracking-data-icon" />
-            <p className="tracking-data-value">{trackingData.avgSpeed.toFixed(1)} km/h</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ArrowUpDown size={18} className="tracking-data-icon" />
+              <p className="tracking-data-value">{trackingData.avgSpeed.toFixed(1)} km/h</p>
+            </div>
           </div>
           <div className="tracking-data-item">
-            <Mountain size={18} className="tracking-data-icon" />
-            <p className="tracking-data-value">{trackingData.altitude} m</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Mountain size={18} className="tracking-data-icon" />
+              <p className="tracking-data-value">{trackingData.altitude} m</p>
+            </div>
           </div>
           <div className="tracking-data-item">
-            <Clock size={18} className="tracking-data-icon" />
-            <p className="tracking-data-value">{trackingData.duration}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={18} className="tracking-data-icon" />
+              <p className="tracking-data-value">{trackingData.duration}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -492,31 +555,251 @@ const NavigationPage: React.FC = () => {
             {/* Display findings markers */}
             {currentTrack.findings
               .filter(finding => !isLoadedFinding(finding))
-              .map((finding) => (
-                <Marker
-                  key={finding.id}
-                  position={finding.coordinates}
-                  icon={createFindingIcon(
-                    finding.type === 'poi' ? 'Interesse' : 
-                    finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo'
-                  )}
-                />
-              ))}
+              .map((finding) => {
+                const findingType = finding.type === 'poi' ? 'Interesse' : 
+                                   finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo';
+                return (
+                  <Marker
+                    key={finding.id}
+                    position={finding.coordinates}
+                    icon={createFindingIcon(findingType)}
+                  />
+                );
+              })}
           </>
         )}
         
         {/* Display loaded findings if any */}
-        {loadedFindings?.map((finding) => (
-          <Marker
-            key={`loaded-${finding.id}`}
-            position={finding.coordinates}
-            icon={createFindingIcon(
-              finding.type === 'poi' ? 'Interesse' : 
-              finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo',
-              true
-            )}
-          />
-        ))}
+        {loadedFindings?.map((finding) => {
+          const findingType = finding.type === 'poi' ? 'Interesse' : 
+                             finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo';
+          return (
+            <Marker
+              key={`loaded-${finding.id}`}
+              position={finding.coordinates}
+              icon={createFindingIcon(findingType, true)}
+            />
+          );
+        })}
+        
+        {/* Display tags added during navigation */}
+        {currentTrack?.findings
+          .filter(finding => finding.type === 'Fungo' || finding.type === 'Tartufo' || finding.type === 'poi')
+          .map((finding) => {
+            const findingType = finding.type === 'poi' ? 'Interesse' : 
+                               finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
+            return (
+              <Marker
+                key={`tag-${finding.id}`}
+                position={finding.coordinates}
+                icon={createFindingIcon(findingType)}
+              />
+            );
+          })}
+      </MapContainer>
+      
+      {/* Control buttons */}
+      <div className="fixed bottom-10 left-0 right-0 flex justify-center gap-4 z-[10000]">
+        <button
+          onClick={() => setShowStopConfirm(true)}
+          className="unified-button stop"
+        >
+          <Square className="w-6 h-6" />
+          Stop
+        </button>
+        
+        <button
+          onClick={() => setShowTagOptions(true)}
+          className="unified-button tag"
+        >
+          <MapPin className="w-6 h-6" />
+          Tag
+        </button>
+      </div>
+      
+      {/* Mostra il form per aggiungere un ritrovamento quando richiesto */}
+      {showFindingForm && <FindingForm onClose={() => setShowFindingForm(false)} />}
+      
+      {/* Popup opzioni Tag */}
+      {showTagOptions && (
+        <TagOptionsPopup 
+          onClose={() => setShowTagOptions(false)}
+          onCenterMap={() => {}}
+        />
+      )}
+      
+      {/* Popup di conferma per lo Stop */}
+      {showStopConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertCircle className="w-6 h-6 text-yellow-500" />
+              <h3 className="text-lg font-semibold">Conferma interruzione</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-2">
+              Sei sicuro di voler interrompere la registrazione della traccia?
+            </p>
+            <p className="text-gray-600 mb-6">
+              La traccia verrà salvata automaticamente nello storico.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowStopConfirm(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  stopTrack();
+                  setShowStopConfirm(false);
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Salva Log e Interrompi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-white">
+      {/* Pannello informazioni di tracking con sfondo quasi trasparente */}
+      <div className="tracking-data-panel">
+        {/* Indicatore GPS con potenza del segnale */}
+        <div className="gps-signal-header">
+          <Navigation size={18} color="#f5a149" style={{ marginRight: '6px' }} />
+          {/* Barre del segnale GPS */}
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            {[...Array(4)].map((_, i) => {
+              // Simulazione della potenza del segnale (in un'app reale useremmo l'accuracy del GPS)
+              const isActive = i < Math.floor(Math.random() * 5); // Simulazione casuale
+              const barHeight = 6 + (i * 3); // Altezza crescente per ogni barra
+              
+              return (
+                <div 
+                  key={i}
+                  className="signal-bar"
+                  style={{
+                    height: `${barHeight}px`,
+                    backgroundColor: isActive ? '#f5a149' : '#E0E0E0',
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Dati di tracciamento in formato verticale */}
+        <div className="tracking-data-grid">
+          <div className="tracking-data-item">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Route size={18} className="tracking-data-icon" />
+              <p className="tracking-data-value">{trackingData.distance.toFixed(2)} km</p>
+            </div>
+          </div>
+          <div className="tracking-data-item">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ArrowUpDown size={18} className="tracking-data-icon" />
+              <p className="tracking-data-value">{trackingData.avgSpeed.toFixed(1)} km/h</p>
+            </div>
+          </div>
+          <div className="tracking-data-item">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Mountain size={18} className="tracking-data-icon" />
+              <p className="tracking-data-value">{trackingData.altitude} m</p>
+            </div>
+          </div>
+          <div className="tracking-data-item">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={18} className="tracking-data-icon" />
+              <p className="tracking-data-value">{trackingData.duration}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Full screen map */}
+      <MapContainer
+        ref={mapRef}
+        center={currentPosition}
+        zoom={MAX_ZOOM}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
+        className="h-full w-full"
+        attributionControl={false}
+        zoomControl={false}
+      >
+        <TileLayer
+          url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+          attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        
+        <LocationUpdater />
+        <CenterButton />
+        <ZoomControl />
+        
+        {/* Display current position marker */}
+        <Marker position={currentPosition} icon={gpsArrowIcon} />
+        
+        {/* Display track polyline */}
+        {currentTrack && (
+          <>
+            <Polyline
+              positions={currentTrack.coordinates}
+              color="#FF9800"
+              weight={3}
+              opacity={0.8}
+            />
+            {/* Display findings markers */}
+            {currentTrack.findings
+              .filter(finding => !isLoadedFinding(finding))
+              .map((finding) => {
+                const findingType = finding.type === 'poi' ? 'Interesse' : 
+                                   finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo';
+                return (
+                  <Marker
+                    key={finding.id}
+                    position={finding.coordinates}
+                    icon={createFindingIcon(findingType)}
+                  />
+                );
+              })}
+          </>
+        )}
+        
+        {/* Display loaded findings if any */}
+        {loadedFindings?.map((finding) => {
+          const findingType = finding.type === 'poi' ? 'Interesse' : 
+                             finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo';
+          return (
+            <Marker
+              key={`loaded-${finding.id}`}
+              position={finding.coordinates}
+              icon={createFindingIcon(findingType, true)}
+            />
+          );
+        })}
+        
+        {/* Display tags added during navigation */}
+        {currentTrack?.findings
+          .filter(finding => finding.type === 'Fungo' || finding.type === 'Tartufo' || finding.type === 'poi')
+          .map((finding) => {
+            const findingType = finding.type === 'poi' ? 'Interesse' : 
+                               finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
+            return (
+              <Marker
+                key={`tag-${finding.id}`}
+                position={finding.coordinates}
+                icon={createFindingIcon(findingType)}
+              />
+            );
+          })}
       </MapContainer>
       
       {/* Control buttons */}

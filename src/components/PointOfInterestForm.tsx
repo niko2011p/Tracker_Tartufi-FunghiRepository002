@@ -45,9 +45,15 @@ function PointOfInterestForm({ onClose, onSubmit }: PointOfInterestFormProps) {
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Punto di interesse</h3>
           <button 
-            onClick={onClose} 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onClose();
+            }} 
             className="text-gray-500 hover:text-gray-700"
             aria-label="Chiudi"
+            role="button"
+            tabIndex={0}
           >
             <X className="w-6 h-6" />
           </button>
@@ -94,8 +100,14 @@ function PointOfInterestForm({ onClose, onSubmit }: PointOfInterestFormProps) {
                 <div className="flex w-full gap-2">
                   <button
                     type="button"
-                    onClick={() => document.getElementById('photo-upload')?.click()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      document.getElementById('photo-upload')?.click();
+                    }}
                     className="flex-1 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-[#fd9a3c] hover:bg-[#fd9a3c]/10 transition-colors"
+                    role="button"
+                    tabIndex={0}
                   >
                     <Upload className="w-6 h-6 text-gray-400" />
                     <span className="text-sm text-gray-500">Carica foto</span>
@@ -103,8 +115,14 @@ function PointOfInterestForm({ onClose, onSubmit }: PointOfInterestFormProps) {
                   
                   <button
                     type="button"
-                    onClick={() => setShowCamera(true)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setShowCamera(true);
+                    }}
                     className="flex-1 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-[#fd9a3c] hover:bg-[#fd9a3c]/10 transition-colors"
+                    role="button"
+                    tabIndex={0}
                   >
                     <Camera className="w-6 h-6 text-gray-400" />
                     <span className="text-sm text-gray-500">Scatta foto</span>
@@ -120,25 +138,43 @@ function PointOfInterestForm({ onClose, onSubmit }: PointOfInterestFormProps) {
                   <div className="absolute top-2 right-2 flex gap-2">
                     <button
                       type="button"
-                      onClick={() => document.getElementById('photo-upload')?.click()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        document.getElementById('photo-upload')?.click();
+                      }}
                       className="p-2 bg-[#8eaa36] text-white rounded-full hover:bg-[#7d9830] transition-colors duration-400"
                       title="Carica nuova foto"
+                      role="button"
+                      tabIndex={0}
                     >
                       <Upload className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowCamera(true)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setShowCamera(true);
+                      }}
                       className="p-2 bg-[#fd9a3c] text-white rounded-full hover:bg-[#e88a2c] transition-colors duration-400"
                       title="Scatta nuova foto"
+                      role="button"
+                      tabIndex={0}
                     >
                       <Camera className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPhotoPreview(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setPhotoPreview(null);
+                      }}
                       className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                       title="Rimuovi foto"
+                      role="button"
+                      tabIndex={0}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -155,8 +191,14 @@ function PointOfInterestForm({ onClose, onSubmit }: PointOfInterestFormProps) {
                   <h4 className="text-lg font-semibold">Scatta una foto</h4>
                   <button
                     type="button"
-                    onClick={() => setShowCamera(false)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setShowCamera(false);
+                    }}
                     className="text-gray-500 hover:text-gray-700"
+                    role="button"
+                    tabIndex={0}
                   >
                     <X className="w-6 h-6" />
                   </button>
@@ -169,7 +211,9 @@ function PointOfInterestForm({ onClose, onSubmit }: PointOfInterestFormProps) {
                 />
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     const video = document.getElementById('camera-preview') as HTMLVideoElement;
                     const canvas = document.createElement('canvas');
                     canvas.width = video.videoWidth;
@@ -196,7 +240,13 @@ function PointOfInterestForm({ onClose, onSubmit }: PointOfInterestFormProps) {
 
           <button
             type="submit"
+            onClick={(e) => {
+              // Non usiamo preventDefault qui perché vogliamo che il form venga inviato
+              e.stopPropagation();
+            }}
             className="w-full bg-[#fd9a3c] text-white py-2 px-4 rounded-md hover:bg-[#e88a2c] focus:outline-none focus:ring-2 focus:ring-[#fd9a3c] focus:ring-offset-2"
+            role="button"
+            tabIndex={0}
           >
             Salva
           </button>

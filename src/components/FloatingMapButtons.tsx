@@ -31,7 +31,9 @@ function FloatingMapButtons() {
     }
   });
 
-  const handleStopClick = () => {
+  const handleStopClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
     setShowStopConfirm(true);
   };
   
@@ -154,8 +156,7 @@ function FloatingMapButtons() {
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  if (!e.target.closest('.unified-button.stop')) return;
-                  handleStopClick();
+                  handleStopClick(e);
                 }}
                 className="unified-button stop"
                 aria-label="Interrompi tracciamento"
@@ -174,6 +175,8 @@ function FloatingMapButtons() {
                 }}
                 className="unified-button tag"
                 aria-label="Aggiungi tag"
+                role="button"
+                tabIndex={0}
               >
                 <MapPin className="w-7 h-7" />
                 <span>Tag</span>
@@ -188,11 +191,14 @@ function FloatingMapButtons() {
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                handleStartTrack();
+                if (!isStartingTrack) handleStartTrack();
               }}
               className={`unified-button start ${isStartingTrack ? 'opacity-75 cursor-wait' : ''}`}
               aria-label="Avvia tracciamento"
+              role="button"
+              tabIndex={0}
               disabled={isStartingTrack}
+              style={{ pointerEvents: isStartingTrack ? 'none' : 'auto' }}
             >
               {isStartingTrack ? (
                 <>
@@ -211,6 +217,11 @@ function FloatingMapButtons() {
               to="/storico"
               className="unified-button logger"
               aria-label="Vai al logger"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              role="button"
+              tabIndex={0}
             >
               <History className="w-7 h-7" />
               <span>Logger</span>

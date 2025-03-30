@@ -209,6 +209,8 @@ export default function TrackDetails({ track, onClose }: TrackDetailsProps) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [weatherHistory, setWeatherHistory] = useState<any[]>([]);
+  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const initialCenter = track.coordinates.length > 0 
     ? track.coordinates[0] 
@@ -376,125 +378,243 @@ ${track.findings.map(f => `${f.name.startsWith('Fungo') ? '🍄' : '🎯'} ${f.n
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
-      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-semibold">
-            Dettagli Traccia - {format(track.startTime, "d MMMM yyyy HH:mm", { locale: it })}
+    <div className="fixed inset-0 bg-white z-50 overflow-y-auto">
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Header con titolo e pulsante di chiusura */}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">
+            Dettagli Traccia
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 transition-colors"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
-
-        <div className="flex-1 overflow-hidden p-4">
-          <div ref={mapRef} className="relative">
-            <MapContainer
-              key={`map-${track.id}`}
-              center={initialCenter}
-              zoom={13}
-              className="w-full h-[500px] rounded-lg"
-              zoomControl={true}
-              minZoom={MIN_ZOOM}
-              maxZoom={MAX_ZOOM}
-            >
-              <TileLayer
-                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-                attribution='Map data: &copy; OpenStreetMap contributors'
-              />
-              <MapController track={track} />
-              <Polyline
-                positions={track.coordinates}
-                color="#FF9800"
-                weight={3}
-                opacity={0.8}
-              />
-              {track.findings.map((finding: Finding) => (
-                <Marker
-                  key={finding.id}
-                  position={finding.coordinates}
-                  icon={createFindingIcon(
-                    finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo',
-                    isSharing
-                  )}
-                >
-                  <Popup>
-                    <div className="p-2">
-                      <h3 className="font-semibold">{finding.name}</h3>
-                      {finding.description && (
-                        <p className="text-sm text-gray-600 mt-1">{finding.description}</p>
-                      )}
-                      {finding.photoUrl && (
-                        <div className="mt-2 relative group">
-                          <img 
-                            src={finding.photoUrl} 
-                            alt={finding.name}
-                            className="w-32 h-32 object-cover rounded-lg cursor-pointer"
-                            onClick={() => setSelectedPhoto(finding.photoUrl)}
-                          />
-                          <button
-                            onClick={() => setSelectedPhoto(finding.photoUrl)}
-                            className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Maximize2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                      <p className="text-xs text-gray-500 mt-2">
-                        {format(finding.timestamp, "HH:mm", { locale: it })}
-                      </p>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
+        
+        {/* Informazioni principali */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Data</p>
+              <p className="font-medium">{format(track.startTime, "d MMMM yyyy", { locale: it })}</p>
+              <p className="text-sm">{format(track.startTime, "HH:mm", { locale: it })}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Durata</p>
+              <p className="font-medium">{track.endTime ? 
+                `${Math.floor((track.endTime.getTime() - track.startTime.getTime()) / (1000 * 60))} min` : 
+                'In corso'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Distanza</p>
+              <p className="font-medium">{track.distance.toFixed(2)} km</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Ritrovamenti</p>
+              <p className="font-medium">{track.findings.length}</p>
+            </div>
           </div>
         </div>
-
-        <div className="p-4 border-t flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            <p>Distanza: {track.distance.toFixed(2)} km</p>
-            <p>Ritrovamenti: {track.findings.length}</p>
-          </div>
-          <div className="flex gap-3">
+        
+        {/* Mappa con tracciato e tag */}
+        <div 
+          ref={mapRef}
+          className="relative h-[400px] rounded-lg overflow-hidden mb-6 border border-gray-200"
+        >
+          <MapContainer
+            center={initialCenter}
+            zoom={15}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={false}
+            attributionControl={false}
+            minZoom={MIN_ZOOM}
+            maxZoom={MAX_ZOOM}
+          >
+            <TileLayer
+              url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+              attribution='Map data: &copy; OpenStreetMap contributors'
+            />
+            
+            <MapController track={track} />
+            
+            {/* Tracciato come linea arancione */}
+            {track.coordinates.length > 0 && (
+              <Polyline 
+                positions={track.coordinates} 
+                color="#FF9800" 
+                weight={3} 
+                opacity={0.8}
+              />
+            )}
+            
+            {/* Ritrovamenti con icone specifiche */}
+            {track.findings.map((finding: Finding) => (
+              <Marker
+                key={finding.id}
+                position={finding.coordinates}
+                icon={createFindingIcon(
+                  finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo',
+                  isSharing
+                )}
+              >
+                <Popup>
+                  <div className="p-2">
+                    <h3 className="font-semibold">{finding.name}</h3>
+                    {finding.description && (
+                      <p className="text-sm text-gray-600 mt-1">{finding.description}</p>
+                    )}
+                    {finding.photoUrl && (
+                      <div className="mt-2 relative group">
+                        <img 
+                          src={finding.photoUrl} 
+                          alt={finding.name}
+                          className="w-32 h-32 object-cover rounded-lg cursor-pointer"
+                          onClick={() => setSelectedPhoto(finding.photoUrl)}
+                        />
+                        <button
+                          onClick={() => setSelectedPhoto(finding.photoUrl)}
+                          className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2">
+                      {format(finding.timestamp, "HH:mm", { locale: it })}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+          
+          {/* Pulsanti di azione per condividere ed esportare */}
+          <div className="absolute bottom-4 right-4 flex gap-2">
             <button
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 px-4 py-2 text-[#fd9a3c] hover:bg-[#fd9a3c]/10 rounded-lg transition-colors"
+              className="bg-white p-2 rounded-full shadow-md hover:bg-gray-100 transition-colors"
+              title="Condividi"
             >
-              <Share2 className="w-5 h-5" />
-              <span>Condividi</span>
+              <Share2 className="w-5 h-5 text-gray-700" />
             </button>
             <button
               onClick={() => setShowExportModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors duration-400"
+              className="bg-white p-2 rounded-full shadow-md hover:bg-gray-100 transition-colors"
+              title="Esporta GPX"
             >
-              <Download className="w-5 h-5" />
-              <span>Esporta GPX</span>
+              <Download className="w-5 h-5 text-gray-700" />
             </button>
           </div>
         </div>
+        
+        {/* Dati meteo storici */}
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold mb-4">Dati Meteo Storici</h3>
+          
+          {isLoadingWeather ? (
+            <div className="flex justify-center items-center h-20">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5a149]"></div>
+            </div>
+          ) : weatherHistory.length > 0 ? (
+            <div className="bg-gray-50 rounded-lg p-4 overflow-x-auto">
+              <div className="flex space-x-4 min-w-max">
+                {weatherHistory.map((day, index) => (
+                  <div key={index} className="bg-white rounded-lg p-3 shadow-sm min-w-[120px]">
+                    <div className="text-center">
+                      <p className="text-sm font-medium">{day.date}</p>
+                      <div className="text-2xl my-2">{day.icon}</div>
+                      <p className="font-bold text-lg">{day.temp}</p>
+                      <div className="text-xs text-gray-500 mt-2">
+                        <p>Umidità: {day.humidity}</p>
+                        <p>Precipitazioni: {day.precipitation}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-500 italic">Dati meteo non disponibili per questa traccia.</p>
+          )}
+        </div>
+        
+        {/* Ritrovamenti */}
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold mb-4">Ritrovamenti</h3>
+          
+          {track.findings.length === 0 ? (
+            <p className="text-gray-500 italic">Nessun ritrovamento registrato per questa traccia.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {track.findings.map((finding: Finding) => (
+                <div 
+                  key={finding.id}
+                  className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => {
+                    setSelectedPhoto(finding.photoUrl || null);
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`rounded-full w-10 h-10 flex items-center justify-center ${
+                      finding.name.startsWith('Fungo') ? 'bg-red-100' : 'bg-gray-900 text-white'
+                    }`}>
+                      <span className="text-xl">
+                        {finding.name.startsWith('Fungo') ? '🍄' : '🪨'}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium">{finding.name}</h4>
+                      <p className="text-sm text-gray-500">
+                        {format(finding.timestamp, 'dd/MM/yyyy HH:mm')}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {finding.photoUrl && (
+                    <div className="mt-3">
+                      <img 
+                        src={finding.photoUrl} 
+                        alt={finding.name}
+                        className="w-full h-32 object-cover rounded"
+                      />
+                    </div>
+                  )}
+                  
+                  {finding.description && (
+                    <p className="mt-2 text-sm text-gray-600">{finding.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-
+      
+      {/* Visualizzatore foto */}
       {selectedPhoto && (
         <PhotoViewer 
           url={selectedPhoto} 
           onClose={() => setSelectedPhoto(null)} 
         />
       )}
-
-      {showExportModal && (
-        <ExportModal
-          onClose={() => setShowExportModal(false)}
-          onExportLocal={handleExportLocal}
-          onExportDrive={handleExportDrive}
-        />
-      )}
-
+      
+      {/* Modal per la condivisione */}
       {showShareModal && (
-        <ShareModal
+        <ShareModal 
           onClose={() => setShowShareModal(false)}
           onShare={handleShare}
           isGenerating={isGeneratingShare}
+        />
+      )}
+      
+      {/* Modal per l'esportazione */}
+      {showExportModal && (
+        <ExportModal 
+          onClose={() => setShowExportModal(false)}
+          onExportLocal={handleExportLocal}
+          onExportDrive={handleExportDrive}
         />
       )}
     </div>
