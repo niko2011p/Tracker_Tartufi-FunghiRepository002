@@ -10,6 +10,7 @@ import './TrackingDataPanel.css';
 import { Finding } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
+import GpsStatusIndicator from './GpsStatusIndicator';
 
 // Constants from Map.tsx
 const MIN_ZOOM = 4;
@@ -25,20 +26,8 @@ const GEOLOCATION_OPTIONS = {
 const createGpsArrowIcon = (direction = 0) => {
   return new DivIcon({
     html: `
-      <div class="gps-arrow-wrapper" style="transform: rotate(${direction}deg);">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="rgba(0,0,0,0.3)" />
-          </filter>
-          <g filter="url(#shadow)">
-            <!-- Triangolo 3D arancione con effetto di profondità -->
-            <path d="M16 4 L28 24 L4 24 Z" fill="#FF8C00" />
-            <path d="M16 4 L28 24 L16 24 Z" fill="#E67E00" />
-            <path d="M16 4 L16 24 L4 24 Z" fill="#FF9D1F" />
-            <!-- Bordo bianco per migliorare la visibilità -->
-            <path d="M16 4 L28 24 L4 24 Z" stroke="white" stroke-width="1" fill="none" />
-          </g>
-        </svg>
+      <div class="gps-arrow-wrapper navigation-gps-cursor" style="transform: rotate(${direction}deg);">
+        <img src="/icon/map-navigation-orange-icon.svg" width="32" height="32" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
       </div>
     `,
     className: 'gps-arrow-icon',
@@ -55,11 +44,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper fungo-finding ${pulseAnimation}">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));">
-            <path d="M16 4 C22 4 26 8 26 14 C26 22 18 28 16 28 C14 28 6 22 6 14 C6 8 10 4 16 4Z" fill="#FF0000" stroke="white" stroke-width="1.5" opacity="${opacity}"/>
-            <circle cx="16" cy="14" r="4" fill="rgba(255,255,255,0.3)" opacity="${opacity}"/>
-            <path d="M16 28 L16 32" stroke="#8B4513" stroke-width="2" opacity="${opacity}"/>
-          </svg>
+          <img src="/icon/mushroom-tag-icon.svg" width="32" height="32" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon fungo-finding',
@@ -71,23 +56,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper tartufo-finding ${pulseAnimation}">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-            <path d="
-              M16 6
-              C22 6 26 10 26 16
-              C26 22 22 26 16 26
-              C10 26 6 22 6 16
-              C6 10 10 6 16 6
-              Z
-            " 
-            fill="#000000" 
-            opacity="${opacity}"
-            stroke="white" 
-            stroke-width="1.5"
-            stroke-linejoin="round"
-            />
-            <circle cx="16" cy="16" r="5" fill="rgba(255,255,255,0.2)" opacity="${opacity}"/>
-          </svg>
+          <img src="/icon/Truffle-tag-icon.svg" width="32" height="32" alt="Tartufo Icon" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon tartufo-finding',
@@ -100,10 +69,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper interesse-finding ${pulseAnimation}">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));">
-            <path d="M16 4 L28 16 L16 28 L4 16 Z" fill="#00FF00" stroke="white" stroke-width="1.5" stroke-linejoin="round" opacity="${opacity}"/>
-            <circle cx="16" cy="16" r="5" fill="rgba(255,255,255,0.3)" opacity="${opacity}"/>
-          </svg>
+          <img src="/icon/point-of-interest-tag-icon.svg" width="32" height="32" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon interesse-finding',
@@ -115,12 +81,19 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
 };
 
 // Componente per aggiornare la posizione in tempo reale
-function LocationUpdater() {
+function LocationUpdater({ onGpsUpdate }: { onGpsUpdate: (accuracy: number | null, isAcquiring: boolean) => void }) {
   const map = useMap();
   const { currentTrack, updateCurrentPosition } = useTrackStore();
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
   const [direction, setDirection] = useState<number>(0);
   const lastPositionRef = useRef<[number, number] | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [isAcquiringGps, setIsAcquiringGps] = useState(false);
+  
+  // Effetto per aggiornare il componente principale con i dati GPS
+  useEffect(() => {
+    onGpsUpdate(accuracy, isAcquiringGps);
+  }, [accuracy, isAcquiringGps, onGpsUpdate]);
   
   // Effetto per aggiornare la posizione corrente quando cambiano le coordinate del tracciamento
   useEffect(() => {
@@ -161,10 +134,7 @@ function LocationUpdater() {
           // Aggiorna la posizione locale
           setCurrentPosition(newPosition);
           
-          // Centra la mappa sulla posizione corrente
-          const currentZoom = map.getZoom();
-          map.setView(newPosition, currentZoom, { animate: true });
-          
+          // Non centriamo automaticamente la mappa all'avvio per permettere la navigazione libera
           console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}]`);
         },
         (error) => {
@@ -174,9 +144,10 @@ function LocationUpdater() {
       );
       
       // Avvia il monitoraggio continuo della posizione
+      setIsAcquiringGps(true);
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
-          const { latitude, longitude } = position.coords;
+          const { latitude, longitude, accuracy: posAccuracy } = position.coords;
           const newPosition: [number, number] = [latitude, longitude];
           
           // Aggiorna la posizione corrente nello store
@@ -188,14 +159,16 @@ function LocationUpdater() {
             setDirection(newDirection);
           }
           
-          // Aggiorna la posizione locale
+          // Aggiorna la posizione locale e l'accuratezza
           setCurrentPosition(newPosition);
+          setAccuracy(posAccuracy);
+          setIsAcquiringGps(false);
           lastPositionRef.current = newPosition;
           
-          // Centra automaticamente la mappa sulla posizione corrente
-          map.setView(newPosition, map.getZoom(), { animate: true });
+          // Non centriamo automaticamente la mappa per permettere la navigazione libera
+          // L'utente potrà centrare manualmente usando il pulsante dedicato
           
-          console.log(`Posizione GPS monitorata: [${latitude}, ${longitude}]`);
+          console.log(`Posizione GPS monitorata: [${latitude}, ${longitude}], accuratezza: ${posAccuracy}m`);
         },
         (error) => {
           console.warn('Geolocation watch error:', error.message);
@@ -219,21 +192,21 @@ function CenterButton() {
   const { currentTrack } = useTrackStore();
   
   const handleCenterClick = () => {
-    // Manteniamo lo zoom corrente per evitare l'effetto zoom out/in indesiderato
-    const currentZoom = map.getZoom();
+    // Utilizziamo lo zoom massimo di 15 come richiesto
+    const targetZoom = 15;
     
     if (currentTrack?.coordinates.length) {
       const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-      map.setView(lastPosition, currentZoom, { animate: false });
+      map.setView(lastPosition, targetZoom, { animate: true });
     } else {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          map.setView([latitude, longitude], currentZoom, { animate: false });
+          map.setView([latitude, longitude], targetZoom, { animate: true });
         },
         (error) => {
           console.warn('Geolocation error:', error.message);
-          map.setView(DEFAULT_POSITION, currentZoom, { animate: false });
+          map.setView(DEFAULT_POSITION, targetZoom, { animate: true });
         },
         GEOLOCATION_OPTIONS
       );
@@ -241,7 +214,7 @@ function CenterButton() {
   };
   
   return (
-    <div className="center-button-container" style={{ position: 'absolute', top: '80px', right: '10px', zIndex: 1001 }}>
+    <div className="center-button-container" style={{ position: 'absolute', top: '50%', right: '10px', transform: 'translateY(-50%)', zIndex: 1001 }}>
       <button 
         className="center-button"
         onClick={handleCenterClick}
@@ -279,15 +252,7 @@ function ZoomControl() {
   }, [map]);
 
   return (
-    <div className="zoom-control" style={{
-      position: 'absolute',
-      top: '10px', // Posizionato in alto a destra
-      right: '10px',
-      zIndex: 1000,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '5px'
-    }}>
+    <div className="zoom-control">
       <button
         className={`zoom-button ${zoomLevel >= MAX_ZOOM ? 'disabled' : ''}`}
         onClick={() => map.zoomIn()}
@@ -339,7 +304,7 @@ function ZoomControl() {
 }
 
 const NavigationPage: React.FC = () => {
-  const { currentTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection, loadedFindings, updateCurrentPosition } = useTrackStore();
+  const { currentTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection, loadedFindings, updateCurrentPosition, gpsStatus } = useTrackStore();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
   const [trackingData, setTrackingData] = useState({
@@ -349,6 +314,8 @@ const NavigationPage: React.FC = () => {
     duration: '00:00'
   });
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [isAcquiringGps, setIsAcquiringGps] = useState(false);
   
   // Helper function to determine if a finding is from loaded findings
   const isLoadedFinding = (finding: Finding) => {
@@ -467,30 +434,6 @@ const NavigationPage: React.FC = () => {
     <div className="fixed inset-0 z-[9999] bg-white">
       {/* Pannello informazioni di tracking con sfondo quasi trasparente */}
       <div className="tracking-data-panel">
-        {/* Indicatore GPS con potenza del segnale */}
-        <div className="gps-signal-header">
-          <Navigation size={18} color="#f5a149" style={{ marginRight: '6px' }} />
-          {/* Barre del segnale GPS */}
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            {[...Array(4)].map((_, i) => {
-              // Simulazione della potenza del segnale (in un'app reale useremmo l'accuracy del GPS)
-              const isActive = i < Math.floor(Math.random() * 5); // Simulazione casuale
-              const barHeight = 6 + (i * 3); // Altezza crescente per ogni barra
-              
-              return (
-                <div 
-                  key={i}
-                  className="signal-bar"
-                  style={{
-                    height: `${barHeight}px`,
-                    backgroundColor: isActive ? '#f5a149' : '#E0E0E0',
-                  }}
-                />
-              );
-            })}
-          </div>
-        </div>
-        
         {/* Dati di tracciamento in formato verticale */}
         <div className="tracking-data-grid">
           <div className="tracking-data-item">
@@ -530,15 +473,27 @@ const NavigationPage: React.FC = () => {
         className="h-full w-full"
         attributionControl={false}
         zoomControl={false}
+        dragging={true}
+        scrollWheelZoom={true}
+        doubleClickZoom={true}
+        touchZoom={true}
       >
         <TileLayer
           url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
           attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
-        <LocationUpdater />
+        <LocationUpdater onGpsUpdate={(acc, acquiring) => {
+          setAccuracy(acc);
+          setIsAcquiringGps(acquiring);
+        }} />
         <CenterButton />
         <ZoomControl />
+        <GpsStatusIndicator 
+          position="navigation"
+          accuracy={accuracy}
+          isAcquiring={isAcquiringGps}
+        />
         
         {/* Display current position marker */}
         <Marker position={currentPosition} icon={gpsArrowIcon} />
@@ -671,30 +626,6 @@ const NavigationPage: React.FC = () => {
     <div className="fixed inset-0 z-[9999] bg-white">
       {/* Pannello informazioni di tracking con sfondo quasi trasparente */}
       <div className="tracking-data-panel">
-        {/* Indicatore GPS con potenza del segnale */}
-        <div className="gps-signal-header">
-          <Navigation size={18} color="#f5a149" style={{ marginRight: '6px' }} />
-          {/* Barre del segnale GPS */}
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            {[...Array(4)].map((_, i) => {
-              // Simulazione della potenza del segnale (in un'app reale useremmo l'accuracy del GPS)
-              const isActive = i < Math.floor(Math.random() * 5); // Simulazione casuale
-              const barHeight = 6 + (i * 3); // Altezza crescente per ogni barra
-              
-              return (
-                <div 
-                  key={i}
-                  className="signal-bar"
-                  style={{
-                    height: `${barHeight}px`,
-                    backgroundColor: isActive ? '#f5a149' : '#E0E0E0',
-                  }}
-                />
-              );
-            })}
-          </div>
-        </div>
-        
         {/* Dati di tracciamento in formato verticale */}
         <div className="tracking-data-grid">
           <div className="tracking-data-item">
@@ -734,15 +665,27 @@ const NavigationPage: React.FC = () => {
         className="h-full w-full"
         attributionControl={false}
         zoomControl={false}
+        dragging={true}
+        scrollWheelZoom={true}
+        doubleClickZoom={true}
+        touchZoom={true}
       >
         <TileLayer
           url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
           attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
-        <LocationUpdater />
+        <LocationUpdater onGpsUpdate={(acc, acquiring) => {
+          setAccuracy(acc);
+          setIsAcquiringGps(acquiring);
+        }} />
         <CenterButton />
         <ZoomControl />
+        <GpsStatusIndicator 
+          position="navigation"
+          accuracy={accuracy}
+          isAcquiring={isAcquiringGps}
+        />
         
         {/* Display current position marker */}
         <Marker position={currentPosition} icon={gpsArrowIcon} />

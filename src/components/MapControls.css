@@ -4,12 +4,47 @@
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   position: absolute;
-  top: 10px; /* Spostato in alto a destra come richiesto */
+  top: 10px; /* Spostato in alto a destra */
   right: 10px;
-  z-index: 1000;
+  z-index: 1001; /* Aumentato z-index per evitare sovrapposizioni */
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-bottom: 10px;
+}
+
+.center-gps-button {
+  background: white;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  position: absolute;
+  top: 50%; /* Centrato verticalmente */
+  right: 10px;
+  transform: translateY(-50%); /* Perfettamente centrato */
+  z-index: 1001; /* Aumentato z-index per evitare sovrapposizioni */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Stile per l'indicatore GPS nella pagina di navigazione */
+.gps-signal-indicator {
+  position: absolute !important;
+  top: 10px !important; /* Posizionato in alto */
+  left: 50% !important; /* Centrato orizzontalmente */
+  transform: translateX(-50%) !important; /* Perfettamente centrato */
+  right: auto !important; /* Rimuove il posizionamento a destra */
+  z-index: 1002; /* Aumentato z-index per essere sopra gli altri elementi */
+  display: block !important; /* Assicura che sia sempre visibile */
+  opacity: 1 !important; /* Assicura che sia sempre visibile */
+}
+
+.center-gps-button:hover {
+  background: #f0f0f0;
+  transform: scale(1.05);
 }
 
 .leaflet-container {
@@ -280,6 +315,23 @@
   z-index: 1000;
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.7));
   transition: all 0.3s ease;
+  animation: pulse-navigation 2s infinite ease-in-out;
+}
+
+@keyframes pulse-navigation {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+    filter: drop-shadow(0 0 10px rgba(255, 165, 0, 0.7));
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .finding-icon-wrapper:hover {

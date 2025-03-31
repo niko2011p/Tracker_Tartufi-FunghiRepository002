@@ -154,14 +154,10 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isSharing: boolean = false
     });
   }
 
-  const color = type === 'Fungo' ? '#DC2626' : '#1c1917';
   return new DivIcon({
     html: `
       <div class="finding-icon-wrapper ${type.toLowerCase()}-finding">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="8" fill="${color}" stroke="white" stroke-width="2"/>
-          <circle cx="12" cy="12" r="4" fill="rgba(255,255,255,0.3)"/>
-        </svg>
+        <img src="/icon/${type === 'Fungo' ? 'mushroom' : 'Truffle'}-tag-icon.svg" width="24" height="24" alt="${type} Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
       </div>
     `,
     className: `finding-icon ${type.toLowerCase()}-finding`,

@@ -7,8 +7,6 @@ import './MapControls.css';
 import { Finding } from '../types';
 import { MapPin, Crosshair } from 'lucide-react';
 import { useGps } from '../services/GpsService';
-import GpsStatusIndicator from './GpsStatusIndicator';
-import GpsSignalIndicator from './GpsSignalIndicator';
 
 // Fix Leaflet default icon path issues
 delete (Icon.Default.prototype as any)._getIconUrl;
@@ -80,11 +78,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper fungo-finding">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 20C8 16 12 14 16 14C20 14 24 16 24 20C24 24 20 26 16 26C12 26 8 24 8 20Z" fill="#FF0000" stroke="#FF0000" strokeWidth="2" opacity="${opacity}"/>
-            <path d="M10 14C10 10 12 6 16 6C20 6 22 10 22 14C22 16 20 18 16 18C12 18 10 16 10 14Z" fill="#FF0000" stroke="#FF0000" strokeWidth="2" opacity="${opacity}"/>
-            <circle cx="16" cy="16" r="8" fill="rgba(255,0,0,0.2)" opacity="${opacity}"/>
-          </svg>
+          <img src="/icon/mushroom-tag-icon.svg" width="32" height="32" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon fungo-finding',
@@ -96,10 +90,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper tartufo-finding">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 4L28 16Q28 24 16 28Q4 24 4 16L16 4Z" fill="#000000" stroke="white" strokeWidth="2" strokeLinejoin="round" opacity="${opacity}"/>
-            <circle cx="16" cy="16" r="6" fill="rgba(0,0,0,0.2)" opacity="${opacity}"/>
-          </svg>
+          <img src="/icon/Truffle-tag-icon.svg" width="32" height="32" alt="Tartufo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon tartufo-finding',
@@ -111,10 +102,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper interesse-finding">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 4L28 16L16 28L4 16L16 4Z" fill="#8eaa36" stroke="white" strokeWidth="2" strokeLinejoin="round" opacity="${opacity}"/>
-            <circle cx="16" cy="16" r="6" fill="rgba(142,170,54,0.2)" opacity="${opacity}"/>
-          </svg>
+          <img src="/icon/point-of-interest-tag-icon.svg" width="32" height="32" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon interesse-finding',
@@ -565,7 +553,9 @@ function MapViewContainer({
   return (
     <div style={mapContainerStyle}>
       {/* Indicatore dello stato GPS */}
-      <GpsStatusIndicator 
+      <GpsStatusIndicator
+          accuracy={gpsAccuracy}
+          isAcquiring={isAcquiringGps} 
         isAcquiring={isAcquiringGps}
         isAvailable={isGpsAvailable}
         error={null}

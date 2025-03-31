@@ -34,12 +34,16 @@ function FloatingMapButtons() {
   const handleStopClick = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    setShowStopConfirm(true);
+    // Esegui direttamente lo stop senza mostrare la conferma
+    stopTrack();
+    // Assicurati che il popup delle opzioni tag non si apra
+    setShowTagOptions(false);
   };
   
   const handleStopConfirm = () => {
     stopTrack();
     setShowStopConfirm(false);
+    setShowTagOptions(false);
   };
 
   const handleTagClick = () => {

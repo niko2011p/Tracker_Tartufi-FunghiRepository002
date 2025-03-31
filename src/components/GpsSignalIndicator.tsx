@@ -10,16 +10,21 @@ interface GpsSignalIndicatorProps {
  * Componente che visualizza l'indicatore del livello del segnale GPS
  */
 const GpsSignalIndicator: React.FC<GpsSignalIndicatorProps> = ({ accuracy, isAcquiringGps }) => {
-  // Se non stiamo acquisendo il GPS o non abbiamo un valore di precisione, non mostriamo nulla
-  if (isAcquiringGps || accuracy === null) return null;
+  // Mostriamo sempre l'indicatore, anche durante l'acquisizione o senza valore di precisione
+  // Questo risolve il problema dell'indicatore che scompare
   
   // Determina il livello del segnale in base alla precisione
   // Minore è il valore di accuracy, migliore è il segnale
   let signalLevel = 0;
-  let signalColor = '';
-  let signalText = '';
+  let signalColor = '#F44336'; // Default rosso
+  let signalText = 'Acquisizione...'; // Default testo
   
-  if (accuracy <= 5) {
+  // Se stiamo acquisendo o non abbiamo un valore di precisione, mostriamo lo stato di acquisizione
+  if (isAcquiringGps || accuracy === null) {
+    signalLevel = 0;
+    signalColor = '#2196F3'; // Blu per indicare acquisizione in corso
+    signalText = 'Acquisizione...';
+  } else if (accuracy <= 5) {
     signalLevel = 4; // Eccellente
     signalColor = '#4CAF50'; // Verde
     signalText = 'Eccellente';
