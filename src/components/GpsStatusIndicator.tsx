@@ -151,7 +151,7 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
     
     return (
       <div className="fixed z-50 flex flex-col items-center bg-white bg-opacity-80 rounded-lg px-3 py-2 shadow-md" 
-           style={{ top: '160px', left: '50%', transform: 'translateX(-50%)', transition: 'all 0.3s ease', opacity: 1, visibility: 'visible' }}>
+           style={{ top: '10px', left: '50%', transform: 'translateX(-50%)', transition: 'all 0.3s ease', opacity: 1, visibility: 'visible' }}>
         <div className="flex items-center">
           <Navigation className="w-5 h-5 mr-2" style={{ color: signalColor }} />
           <div className="flex space-x-1 items-end">
@@ -160,7 +160,7 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
             <div className={`h-5 w-1.5 rounded-sm ${signalStrength === 'high' ? 'bg-current' : 'bg-gray-300'}`} style={{ color: signalColor }}></div>
           </div>
           {accuracy !== null && (
-            <span className="ml-2 text-xs font-medium" style={{ color: signalColor }}>
+            <span className="ml-2 text-xs font-medium" style={{ color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
               {signalText} ({Math.round(accuracy)}m)
             </span>
           )}
@@ -177,8 +177,54 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
   // Renderizza sia l'indicatore di segnale che il messaggio di stato (sempre visibile)
   return (
     <>
-      {/* Indicatore di segnale GPS sempre visibile - rimuoviamo qualsiasi condizione che potrebbe nasconderlo */}
-      {renderSignalIndicator()}
+      {/* Indicatore di segnale GPS sempre visibile in alto al centro */}
+      <div className="fixed z-50 flex flex-col items-center" 
+           style={{ 
+             top: '10px', 
+             left: '50%', 
+             transform: 'translateX(-50%)', 
+             backgroundColor: 'rgba(0, 0, 0, 0.6)', /* Sfondo scuro semi-trasparente come la tabellina Dati Traccia */
+             borderRadius: '8px',
+             padding: '8px 12px',
+             boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+             transition: 'all 0.3s ease', 
+             opacity: 1, 
+             visibility: 'visible' 
+           }}>
+        <div className="flex items-center">
+          <Navigation className="w-5 h-5 mr-2" style={{ color: '#f5a149' }} />
+          <div className="flex space-x-1 items-end">
+            <div className={`h-3 w-1.5 rounded-sm ${signalStrength !== 'none' ? 'bg-current' : 'bg-gray-300'}`} 
+                 style={{ color: signalStrength === 'high' ? '#4CAF50' : 
+                                 signalStrength === 'medium' ? '#FFC107' : 
+                                 signalStrength === 'low' ? '#FF9800' : 
+                                 '#F44336' }}></div>
+            <div className={`h-4 w-1.5 rounded-sm ${signalStrength === 'medium' || signalStrength === 'high' ? 'bg-current' : 'bg-gray-300'}`} 
+                 style={{ color: signalStrength === 'high' ? '#4CAF50' : 
+                                 signalStrength === 'medium' ? '#FFC107' : 
+                                 signalStrength === 'low' ? '#FF9800' : 
+                                 '#F44336' }}></div>
+            <div className={`h-5 w-1.5 rounded-sm ${signalStrength === 'high' ? 'bg-current' : 'bg-gray-300'}`} 
+                 style={{ color: signalStrength === 'high' ? '#4CAF50' : 
+                                 signalStrength === 'medium' ? '#FFC107' : 
+                                 signalStrength === 'low' ? '#FF9800' : 
+                                 '#F44336' }}></div>
+          </div>
+          {accuracy !== null && (
+            <span className="ml-2 text-xs font-medium text-white">
+              {signalStrength === 'high' ? 'Eccellente' : 
+               signalStrength === 'medium' ? 'Buono' : 
+               signalStrength === 'low' ? 'Discreto' : 
+               'Debole'} ({Math.round(accuracy)}m)
+            </span>
+          )}
+        </div>
+        {gpsPosition && (
+          <div className="text-xs mt-1 font-mono text-white">
+            Lat: {gpsPosition[0].toFixed(6)} | Lon: {gpsPosition[1].toFixed(6)}
+          </div>
+        )}
+      </div>
       
       {/* Messaggio di stato sempre visibile */}
       {gpsStatus && (

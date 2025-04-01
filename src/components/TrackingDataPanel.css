@@ -1,13 +1,13 @@
 .tracking-data-panel {
   position: absolute;
   top: 10px;
-  left: 10px;
+  right: 10px;
   background-color: rgba(0, 0, 0, 0.6); /* Sfondo scuro semi-trasparente come richiesto */
   border-radius: 8px;
   padding: 10px;
   z-index: 1000;
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  width: 200px;
+  width: 150px; /* Ridotta la larghezza per adattarsi meglio */
 }
 
 .tracking-data-grid {

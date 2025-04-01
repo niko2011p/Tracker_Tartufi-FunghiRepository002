@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { Map as MapIcon, History, Cloud, Settings as SettingsIcon, Menu, X } from 'lucide-react';
 import Map from './components/Map';
 import TrackingControls from './components/TrackingControls';
@@ -13,7 +13,12 @@ import NavigationPage from './components/NavigationPage';
 import FindingForm from './components/FindingForm';
 import ScrollToTop from './components/ScrollToTop';
 import { useTrackStore } from './store/trackStore';
-import './components/FixedFooter.css';
+
+// Importazione dei componenti per l'autenticazione
+import { UserProvider } from './context/UserContext';
+import PrivateRoute from './routes/PrivateRoute';
+import Login from './pages/Login';
+import Profile from './pages/Profile';
 
 function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
   const location = useLocation();
@@ -58,18 +63,30 @@ function MainApp() {
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50 flex flex-col has-fixed-footer">
-        <ScrollToTop />
-        <main className="flex-1">
-          <Routes>
-            <Route path="/" element={<MainApp />} />
-            <Route path="/storico" element={<StoricoTracce />} />
-            <Route path="/meteo" element={<Meteo />} />
-            <Route path="/settings" element={<Impostazioni />} />
-          </Routes>
-        </main>
-        <FixedFooter />
-      </div>
+      <UserProvider>
+        <div className="min-h-screen bg-gray-50 flex flex-col pb-[60px]">
+          <ScrollToTop />
+          <main className="flex-1">
+            <Routes>
+              {/* Rotte pubbliche */}
+              <Route path="/login" element={<Login />} />
+              
+              {/* Rotte protette */}
+              <Route element={<PrivateRoute />}>
+                <Route path="/" element={<MainApp />} />
+                <Route path="/storico" element={<StoricoTracce />} />
+                <Route path="/meteo" element={<Meteo />} />
+                <Route path="/settings" element={<Impostazioni />} />
+                <Route path="/profile" element={<Profile />} />
+              </Route>
+              
+              {/* Reindirizzamento per rotte non trovate */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+          <FixedFooter />
+        </div>
+      </UserProvider>
     </BrowserRouter>
   );
 }

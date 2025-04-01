@@ -11,6 +11,7 @@ import { Finding } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
 import GpsStatusIndicator from './GpsStatusIndicator';
+import CompassIndicator from './CompassIndicator';
 
 // Constants from Map.tsx
 const MIN_ZOOM = 4;
@@ -27,7 +28,7 @@ const createGpsArrowIcon = (direction = 0) => {
   return new DivIcon({
     html: `
       <div class="gps-arrow-wrapper navigation-gps-cursor" style="transform: rotate(${direction}deg);">
-        <img src="/icon/map-navigation-orange-icon.svg" width="32" height="32" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
+        <img src="/map-navigation-orange-icon.svg" width="32" height="32" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
       </div>
     `,
     className: 'gps-arrow-icon',
@@ -38,44 +39,43 @@ const createGpsArrowIcon = (direction = 0) => {
 
 const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: boolean = false) => {
   const opacity = isLoaded ? '0.5' : '1';
-  const pulseAnimation = isLoaded ? '' : 'animate-pulse';
   
   if (type === 'Fungo') {
     return new DivIcon({
       html: `
-        <div class="finding-icon-wrapper fungo-finding ${pulseAnimation}">
-          <img src="/icon/mushroom-tag-icon.svg" width="32" height="32" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+        <div class="finding-icon-wrapper fungo-finding">
+          <img src="/mushroom-tag-icon.svg" width="24" height="24" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon fungo-finding',
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12]
     });
   } else if (type === 'Tartufo') {
     return new DivIcon({
       html: `
-        <div class="finding-icon-wrapper tartufo-finding ${pulseAnimation}">
-          <img src="/icon/Truffle-tag-icon.svg" width="32" height="32" alt="Tartufo Icon" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+        <div class="finding-icon-wrapper tartufo-finding">
+          <img src="/Truffle-tag-icon.svg" width="24" height="24" alt="Tartufo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon tartufo-finding',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16]
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12]
     });
   } else {
     // Punto di interesse
     return new DivIcon({
       html: `
-        <div class="finding-icon-wrapper interesse-finding ${pulseAnimation}">
-          <img src="/icon/point-of-interest-tag-icon.svg" width="32" height="32" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+        <div class="finding-icon-wrapper interesse-finding">
+          <img src="/point-of-interest-tag-icon.svg" width="24" height="24" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon interesse-finding',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16]
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12]
     });
   }
 };
@@ -192,8 +192,8 @@ function CenterButton() {
   const { currentTrack } = useTrackStore();
   
   const handleCenterClick = () => {
-    // Utilizziamo lo zoom massimo di 15 come richiesto
-    const targetZoom = 15;
+    // Impostiamo lo zoom massimo come richiesto
+    const targetZoom = MAX_ZOOM;
     
     if (currentTrack?.coordinates.length) {
       const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
@@ -214,7 +214,7 @@ function CenterButton() {
   };
   
   return (
-    <div className="center-button-container" style={{ position: 'absolute', top: '50%', right: '10px', transform: 'translateY(-50%)', zIndex: 1001 }}>
+    <div className="center-button-container" style={{ position: 'absolute', top: '120px', left: '10px', zIndex: 1001 }}>
       <button 
         className="center-button"
         onClick={handleCenterClick}
@@ -229,7 +229,8 @@ function CenterButton() {
           justifyContent: 'center',
           boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
           border: 'none',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          marginTop: '10px'
         }}
       >
         <Crosshair size={20} />
@@ -423,9 +424,10 @@ const NavigationPage: React.FC = () => {
     if (currentTrack && mapRef.current) {
       const map = mapRef.current;
       // Centra la mappa sulla posizione corrente senza animazioni
+      // Non forziamo più lo zoom massimo
       if (currentTrack.coordinates.length > 0) {
         const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-        map.setView(lastPosition, MAX_ZOOM, { animate: false });
+        map.setView(lastPosition, map.getZoom(), { animate: false });
       }
     }
   }, [currentTrack]);
@@ -467,9 +469,9 @@ const NavigationPage: React.FC = () => {
       <MapContainer
         ref={mapRef}
         center={currentPosition}
-        zoom={MAX_ZOOM}
+        zoom={13} // Impostiamo uno zoom iniziale ragionevole invece di MAX_ZOOM
         minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
+        maxZoom={MAX_ZOOM} // Manteniamo il limite massimo ma non forziamo più lo zoom a questo valore
         className="h-full w-full"
         attributionControl={false}
         zoomControl={false}
@@ -489,11 +491,14 @@ const NavigationPage: React.FC = () => {
         }} />
         <CenterButton />
         <ZoomControl />
-        <GpsStatusIndicator 
-          position="navigation"
-          accuracy={accuracy}
-          isAcquiring={isAcquiringGps}
-        />
+        {/* Posiziono la bussola sulla sinistra */}
+        <div style={{ position: 'absolute', left: '10px', top: '80px', zIndex: 1001 }}>
+          <CompassIndicator />
+        </div>
+        {/* Posiziono l'indicatore GPS al centro in alto */}
+        <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
+          <GpsStatusIndicator accuracy={accuracy} isAcquiring={isAcquiringGps} />
+        </div>
         
         {/* Display current position marker */}
         <Marker position={currentPosition} icon={gpsArrowIcon} />

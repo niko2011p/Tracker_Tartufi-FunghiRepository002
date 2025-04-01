@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Map as MapIcon, Bell, Share2, Database, HelpCircle } from 'lucide-react';
+import { Moon, Sun, Map as MapIcon, Bell, Share2, Database, HelpCircle, User } from 'lucide-react';
+import { useMapStore } from '../store/mapStore';
 import { testWeatherApiKey } from '../utils/weatherApiTest';
 import MapLogo from './MapLogo';
+import { Link } from 'react-router-dom';
 
 export default function Impostazioni() {
   const [weatherApiStatus, setWeatherApiStatus] = useState<{ isValid: boolean; message: string } | null>(null);
@@ -21,6 +23,16 @@ export default function Impostazioni() {
       <h2 className="text-2xl font-bold mb-6 mt-32">Impostazioni</h2>
       
       <div className="space-y-6">
+        <section className="bg-white rounded-lg shadow-md p-4">
+          <h3 className="text-lg font-semibold mb-4">Profilo</h3>
+          <div className="space-y-4">
+            <Link to="/profile" className="flex items-center text-gray-700 hover:text-gray-900">
+              <User className="w-5 h-5 mr-3" />
+              <span>Gestione profilo utente</span>
+            </Link>
+          </div>
+        </section>
+
         <section className="bg-white rounded-lg shadow-md p-4">
           <h3 className="text-lg font-semibold mb-4">Aspetto</h3>
           <div className="space-y-4">
@@ -44,16 +56,22 @@ export default function Impostazioni() {
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <MapIcon className="w-5 h-5 text-gray-500 mr-3" />
-                <span>Stile mappa</span>
+                <span>Modalità mappa</span>
               </div>
-              <select className="rounded-md border-gray-300 shadow-sm">
-                <option>OpenTopoMap</option>
-                <option>Satellite</option>
-                <option>Stradale</option>
+              <select 
+                className="rounded-md border-gray-300 shadow-sm"
+                value={useMapStore().mapMode}
+                onChange={(e) => useMapStore.getState().setMapMode(e.target.value as 'online' | 'offline' | 'green')}
+              >
+                <option value="online">Online (OpenTopoMap)</option>
+                <option value="offline">Offline (Tile locali)</option>
+                <option value="green">Sfondo verde</option>
               </select>
             </div>
           </div>
         </section>
+
+
 
         <section className="bg-white rounded-lg shadow-md p-4">
           <h3 className="text-lg font-semibold mb-4">Notifiche</h3>
@@ -71,6 +89,8 @@ export default function Impostazioni() {
           </div>
         </section>
 
+
+
         <section className="bg-white rounded-lg shadow-md p-4">
           <h3 className="text-lg font-semibold mb-4">Dati</h3>
           <div className="space-y-4">
@@ -84,6 +104,8 @@ export default function Impostazioni() {
             </button>
           </div>
         </section>
+
+
 
         <section className="bg-white rounded-lg shadow-md p-4">
           <h3 className="text-lg font-semibold mb-4">Test API Meteo</h3>
@@ -133,6 +155,8 @@ export default function Impostazioni() {
             </div>
           </div>
         </section>
+
+
 
         <section className="bg-white rounded-lg shadow-md p-4">
           <h3 className="text-lg font-semibold mb-4">Aiuto</h3>

@@ -36,6 +36,11 @@
   color: #8eaa36; /* #8eaa36 */
 }
 
+/* Stile per il link del profilo utente */
+.footer-link[aria-label="Profilo"] {
+  position: relative;
+}
+
 .footer-link span {
   font-size: 0.85rem; /* Slightly larger font */
   margin-top: 4px;

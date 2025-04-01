@@ -1,0 +1,19 @@
+.leaflet-container-no-scroll {
+  overflow: hidden !important;
+}
+
+/* Rimuove le barre di scorrimento da tutti i contenitori Leaflet */
+.leaflet-container {
+  overflow: hidden !important;
+}
+
+/* Assicura che il contenitore principale non abbia scrolling */
+.has-fixed-footer {
+  overflow: hidden;
+}
+
+/* Stile per il contenitore principale dell'app */
+.min-h-screen {
+  height: 100vh;
+  overflow: hidden;
+}

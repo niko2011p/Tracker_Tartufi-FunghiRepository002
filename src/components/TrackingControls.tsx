@@ -72,10 +72,18 @@ function TrackingControls() {
   };
 
   const handleFindingSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    // Previeni clic multipli
+    const button = e?.target?.closest('button');
+    if (button) button.disabled = true;
     
     if (!speciesName.trim()) {
       alert('Inserisci il nome della specie');
+      if (button) button.disabled = false;
       return;
     }
 
@@ -89,15 +97,30 @@ function TrackingControls() {
     setFindingType('Fungo');
     setSpeciesName('');
     setPhotoUrl(null);
+    
+    // Riabilita il pulsante dopo un breve delay
+    setTimeout(() => {
+      if (button) button.disabled = false;
+    }, 500);
   };
 
-  const handleStopConfirm = () => {
+  const handleStopConfirm = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    // Previeni clic multipli
+    const button = e?.target?.closest('button');
+    if (button) button.disabled = true;
+
     stopTrack();
     setShowStopConfirm(false);
-    // Navigate to Logger section and scroll to the latest track
-    const navigate = useNavigate();
-    navigate('/storico');
+    
+    // Riabilita il pulsante dopo un breve delay
     setTimeout(() => {
+      if (button) button.disabled = false;
+      // Navigate to Logger section and scroll to the latest track
       const tracksContainer = document.querySelector('.tracks-container');
       if (tracksContainer) {
         tracksContainer.scrollTo({
@@ -105,15 +128,43 @@ function TrackingControls() {
           behavior: 'smooth'
         });
       }
-    }, 100);
+    }, 500);
   };
 
-  const handleCloseAlert = () => {
+  const handleCloseAlert = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    // Previeni clic multipli
+    const button = e?.target?.closest('button');
+    if (button) button.disabled = true;
+    
     useTrackStore.setState({ nearbyFinding: null });
+    
+    // Riabilita il pulsante dopo un breve delay
+    setTimeout(() => {
+      if (button) button.disabled = false;
+    }, 500);
   };
 
-  const handleMuteAlert = () => {
+  const handleMuteAlert = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    // Previeni clic multipli
+    const button = e?.target?.closest('button');
+    if (button) button.disabled = true;
+    
     useTrackStore.setState({ isAlertPlaying: false });
+    
+    // Riabilita il pulsante dopo un breve delay
+    setTimeout(() => {
+      if (button) button.disabled = false;
+    }, 500);
   };
 
   return (

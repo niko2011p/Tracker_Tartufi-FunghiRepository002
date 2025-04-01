@@ -6,39 +6,39 @@ const FixedFooter: React.FC = () => {
   const location = useLocation();
 
   return (
-    <div className="fixed-footer">
+    <div className="fixed bottom-0 left-0 right-0 bg-white shadow-md py-2 px-4 z-[1000]">
       <div className="max-w-7xl mx-auto flex justify-center">
         <Link
           to="/"
-          className={`footer-link ${location.pathname === '/' ? 'active' : ''}`}
+          className={`flex flex-col items-center px-4 py-2 min-w-[80px] text-center transition-colors ${location.pathname === '/' ? 'bg-green-50 text-[#8eaa36]' : 'text-gray-600 hover:bg-gray-100'}`}
           aria-label="Mappa"
         >
           <MapIcon className="w-5 h-5" />
-          <span>Mappa</span>
+          <span className="text-xs mt-1 font-medium">Mappa</span>
         </Link>
         <Link
           to="/storico"
-          className={`footer-link ${location.pathname === '/storico' ? 'active' : ''}`}
+          className={`flex flex-col items-center px-4 py-2 min-w-[80px] text-center transition-colors ${location.pathname === '/storico' ? 'bg-green-50 text-[#8eaa36]' : 'text-gray-600 hover:bg-gray-100'}`}
           aria-label="Logger"
         >
           <History className="w-5 h-5" />
-          <span>Logger</span>
+          <span className="text-xs mt-1 font-medium">Logger</span>
         </Link>
         <Link
           to="/meteo"
-          className={`footer-link ${location.pathname === '/meteo' ? 'active' : ''}`}
+          className={`flex flex-col items-center px-4 py-2 min-w-[80px] text-center transition-colors ${location.pathname === '/meteo' ? 'bg-green-50 text-[#8eaa36]' : 'text-gray-600 hover:bg-gray-100'}`}
           aria-label="Meteo"
         >
           <Cloud className="w-5 h-5" />
-          <span>Meteo</span>
+          <span className="text-xs mt-1 font-medium">Meteo</span>
         </Link>
         <Link
           to="/settings"
-          className={`footer-link ${location.pathname === '/settings' ? 'active' : ''}`}
+          className={`flex flex-col items-center px-4 py-2 min-w-[80px] text-center transition-colors ${location.pathname === '/settings' ? 'bg-green-50 text-[#8eaa36]' : 'text-gray-600 hover:bg-gray-100'}`}
           aria-label="Settings"
         >
           <Settings className="w-5 h-5" />
-          <span>Settings</span>
+          <span className="text-xs mt-1 font-medium">Settings</span>
         </Link>
       </div>
     </div>

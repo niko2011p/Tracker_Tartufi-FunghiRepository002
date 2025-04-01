@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import { useTrackStore } from '../store/trackStore';
+import { useMapStore } from '../store/mapStore';
 import { DivIcon, Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
+import './MapContainer.css';
 import { Finding } from '../types';
-import { MapPin, Crosshair } from 'lucide-react';
+import { MapPin, Crosshair, Globe } from 'lucide-react';
 import { useGps } from '../services/GpsService';
 
 // Fix Leaflet default icon path issues
@@ -19,29 +21,40 @@ Icon.Default.mergeOptions({
 // Stile per il contenitore della mappa con sfondo verde e copertura completa dell'area disponibile
 const mapContainerStyle = {
   backgroundColor: '#8eaa36',
-  height: '100vh',
-  width: '100vw',
-  position: 'absolute',
+  height: 'calc(100vh - 60px)',
+  width: '100%',
+  position: 'fixed',
   top: 0,
   left: 0,
   right: 0,
   bottom: 0,
-  overflow: 'hidden',
   margin: 0,
   padding: 0,
-  zIndex: 0
+  zIndex: 0,
+  overflow: 'hidden' // Impedisce lo scrolling indesiderato
 };
 
 
 
 const MIN_ZOOM = 4;
-const MAX_ZOOM = 15; /* Updated max zoom level to 15 */
+const MAX_ZOOM = 17; /* Updated max zoom level to 17 */
 const INITIAL_ZOOM = 13;
 const DEFAULT_POSITION: [number, number] = [42.8333, 12.8333];
 const GEOLOCATION_OPTIONS = {
   enableHighAccuracy: true,
   timeout: 30000,
   maximumAge: 5000,
+};
+
+const TILE_LAYERS = {
+  online: {
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: '© OpenTopoMap contributors'
+  },
+  offline: {
+    url: "/tiles/{z}/{x}/{y}.jpg",
+    attribution: '© OpenTopoMap contributors (offline)'
+  }
 };
 
 const createGpsArrowIcon = (direction = 0) => {
@@ -78,37 +91,37 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper fungo-finding">
-          <img src="/icon/mushroom-tag-icon.svg" width="32" height="32" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+          <img src="/mushroom-tag-icon.svg" width="24" height="24" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon fungo-finding',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16]
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12]
     });
   } else if (type === 'Tartufo') {
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper tartufo-finding">
-          <img src="/icon/Truffle-tag-icon.svg" width="32" height="32" alt="Tartufo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+          <img src="/Truffle-tag-icon.svg" width="24" height="24" alt="Tartufo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon tartufo-finding',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16]
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12]
     });
   } else {
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper interesse-finding">
-          <img src="/icon/point-of-interest-tag-icon.svg" width="32" height="32" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+          <img src="/point-of-interest-tag-icon.svg" width="24" height="24" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon interesse-finding',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16]
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12]
     });
   }
 };
@@ -116,24 +129,43 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
 export default function MapDisplay() {
   const [mapLoaded, setMapLoaded] = useState(false);
   const { currentTrack, isRecording } = useTrackStore();
+  const { mapMode } = useMapStore();
+  const [showModeSwitch, setShowModeSwitch] = useState(!isRecording);
 
   return (
-    <div style={mapContainerStyle}>
+    <div style={{...mapContainerStyle, height: 'calc(100vh - 60px)', overflow: 'hidden'}}>
+      {showModeSwitch && !isRecording && (
+        <div className="absolute top-4 right-4 z-[1000] bg-white rounded-lg shadow-md p-2 flex items-center gap-2">
+          <Globe size={20} />
+          <select 
+            value={mapMode}
+            onChange={(e) => useMapStore.getState().setMapMode(e.target.value as 'online' | 'offline' | 'green')}
+            className="border-none bg-transparent outline-none"
+          >
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+            <option value="green">Green</option>
+          </select>
+        </div>
+      )}
       <MapContainer
         center={DEFAULT_POSITION}
         zoom={INITIAL_ZOOM}
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: '100%', width: '100%', backgroundColor: mapMode === 'green' ? '#8eaa36' : 'white', overflow: 'hidden' }}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
         attributionControl={true}
         whenReady={() => setMapLoaded(true)}
+        className="leaflet-container-no-scroll"
       >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='© OpenStreetMap contributors'
-          maxZoom={MAX_ZOOM}
-          minZoom={MIN_ZOOM}
-        />
+        {mapMode !== 'green' && (
+          <TileLayer
+            url={mapMode === 'online' ? TILE_LAYERS.online.url : TILE_LAYERS.offline.url}
+            attribution={mapMode === 'online' ? TILE_LAYERS.online.attribution : TILE_LAYERS.offline.attribution}
+            maxZoom={MAX_ZOOM}
+            minZoom={MIN_ZOOM}
+          />
+        )}
         <LocationTracker onGpsStatusChange={(accuracy, isAcquiring) => {
           // Handle GPS status changes
         }} />
@@ -231,7 +263,7 @@ function LocationTracker({ onGpsStatusChange }: { onGpsStatusChange?: (accuracy:
           Math.abs(latitude - lastGpsPosition.current[0]) > 0.00001 || 
           Math.abs(longitude - lastGpsPosition.current[1]) > 0.00001) {
         try {
-          // Verifichiamo che la mappa sia inizializzata correttamente
+          // Verifichiamo che la mappa è inizializzata correttamente
           if (map && typeof map.getZoom === 'function') {
             // Aggiorniamo la posizione senza cambiare lo zoom e senza animazioni
             const currentZoom = map.getZoom();
@@ -444,13 +476,13 @@ function CenterButton() {
   };
   
   return (
-    <div className="center-button-container">
+    <div className="center-gps-button">
       <button 
-        className="center-button"
         onClick={handleCenterClick}
         aria-label="Centra mappa sulla posizione"
+        style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
       >
-        <Crosshair />
+        <Crosshair color="#f5a149" size={24} />
       </button>
     </div>
   );
@@ -552,21 +584,7 @@ function MapViewContainer({
 
   return (
     <div style={mapContainerStyle}>
-      {/* Indicatore dello stato GPS */}
-      <GpsStatusIndicator
-          accuracy={gpsAccuracy}
-          isAcquiring={isAcquiringGps} 
-        isAcquiring={isAcquiringGps}
-        isAvailable={isGpsAvailable}
-        error={null}
-        accuracy={gpsAccuracy}
-      />
-      
-      {/* Indicatore del livello del segnale GPS */}
-      {isRecording && <GpsSignalIndicator 
-        accuracy={gpsAccuracy}
-        isAcquiringGps={isAcquiringGps}
-      />}
+      {/* Rimuovo gli indicatori GPS come richiesto */}
       
       <MapContainer
         center={mapCenter}

@@ -23,7 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
+
 # Environment variables
 .env
 .env.production
 .env.local
+# Offline map tiles
+/public/tiles/*
+!/public/tiles/**/.keep

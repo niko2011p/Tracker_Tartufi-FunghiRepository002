@@ -157,7 +157,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo', isSharing: boolean = false
   return new DivIcon({
     html: `
       <div class="finding-icon-wrapper ${type.toLowerCase()}-finding">
-        <img src="/icon/${type === 'Fungo' ? 'mushroom' : 'Truffle'}-tag-icon.svg" width="24" height="24" alt="${type} Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
+        <img src="/${type === 'Fungo' ? 'mushroom' : 'Truffle'}-tag-icon.svg" width="24" height="24" alt="${type} Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
       </div>
     `,
     className: `finding-icon ${type.toLowerCase()}-finding`,

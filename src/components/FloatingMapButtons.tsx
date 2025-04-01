@@ -1,11 +1,11 @@
+// Rimuovo l'indicatore GPS
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, History, Pause, Square, MapPin, AlertCircle } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
-import './FloatingMapButtons.css';
 import TagOptionsPopup from './TagOptionsPopup';
 import { useGps } from '../services/GpsService';
-import GpsStatusIndicator from './GpsStatusIndicator';
+// Rimuovo l'import di GpsStatusIndicator
 
 function FloatingMapButtons() {
   const { startTrack, stopTrack, isRecording, currentTrack } = useTrackStore();
@@ -32,12 +32,22 @@ function FloatingMapButtons() {
   });
 
   const handleStopClick = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    // Esegui direttamente lo stop senza mostrare la conferma
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    // Previeni clic multipli
+    const button = e?.target?.closest('button');
+    if (button) button.disabled = true;
+    
+    // Esegui lo stop e chiudi i popup
     stopTrack();
-    // Assicurati che il popup delle opzioni tag non si apra
     setShowTagOptions(false);
+    
+    // Riabilita il pulsante dopo un breve delay
+    setTimeout(() => {
+      if (button) button.disabled = false;
+    }, 500);
   };
   
   const handleStopConfirm = () => {
@@ -46,12 +56,35 @@ function FloatingMapButtons() {
     setShowTagOptions(false);
   };
 
-  const handleTagClick = () => {
+  const handleTagClick = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    // Previeni clic multipli
+    const button = e?.target?.closest('button');
+    if (button) button.disabled = true;
+    
     setShowTagOptions(true);
+    
+    // Riabilita il pulsante dopo un breve delay
+    setTimeout(() => {
+      if (button) button.disabled = false;
+    }, 500);
   };
 
-  // Gestione dell'avvio della traccia con acquisizione GPS robusta
-  const handleStartTrack = async () => {
+  // Gestione dell'avvio della traccia con acquisizione GPS robusta e prevenzione clic multipli
+  const handleStartTrack = async (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    // Previeni clic multipli
+    const button = e?.target?.closest('button');
+    if (button) button.disabled = true;
+    
     try {
       setIsStartingTrack(true);
       
@@ -63,10 +96,11 @@ function FloatingMapButtons() {
     } catch (error) {
       console.error('Errore durante l\'avvio della traccia:', error);
       // Anche in caso di errore, avvia comunque la traccia ma con la posizione predefinita
-      // L'utente vedrà l'indicatore di errore GPS
       startTrack();
     } finally {
       setIsStartingTrack(false);
+      // Riabilita il pulsante
+      if (button) button.disabled = false;
     }
   };
 
@@ -105,13 +139,7 @@ function FloatingMapButtons() {
 
   return (
     <>
-      {/* Indicatore di stato GPS */}
-      <GpsStatusIndicator 
-        isAcquiring={isAcquiringGps || isStartingTrack}
-        isAvailable={isGpsAvailable}
-        error={error}
-        accuracy={accuracy}
-      />
+      {/* Rimuovo l'indicatore di stato GPS */}
 
       {showTagOptions && (
         <TagOptionsPopup 
@@ -152,88 +180,81 @@ function FloatingMapButtons() {
           </div>
         </div>
       )}
-      <div className="floating-map-buttons-container">
+      <div className="fixed bottom-[80px] left-1/2 transform -translate-x-1/2 z-[1001] w-auto">
         {isRecording && (
-          <div className="floating-map-buttons">
-            <div className="button-group">
+          <div className="flex flex-col gap-4 items-center pointer-events-none">
+            <div className="flex flex-row gap-4 justify-center items-center pointer-events-auto z-[1002]">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
                   handleStopClick(e);
                 }}
-                className="unified-button stop"
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-base bg-red-500 text-white shadow-lg hover:bg-red-600 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50"
                 aria-label="Interrompi tracciamento"
                 role="button"
                 tabIndex={0}
               >
-                <Square className="w-7 h-7" />
+                <Square className="w-6 h-6" />
                 <span>Stop</span>
               </button>
-              
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  handleTagClick();
+                  handleTagClick(e);
                 }}
-                className="unified-button tag"
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-base bg-[#fd9a3c] text-white shadow-lg hover:bg-[#e88a2c] transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-opacity-50"
                 aria-label="Aggiungi tag"
                 role="button"
                 tabIndex={0}
               >
-                <MapPin className="w-7 h-7" />
+                <MapPin className="w-6 h-6" />
                 <span>Tag</span>
               </button>
             </div>
           </div>
         )}
-        
         {!isRecording && (
-          <div className="floating-map-buttons">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (!isStartingTrack) handleStartTrack();
-              }}
-              className={`unified-button start ${isStartingTrack ? 'opacity-75 cursor-wait' : ''}`}
-              aria-label="Avvia tracciamento"
-              role="button"
-              tabIndex={0}
-              disabled={isStartingTrack}
-              style={{ pointerEvents: isStartingTrack ? 'none' : 'auto' }}
-            >
-              {isStartingTrack ? (
-                <>
-                  <div className="w-7 h-7 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
-                  <span>Acquisizione GPS...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-7 h-7" />
-                  <span>Start Track</span>
-                </>
-              )}
-            </button>
-            
-            <Link
-              to="/storico"
-              className="unified-button logger"
-              aria-label="Vai al logger"
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-              role="button"
-              tabIndex={0}
-            >
-              <History className="w-7 h-7" />
-              <span>Logger</span>
-            </Link>
+          <div className="flex flex-col gap-4 items-center pointer-events-none">
+            <div className="flex flex-row gap-4 justify-center items-center pointer-events-auto z-[1002]">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleStartTrack(e);
+                }}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-base bg-[#8eaa36] text-white shadow-lg hover:bg-[#7d9830] transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-50"
+                aria-label="Inizia tracciamento"
+                role="button"
+                tabIndex={0}
+                disabled={isStartingTrack}
+              >
+                {isStartingTrack ? (
+                  <>
+                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                    <span>Avvio...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-6 h-6" />
+                    <span>Start</span>
+                  </>
+                )}
+              </button>
+              <Link
+                to="/storico"
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-base bg-gray-700 text-white shadow-lg hover:bg-gray-800 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50"
+                aria-label="Visualizza storico"
+                role="button"
+                tabIndex={0}
+              >
+                <History className="w-6 h-6" />
+                <span>Storico</span>
+              </Link>
+            </div>
           </div>
         )}
-        
-
       </div>
     </>
   );

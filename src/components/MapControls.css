@@ -4,22 +4,22 @@
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   position: absolute;
-  top: 10px; /* Spostato in alto a destra */
-  right: 10px;
+  top: 10px; /* Posizione uniforme in entrambe le pagine */
+  left: 10px; /* Spostato da destra a sinistra */
   z-index: 1001; /* Aumentato z-index per evitare sovrapposizioni */
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 10px;
+  width: auto; /* Rimuove l'estensione orizzontale */
 }
 
 .center-gps-button {
-  background: white;
+  background-color: rgba(0, 0, 0, 0.6); /* Sfondo scuro semi-trasparente come la tabellina Dati Traccia */
   padding: 8px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   position: absolute;
-  top: 50%; /* Centrato verticalmente */
+  top: 65%; /* Spostato più in basso come richiesto */
   right: 10px;
   transform: translateY(-50%); /* Perfettamente centrato */
   z-index: 1001; /* Aumentato z-index per evitare sovrapposizioni */
@@ -30,21 +30,16 @@
   transition: all 0.2s ease;
 }
 
-/* Stile per l'indicatore GPS nella pagina di navigazione */
-.gps-signal-indicator {
-  position: absolute !important;
-  top: 10px !important; /* Posizionato in alto */
-  left: 50% !important; /* Centrato orizzontalmente */
-  transform: translateX(-50%) !important; /* Perfettamente centrato */
-  right: auto !important; /* Rimuove il posizionamento a destra */
-  z-index: 1002; /* Aumentato z-index per essere sopra gli altri elementi */
-  display: block !important; /* Assicura che sia sempre visibile */
-  opacity: 1 !important; /* Assicura che sia sempre visibile */
-}
-
+/* Rimuovo lo stile per l'indicatore GPS nella pagina di navigazione */
 .center-gps-button:hover {
   background: #f0f0f0;
   transform: scale(1.05);
+}
+
+/* Stile per la bussola animata */
+.compass-indicator {
+  transition: transform 0.3s ease-out;
+  z-index: 1002; /* Assicura che sia sopra gli altri elementi */
 }
 
 .leaflet-container {
@@ -122,228 +117,161 @@
   display: block;
   margin: 3px;
   font-weight: bold;
-  font-size: 18px;
   cursor: pointer;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  background-color: white;
+  color: #333;
+  border: 1px solid #ccc;
+  transition: all 0.2s ease;
 }
 
-.zoom-button.disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.zoom-button:hover {
   background-color: #f0f0f0;
-  position: relative;
-}
-
-.zoom-button.disabled::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 16px;
-  height: 2px;
-  background-color: #666;
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
-.zoom-button:not(.disabled):hover {
-  background-color: #e6e6e6;
-  transition: background-color 0.2s;
-}
-
-.zoom-level-indicator {
-  text-align: center;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 4px 5px;
-  border-top: 1px solid #ddd;
-  border-bottom: 1px solid #ddd;
-  margin: 4px 0;
-}
-
-/* Tag button below zoom controls */
-.tag-button-container {
-  position: absolute;
-  top: 120px; /* Position below zoom controls */
-  right: 20px;
-  z-index: 1000;
-}
-
-.tag-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #fd9a3c; /* Arancione */
-  color: white;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  transition: all 0.4s ease;
-}
-
-.tag-button:hover {
   transform: scale(1.05);
-  background-color: #e68a36; /* Versione più scura di #fd9a3c */
 }
 
-.tag-button svg {
-  width: 24px;
-  height: 24px;
+.zoom-button:active {
+  background-color: #e0e0e0;
+  transform: scale(0.95);
 }
 
-/* Center button styles */
-.center-button-container {
+.fullscreen-button {
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  text-align: center;
+  display: block;
+  margin: 3px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  background-color: white;
+  color: #333;
+  border: 1px solid #ccc;
+  transition: all 0.2s ease;
+}
+
+.fullscreen-button:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.05);
+}
+
+.fullscreen-button:active {
+  background-color: #e0e0e0;
+  transform: scale(0.95);
+}
+
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-button {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 1001;
-}
-
-/* Stile per i messaggi di stato GPS */
-.gps-status-message {
-  position: fixed;
-  bottom: 80px; /* Posizionato sopra il footer ma in basso */
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1002;
-  padding: 8px 16px;
-  border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  font-weight: 500;
-  text-align: center;
-  max-width: 90%;
-  margin: 0 auto;
-}
-
-.center-button {
+  z-index: 10000;
+  background-color: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: white;
-  color: #fd9a3c; /* Arancione */
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
+  cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  border: none;
-  cursor: pointer;
-  transition: all 0.4s ease;
+  transition: all 0.2s ease;
 }
 
-.center-button:hover {
+.exit-fullscreen-button:hover {
+  background-color: #f0f0f0;
   transform: scale(1.05);
-  background-color: #f5f5f5;
 }
 
-
-.hidden {
-  display: none !important;
+.exit-fullscreen-button:active {
+  background-color: #e0e0e0;
+  transform: scale(0.95);
 }
 
-/* Finding marker animations */
-@keyframes pulse-fungo {
-  0% {
-    transform: scale(1) translateY(0);
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-icon {
+  width: 24px;
+  height: 24px;
+  color: #333;
+}
+
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-text {
+  display: none;
+}
+
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+@media (min-width: 768px) {
+  .exit-fullscreen-button {
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    padding: 8px 16px;
+  }
+  
+  .exit-fullscreen-icon {
+    margin-right: 8px;
+  }
+  
+  .exit-fullscreen-text {
+    display: inline;
+    font-weight: bold;
+  }
+}
+
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-button.hidden {
+  display: none;
+}
+
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-button.visible {
+  display: flex;
+}
+
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-button.visible.animate {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
     opacity: 1;
-  }
-  50% {
-    transform: scale(1.2) translateY(-10px);
-    opacity: 0.8;
-    filter: drop-shadow(0 0 12px rgba(255, 0, 0, 0.6));
-  }
-  100% {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes pulse-tartufo {
-  0% {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.15) translateY(-8px);
-    opacity: 0.9;
-    filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
-  }
-  100% {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-}
-
-.finding-icon-wrapper {
-  transform: translateY(-12px);
-  transition: transform 0.3s ease;
-}
-
-.fungo-finding {
-  animation: pulse-fungo 2s infinite ease-in-out;
-}
-
-.tartufo-finding {
-  animation: pulse-tartufo 2.5s infinite ease-in-out;
-}
-
-@keyframes pulse-interesse {
-  0% {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.2) translateY(-10px);
-    opacity: 0.8;
-    filter: drop-shadow(0 0 12px rgba(0, 255, 0, 0.6));
-  }
-  100% {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-}
-
-.interesse-finding {
-  animation: pulse-interesse 2s infinite ease-in-out;
-}
-
-/* Stile per il cursore GPS nella NavigationPage */
-.navigation-gps-cursor {
-  z-index: 1000;
-  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.7));
-  transition: all 0.3s ease;
-  animation: pulse-navigation 2s infinite ease-in-out;
-}
-
-@keyframes pulse-navigation {
-  0% {
     transform: scale(1);
+  }
+}
+
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+@keyframes fadeOut {
+  from {
     opacity: 1;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.8;
-    filter: drop-shadow(0 0 10px rgba(255, 165, 0, 0.7));
-  }
-  100% {
     transform: scale(1);
-    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
   }
 }
 
-.finding-icon-wrapper:hover {
-  transform: scale(1.2) translateY(-12px);
-  cursor: pointer;
-  transition: transform 0.2s ease;
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-button.hidden.animate {
+  animation: fadeOut 0.3s ease-in-out;
 }
 
-.fungo-finding svg path {
-  fill: #FF0000;
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-button.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
-.tartufo-finding svg path {
-  fill: #000000;
+/* Stile per il pulsante di uscita dalla modalità fullscreen */
+.exit-fullscreen-button.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
