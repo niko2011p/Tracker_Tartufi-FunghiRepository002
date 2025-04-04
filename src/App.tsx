@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
-import { Map as MapIcon, History, Cloud, Settings as SettingsIcon, Menu, X } from 'lucide-react';
-import Map from './components/Map';
+import { Navigation, History, Cloud, Settings as SettingsIcon, Menu, X } from 'lucide-react';
+import Navi from './components/Navi';
 import TrackingControls from './components/TrackingControls';
 import FloatingMapButtons from './components/FloatingMapButtons';
 import StoricoTracce from './components/StoricoTracce';
@@ -49,7 +49,7 @@ function MainApp() {
 
   return (
     <div className="relative h-screen w-full">
-      <Map />
+      <Navi />
       <MapLogo />
       <FloatingMapButtons />
       <TrackingControls />
@@ -74,6 +74,7 @@ function App() {
               {/* Rotte protette */}
               <Route element={<PrivateRoute />}>
                 <Route path="/" element={<MainApp />} />
+                <Route path="/NavigationPage" element={<NavigationPage />} />
                 <Route path="/storico" element={<StoricoTracce />} />
                 <Route path="/meteo" element={<Meteo />} />
                 <Route path="/settings" element={<Impostazioni />} />
