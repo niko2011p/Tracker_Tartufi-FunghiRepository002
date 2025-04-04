@@ -1,19 +1,49 @@
+/* Risoluzione problema pagina bianca */
 .leaflet-container-no-scroll {
-  overflow: hidden !important;
+  overflow: visible !important;
+  z-index: 1000 !important; /* Aumentato z-index per garantire visibilità */
+  display: block !important;
+  visibility: visible !important;
+  position: absolute !important;
+  opacity: 1 !important;
+  height: 100% !important;
+  width: 100% !important;
 }
 
-/* Rimuove le barre di scorrimento da tutti i contenitori Leaflet */
+/* Permette il rendering corretto mantenendo le dimensioni appropriate */
 .leaflet-container {
-  overflow: hidden !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  z-index: 1000 !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  transform: none !important;
 }
 
-/* Assicura che il contenitore principale non abbia scrolling */
+/* Assicura che il contenitore principale non abbia scrolling ma permetta il rendering */
 .has-fixed-footer {
-  overflow: hidden;
+  overflow: visible !important; /* Modificato per garantire che il contenuto sia visibile */
+  position: relative !important; /* Assicura che il contenitore abbia una posizione relativa */
+  z-index: 1 !important; /* Aumentato z-index per garantire visibilità */
 }
 
 /* Stile per il contenitore principale dell'app */
 .min-h-screen {
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh !important;
+  height: auto !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  z-index: 1 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background-color: white !important;
 }

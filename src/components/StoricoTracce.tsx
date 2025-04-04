@@ -123,7 +123,7 @@ const getFindingStyles = (finding: Finding) => {
 
 let renderCount = 0;
 
-export default function StoricoTracce() {
+const StoricoTracce: React.FC = () => {
   const { tracks, exportTracks, importTracks, deleteTrack, deleteAllTracks, loadFindings, startTrack } = useTrackStore();
   const logoStyle = {
     display: 'block',
@@ -348,7 +348,7 @@ export default function StoricoTracce() {
   renderCount++;
 
   return (
-    <div className="flex flex-col h-full">
+    <div data-page="storico" className="p-4 pb-20">
       <img src="/LogoFTL.svg" alt="LogoFTL" style={logoStyle} />
       {selectedTrack && (
         <TrackDetails
@@ -749,3 +749,4 @@ export default function StoricoTracce() {
     </div>
   );
 }
+export default StoricoTracce;

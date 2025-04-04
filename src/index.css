@@ -57,10 +57,31 @@
   html {
     -webkit-tap-highlight-color: transparent;
     @apply antialiased;
+    height: 100%;
+    width: 100%;
+    overflow: auto;
   }
 
   body {
     @apply text-gray-900 bg-gray-50;
+    height: 100%;
+    width: 100%;
+    overflow: auto;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative;
+    z-index: auto;
+  }
+  
+  #root {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: 100%;
+    width: 100%;
+    position: relative;
+    z-index: auto;
   }
   
   /* Transizioni globali per elementi interattivi */

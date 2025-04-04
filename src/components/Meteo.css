@@ -2,7 +2,14 @@
 
 /* Contenitore principale della pagina Meteo */
 .meteo-container {
-  padding-top: 70px; /* Spazio per evitare sovrapposizioni con il logo */
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 1;
 }
 
 /* Stile per il contenuto della pagina Meteo */

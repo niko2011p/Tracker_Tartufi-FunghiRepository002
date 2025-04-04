@@ -5,12 +5,9 @@ interface ApiTestResult {
 
 export async function testWeatherApiKey(apiKey: string): Promise<ApiTestResult> {
   try {
-    // Test location coordinates (Rome, Italy)
-    const lat = 41.9028;
-    const lon = 12.4964;
-
+    // Utilizziamo London come località di test con parametro aqi=no
     const response = await fetch(
-      `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${lat},${lon}`
+      `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=London&aqi=no`
     );
 
     const data = await response.json();

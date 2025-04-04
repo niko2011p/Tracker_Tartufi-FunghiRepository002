@@ -42,37 +42,44 @@
   z-index: 1002; /* Assicura che sia sopra gli altri elementi */
 }
 
+/* Rimuovo le regole che bloccano lo scroll nelle pagine che non sono la mappa */
 .leaflet-container {
-  height: calc(100vh - 60px); /* Altezza completa della viewport meno l'altezza del footer */
-  width: 100vw; /* Larghezza completa della viewport */
-  transition: height 0.3s ease, transform 0.3s ease;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 60px; /* Lascia spazio per il footer */
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
+  height: 100vh !important;
+  width: 100% !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 10 !important; /* Aumentato z-index per garantire visibilità */
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Blocca lo scroll della pagina */
-  object-fit: cover; /* Assicura che la mappa copra completamente il contenitore */
-  max-width: 100%; /* Garantisce che la mappa non superi la larghezza del contenitore */
-  max-height: 100%; /* Garantisce che la mappa non superi l'altezza del contenitore */
+  display: block !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important; /* Assicura che gli eventi del mouse vengano catturati */
 }
 
-/* Stile per bloccare lo scroll nella pagina della mappa */
+/* Stile per bloccare lo scroll solo nella pagina della mappa */
 .map-page {
   height: 100vh;
-  overflow: hidden; /* Blocca lo scroll della pagina */
-  display: flex;
-  flex-direction: column;
-  position: relative;
   width: 100%;
+  position: relative;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Permettiamo lo scroll nelle pagine che non sono la mappa principale */
+[data-page="storico"],
+[data-page="meteo"],
+[data-page="settings"] {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh;
+  padding-bottom: 70px;
 }
 
 /* Stile per la tabella dati con opacità appropriata */

@@ -664,9 +664,9 @@ const NavigationPage: React.FC = () => {
       <MapContainer
         ref={mapRef}
         center={currentPosition}
-        zoom={MAX_ZOOM}
+        zoom={13} // Impostiamo uno zoom iniziale ragionevole invece di MAX_ZOOM
         minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
+        maxZoom={MAX_ZOOM} // Manteniamo il limite massimo ma non forziamo più lo zoom a questo valore
         className="h-full w-full"
         attributionControl={false}
         zoomControl={false}
@@ -686,11 +686,14 @@ const NavigationPage: React.FC = () => {
         }} />
         <CenterButton />
         <ZoomControl />
-        <GpsStatusIndicator 
-          position="navigation"
-          accuracy={accuracy}
-          isAcquiring={isAcquiringGps}
-        />
+        {/* Posiziono la bussola sulla sinistra */}
+        <div style={{ position: 'absolute', left: '10px', top: '80px', zIndex: 1001 }}>
+          <CompassIndicator />
+        </div>
+        {/* Posiziono l'indicatore GPS al centro in alto */}
+        <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
+          <GpsStatusIndicator accuracy={accuracy} isAcquiring={isAcquiringGps} />
+        </div>
         
         {/* Display current position marker */}
         <Marker position={currentPosition} icon={gpsArrowIcon} />

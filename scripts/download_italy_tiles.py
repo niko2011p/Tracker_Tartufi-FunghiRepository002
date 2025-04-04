@@ -12,7 +12,7 @@ LON_MIN = 6.60
 LON_MAX = 18.52
 
 ZOOM_MIN = 6
-ZOOM_MAX = 17  # aumenta fino a 15 se vuoi più dettaglio (ma file + pesanti)
+ZOOM_MAX = 15 # aumenta fino a 15 se vuoi più dettaglio (ma file + pesanti)
 
 TILE_URL = "https://a.tile.opentopomap.org/{z}/{x}/{y}.png"
 DELAY = 0.5  # secondi tra richieste (evita di farsi bloccare)

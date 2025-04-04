@@ -18,7 +18,7 @@ export default function Impostazioni() {
   };
 
   return (
-    <div className="p-4 max-w-3xl mx-auto relative">
+    <div data-page="settings" className="p-4 max-w-3xl mx-auto relative pb-20">
       <MapLogo className="absolute top-4 left-1/2 transform -translate-x-1/2" />
       <h2 className="text-2xl font-bold mb-6 mt-32">Impostazioni</h2>
       

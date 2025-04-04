@@ -1,9 +1,23 @@
 // Script per testare la validità della chiave API WeatherAPI
 
+// Importa dotenv per caricare le variabili d'ambiente dal file .env quando eseguito direttamente con Node.js
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+require('dotenv').config();
+
 const testApiKey = async () => {
   // Utilizziamo la variabile d'ambiente invece di una chiave hardcoded
-  const apiKey = typeof import.meta !== 'undefined' ? import.meta.env.VITE_WEATHERAPI_KEY : process.env.VITE_WEATHERAPI_KEY || '';
-  const testUrl = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=Rome`;
+  // Leggiamo direttamente dal file .env per Node.js
+  const apiKey = process.env.VITE_WEATHERAPI_KEY || '';
+  
+  if (!apiKey) {
+    console.error('❌ Nessuna chiave API trovata nel file .env');
+    console.error('Assicurati che il file .env contenga la variabile VITE_WEATHERAPI_KEY');
+    return { valid: false, error: 'Chiave API non trovata' };
+  }
+  
+  console.log('Chiave API trovata:', `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
+  const testUrl = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=London&aqi=no`;
   
   try {
     console.log('Testando la chiave API WeatherAPI...');

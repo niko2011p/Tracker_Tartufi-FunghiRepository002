@@ -261,72 +261,73 @@ function Meteo() {
         setSelectedLocation(locationData);
         localStorage.setItem('weatherLocation', JSON.stringify(locationData));
       }
-    } catch (err) {
-      console.error('Errore nel recupero del nome della località:', err);
+    } catch (error) {
+      console.error('Errore nel recupero del nome della località:', error);
       setError('Impossibile determinare la località. Prova a cercarla manualmente.');
     }
   };
 
   const retryFetch = async (url: string, options = {}, maxRetries = 3) => {
-  let lastError;
-  let timeoutId: NodeJS.Timeout;
+    let lastError;
+    let timeoutId: NodeJS.Timeout;
 
-  const controller = new AbortController();
-  const signal = controller.signal;
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-  const fetchWithTimeout = async () => {
-    timeoutId = setTimeout(() => {
-      controller.abort();
-    }, 15000); // 15 secondi timeout
+    const fetchWithTimeout = async () => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 15000); // 15 secondi timeout
 
-    try {
-      const response = await fetch(url, { ...options, signal });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      throw error;
+      try {
+        const response = await fetch(url, { ...options, signal });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+    };
+
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const response = await fetchWithTimeout();
+        if (response.ok) return response;
+        
+        lastError = new Error(`Errore HTTP: ${response.status} - ${response.statusText}`);
+        if (response.status === 429) { // Rate limit
+          const retryAfter = response.headers.get('Retry-After');
+          await new Promise(resolve => setTimeout(resolve, (parseInt(retryAfter || '60') * 1000)));
+          continue;
+        }
+        
+        // Gestione specifica per errori di autenticazione
+        if (response.status === 401) {
+          console.error(`Errore di autenticazione 401 - Unauthorized per l'URL: ${url}`);
+          console.error('Verifica la chiave API nel file .env (VITE_WEATHERAPI_KEY)');
+          break; // Non ritentare errori di autenticazione
+        }
+        
+
+        if (response.status >= 400 && response.status < 500) break; // Non ritentare altri errori client
+      } catch (error: any) {
+        lastError = error;
+        if (error.name === 'AbortError') {
+          throw new Error('Timeout: la richiesta sta impiegando troppo tempo');
+        }
+      }
+
+      if (i < maxRetries - 1) {
+        const backoffMs = Math.min(1000 * Math.pow(2, i) + Math.random() * 1000, 10000);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      }
     }
+
+    throw new Error(
+      lastError?.message || 
+      'Impossibile completare la richiesta. Verifica la tua connessione e riprova.'
+    );
   };
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const response = await fetchWithTimeout();
-      if (response.ok) return response;
-      
-      lastError = new Error(`Errore HTTP: ${response.status} - ${response.statusText}`);
-      if (response.status === 429) { // Rate limit
-        const retryAfter = response.headers.get('Retry-After');
-        await new Promise(resolve => setTimeout(resolve, (parseInt(retryAfter || '60') * 1000)));
-        continue;
-      }
-      
-      // Gestione specifica per errori di autenticazione
-      if (response.status === 401) {
-        console.error(`Errore di autenticazione 401 - Unauthorized per l'URL: ${url}`);
-        console.error('Verifica la chiave API nel file .env (VITE_WEATHERAPI_KEY)');
-        break; // Non ritentare errori di autenticazione
-      }
-      
-      if (response.status >= 400 && response.status < 500) break; // Non ritentare altri errori client
-    } catch (err: any) {
-      lastError = err;
-      if (err.name === 'AbortError') {
-        throw new Error('Timeout: la richiesta sta impiegando troppo tempo');
-      }
-    }
-
-    if (i < maxRetries - 1) {
-      const backoffMs = Math.min(1000 * Math.pow(2, i) + Math.random() * 1000, 10000);
-      await new Promise(resolve => setTimeout(resolve, backoffMs));
-    }
-  }
-
-  throw new Error(
-    lastError?.message || 
-    'Impossibile completare la richiesta. Verifica la tua connessione e riprova.'
-  );
-};
 
   const CACHE_KEY = 'weatherData';
 const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minuti
@@ -522,10 +523,10 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         date: new Date().toISOString(),
         temp_c: weatherData.current.temp_c,
         temp_min: weatherData.current.temp_c, // WeatherAPI non fornisce min/max nel current
-        temp_max: weatherData.current.temp_c, // WeatherAPI non fornisce min/max nel current
+        temp_max: weatherData.current.temp_c,
         humidity: weatherData.current.humidity,
         precip_mm: weatherData.current.precip_mm,
-        precip_chance: weatherData.current.chance_of_rain || 0,
+        precip_chance: 0, // Non disponibile nel meteo attuale
         wind_kph: weatherData.current.wind_kph,
         wind_dir: weatherData.current.wind_dir,
         cloud_cover: weatherData.current.cloud,
@@ -551,23 +552,27 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
 
       // Process forecast data from WeatherAPI
       const processedForecastData = [];
-      forecastData.forecast.forecastday.forEach((day: any) => {
-        day.hour.forEach((hour: any) => {
-          processedForecastData.push({
-            date: new Date(hour.time).toISOString(),
-            temp_c: hour.temp_c,
-            temp_min: hour.temp_c, // WeatherAPI non fornisce min/max orari
-            temp_max: hour.temp_c, // WeatherAPI non fornisce min/max orari
-            humidity: hour.humidity,
-            precip_mm: hour.precip_mm,
-            precip_chance: hour.chance_of_rain,
-            wind_kph: hour.wind_kph,
-            wind_dir: hour.wind_dir,
-            cloud_cover: hour.cloud,
-            condition: hour.condition.text
-          });
+      if (forecastData && forecastData.forecast && forecastData.forecast.forecastday) {
+        forecastData.forecast.forecastday.forEach((day) => {
+          if (day && day.hour) {
+            day.hour.forEach((hour) => {
+              processedForecastData.push({
+                date: new Date(hour.time).toISOString(),
+                temp_c: hour.temp_c,
+                temp_min: hour.temp_c, // WeatherAPI non fornisce min/max orari
+                temp_max: hour.temp_c, // WeatherAPI non fornisce min/max orari
+                humidity: hour.humidity,
+                precip_mm: hour.precip_mm,
+                precip_chance: hour.chance_of_rain,
+                wind_kph: hour.wind_kph,
+                wind_dir: hour.wind_dir,
+                cloud_cover: hour.cloud,
+                condition: hour.condition.text
+              });
+            });
+          }
         });
-      });
+      }
       setForecast(processedForecastData);
 
       // Fetch historical data using WeatherAPI
@@ -631,22 +636,23 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
       setLoading(false);
     } catch (error) {
       let errorMessage = 'Errore nel caricamento dei dati meteo';
+      console.error('Errore catturato in fetchWeatherData:', error);
       
-      if (err instanceof Error) {
-        if (err.message.includes('API key')) {
+      if (error instanceof Error) {
+        if (error.message.includes('API key')) {
           errorMessage = 'Chiave API non valida o scaduta. Verifica le impostazioni.';
-        } else if (err.message.includes('401')) {
+        } else if (error.message.includes('401')) {
           errorMessage = 'Errore di autenticazione 401 - Unauthorized. La chiave API WeatherAPI potrebbe non essere valida o essere scaduta.';
           console.error('Errore di autenticazione WeatherAPI 401 - Unauthorized');
           console.error('Verifica la chiave API nel file .env (VITE_WEATHERAPI_KEY)');
-        } else if (err.message.includes('network') || err.message.includes('rete') || err.message.includes('internet')) {
+        } else if (error.message.includes('network') || error.message.includes('rete') || error.message.includes('internet')) {
           errorMessage = 'Errore di connessione. Verifica la tua connessione internet.';
-        } else if (err.message.includes('Timeout')) {
+        } else if (error.message.includes('Timeout')) {
           errorMessage = 'Timeout della richiesta. Il server meteo potrebbe essere sovraccarico, riprova più tardi.';
-        } else if (err.message.includes('AbortError')) {
+        } else if (error.message.includes('AbortError')) {
           errorMessage = 'Richiesta interrotta. Verifica la tua connessione e riprova.';
         } else {
-          errorMessage = err.message;
+          errorMessage = error.message;
         }
       }
       
@@ -886,7 +892,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
           const formattedWeather = {
             date: new Date().toISOString(),
             temp_c: weatherData.current.temp_c,
-            temp_min: weatherData.current.temp_c, // Il meteo attuale non ha min/max
+            temp_min: weatherData.current.temp_c, // WeatherAPI non fornisce min/max nel current
             temp_max: weatherData.current.temp_c,
             humidity: weatherData.current.humidity,
             precip_mm: weatherData.current.precip_mm,
@@ -1073,7 +1079,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
 
   if (error) {
     return (
-      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 m-4">
+      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 m-4" style={{ display: 'block !important', visibility: 'visible !important', opacity: 1, zIndex: 9999 }}>
         <div className="flex items-center">
           <div className="py-1">
             <svg className="w-6 h-6 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1100,7 +1106,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 meteo-container">
+    <div data-page="meteo" className="meteo-container" style={{ display: 'block !important', visibility: 'visible !important', opacity: 1 }}>
       <MeteoLogo />
       <div className="meteo-content">
       <div className="container mx-auto px-4 py-6 flex-grow pt-28"> {/* Padding-top aumentato per evitare sovrapposizione con il logo */}
