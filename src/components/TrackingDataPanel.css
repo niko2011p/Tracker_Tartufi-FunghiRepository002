@@ -7,7 +7,7 @@
   padding: 10px;
   z-index: 1000;
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  width: 150px; /* Ridotta la larghezza per adattarsi meglio */
+  width: 105px; /* Ridotta la larghezza del 30% come richiesto */
 }
 
 .tracking-data-grid {
@@ -24,14 +24,15 @@
 
 .tracking-data-icon {
   color: #f5a149; /* Colore arancione richiesto */
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  transform: scale(0.7); /* Ridotta dimensione icona del 30% */
 }
 
 .tracking-data-value {
   margin: 0;
   font-weight: bold;
   color: #f5a149; /* Colore arancione come richiesto */
-  font-size: 14px;
+  font-size: 10px; /* Ridotta dimensione font del 30% */
   text-shadow: 0 1px 2px rgba(0,0,0,0.5); /* Aggiunto ombra al testo per migliorare la leggibilità */
 }
 

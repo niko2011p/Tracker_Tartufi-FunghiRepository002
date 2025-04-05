@@ -54,10 +54,8 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
     }
   }, []);
 
-  // Posizionamento in base alla prop position, spostato più in basso come richiesto
-  const positionStyle = position === 'topLeft' 
-    ? { top: '160px', left: '10px' } 
-    : { top: '160px', right: '10px' };
+  // Posizionamento fisso a destra ma più in alto
+  const positionStyle = { top: '100px', right: '10px' };
 
   return (
     <div 
@@ -67,8 +65,8 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
         ...positionStyle,
         backgroundColor: 'rgba(0, 0, 0, 0.6)', /* Sfondo scuro semi-trasparente come la tabellina Dati Traccia */
         borderRadius: '50%',
-        width: '80px', /* Ingrandita ulteriormente come richiesto */
-        height: '80px',
+        width: '56px', /* Ridotta del 30% come richiesto */
+        height: '56px', /* Ridotta del 30% come richiesto */
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -89,10 +87,11 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
         }}
       >
         <Navigation 
-          size={36} /* Icona ingrandita ulteriormente */
+          size={20} /* Icona ridotta ulteriormente per essere proporzionata alla bussola */
           color="#f5a149" /* Colore arancione uniformato con il resto dell'interfaccia */
           style={{ 
             filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))',
+            transform: 'translateY(-2px)' /* Sposta leggermente l'icona verso l'alto per allinearla con la N */
           }} 
         />
       </div>
@@ -109,11 +108,19 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
           zIndex: 1001
         }}
       />
-      {/* Punti cardinali in grassetto e arancione */}
-      <div style={{ position: 'absolute', top: '5px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>N</div>
-      <div style={{ position: 'absolute', right: '5px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>E</div>
-      <div style={{ position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>S</div>
-      <div style={{ position: 'absolute', left: '5px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>W</div>
+      {/* Punti cardinali che ruotano con la bussola */}
+      <div style={{ 
+        position: 'absolute', 
+        width: '100%', 
+        height: '100%',
+        transform: `rotate(${heading}deg)`,
+        transition: 'transform 0.3s ease-out'
+      }}>
+        <div style={{ position: 'absolute', top: '3px', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>N</div>
+        <div style={{ position: 'absolute', right: '3px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>E</div>
+        <div style={{ position: 'absolute', bottom: '3px', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>S</div>
+        <div style={{ position: 'absolute', left: '3px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>W</div>
+      </div>
     </div>
   );
 };

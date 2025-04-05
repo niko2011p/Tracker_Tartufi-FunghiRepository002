@@ -51,7 +51,7 @@
 .unified-button.stop {
   background-color: rgba(220, 38, 38, 0.9); /* Rosso */
   color: white;
-  border-radius: 24px;
+  border-radius: 12px; /* Quadrato con angoli arrotondati */
   width: 100px;
   height: 100px;
   display: flex;

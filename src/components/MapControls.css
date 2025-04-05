@@ -19,8 +19,8 @@
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   position: absolute;
-  top: 65%; /* Spostato più in basso come richiesto */
-  right: 10px;
+  top: 50%; /* Centrato verticalmente */
+  left: 10px; /* Attaccato al bordo sinistro */
   transform: translateY(-50%); /* Perfettamente centrato */
   z-index: 1001; /* Aumentato z-index per evitare sovrapposizioni */
   display: flex;
