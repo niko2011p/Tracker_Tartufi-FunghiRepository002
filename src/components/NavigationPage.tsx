@@ -20,7 +20,7 @@ const DEFAULT_POSITION: [number, number] = [42.8333, 12.8333];
 const GEOLOCATION_OPTIONS = {
   enableHighAccuracy: true,
   timeout: 20000,
-  maximumAge: 30000
+  maximumAge: 5000 // Ridotto da 30000 a 5000 per aggiornamenti più frequenti
 };
 
 // Reuse icon creation functions from Map.tsx
@@ -174,7 +174,7 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [map, updateCurrentPosition]); // Rimosso currentTrack dalle dipendenze per aggiornare sempre
+  }, [map, updateCurrentPosition, currentTrack]); // Aggiunto currentTrack per garantire aggiornamenti quando cambia la traccia
 
   // Effetto per assicurarsi che lo zoom sia sempre al massimo all'avvio
   useEffect(() => {
@@ -214,7 +214,7 @@ function CenterButton() {
   };
   
   return (
-    <div className="center-button-container" style={{ position: 'absolute', top: '180px', left: '10px', zIndex: 1001 }}>
+    <div className="center-button-container" style={{ position: 'absolute', top: '280px', left: '10px', zIndex: 1001 }}>
       <button 
         className="center-button"
         onClick={handleCenterClick}
@@ -374,115 +374,102 @@ const NavigationPage: React.FC = () => {
   // Aggiorna i dati di tracking in tempo reale
   useEffect(() => {
     if (currentTrack) {
-      // Calcola la distanza totale
-      const distance = currentTrack.distance;
-      
-      // Calcola la durata del tracciamento
-      const startTime = currentTrack.startTime;
-      const currentTime = new Date();
-      const durationMs = currentTime.getTime() - startTime.getTime();
-      const durationMinutes = Math.floor(durationMs / 60000);
-      
-      // Formatta la durata nel formato HH:mm
-      const hours = Math.floor(durationMinutes / 60);
-      const minutes = durationMinutes % 60;
-      const formattedDuration = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-      
-      // Calcola la velocità media (km/h)
-      const durationHours = durationMs / 3600000;
-      const avgSpeed = durationHours > 0 ? distance / durationHours : 0;
-      
-      // Ottieni l'altitudine reale dal GPS se disponibile
-      // Altrimenti utilizza un valore predefinito
-      let rawAltitude = 0;
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            if (position.coords.altitude) {
-              rawAltitude = position.coords.altitude;
-            } else {
-              // Fallback se l'altitudine non è disponibile
-              rawAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-            }
-          },
-          () => {
-            // Fallback in caso di errore
-            rawAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-          },
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
-        );
-      } else {
-        // Fallback se la geolocalizzazione non è supportata
-        rawAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-      }
-      
-      // Applica lo smoothing all'altitudine
-      const smoothedAltitude = smoothAltitude(rawAltitude, altitudeReadings);
-      
-      setTrackingData({
-        distance,
-        avgSpeed,
-        altitude: smoothedAltitude,
-        duration: formattedDuration
-      });
-      
-      // Aggiorna i dati ogni secondo
-      const timer = setInterval(() => {
-        const newCurrentTime = new Date();
-        const newDurationMs = newCurrentTime.getTime() - startTime.getTime();
-        const newDurationMinutes = Math.floor(newDurationMs / 60000);
-        const newDurationHours = newDurationMs / 3600000;
-        const newAvgSpeed = newDurationHours > 0 ? currentTrack.distance / newDurationHours : 0;
+      // Funzione per aggiornare i dati di tracking
+      const updateTrackingData = () => {
+        // Calcola la distanza totale - ottieni il valore più recente dallo store
+        const distance = currentTrack.distance;
+        
+        // Calcola la durata del tracciamento con il timestamp corrente
+        const startTime = currentTrack.startTime;
+        const currentTime = new Date();
+        const durationMs = currentTime.getTime() - startTime.getTime();
+        const durationMinutes = Math.floor(durationMs / 60000);
         
         // Formatta la durata nel formato HH:mm
-        const hours = Math.floor(newDurationMinutes / 60);
-        const minutes = newDurationMinutes % 60;
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
         const formattedDuration = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         
-        // Ottieni l'altitudine reale dal GPS
-        let newRawAltitude = 0;
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            if (position.coords.altitude) {
-              newRawAltitude = position.coords.altitude;
-            } else {
-              // Fallback se l'altitudine non è disponibile
-              newRawAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-            }
-            const newSmoothedAltitude = smoothAltitude(newRawAltitude, altitudeReadings);
-            
-            // Aggiorna i dati di tracking con l'altitudine reale
-            setTrackingData(prev => ({
-              ...prev,
-              distance: currentTrack.distance,
-              avgSpeed: newAvgSpeed,
-              altitude: newSmoothedAltitude,
-              duration: formattedDuration
-            }));
-          },
-          () => {
-            // Fallback in caso di errore
-            const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-            const newSmoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
-            
-            // Aggiorna i dati di tracking con l'altitudine di fallback
-            setTrackingData(prev => ({
-              ...prev,
-              distance: currentTrack.distance,
-              avgSpeed: newAvgSpeed,
-              altitude: newSmoothedAltitude,
-              duration: formattedDuration
-            }));
-          },
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
-        );
+        // Calcola la velocità media (km/h) in tempo reale
+        const durationHours = durationMs / 3600000;
+        const avgSpeed = durationHours > 0 ? distance / durationHours : 0;
         
-        // L'aggiornamento dei dati di tracking viene gestito all'interno della callback di getCurrentPosition
-      }, 1000);
+        // Log per debug dell'aggiornamento in tempo reale
+        console.debug(`[TrackingData] Aggiornamento: ${new Date().toISOString()} - Distanza: ${distance.toFixed(2)}km, Velocità: ${avgSpeed.toFixed(1)}km/h`);
+        
+        // Ottieni l'altitudine reale dal GPS con timeout ridotto per maggiore reattività
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              let newAltitude = 0;
+              if (position.coords.altitude) {
+                newAltitude = position.coords.altitude;
+                console.debug(`[TrackingData] Altitudine GPS: ${newAltitude.toFixed(1)}m`);
+              } else {
+                // Fallback se l'altitudine non è disponibile
+                newAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
+                console.debug(`[TrackingData] Usando altitudine fallback: ${newAltitude}m`);
+              }
+              
+              // Applica lo smoothing all'altitudine
+              const smoothedAltitude = smoothAltitude(newAltitude, altitudeReadings);
+              
+              // Aggiorna i dati di tracking immediatamente
+              setTrackingData({
+                distance,
+                avgSpeed,
+                altitude: smoothedAltitude,
+                duration: formattedDuration
+              });
+            },
+            (error) => {
+              // Log dell'errore per debug
+              console.debug(`[TrackingData] Errore GPS: ${error.message}`);
+              
+              // Fallback in caso di errore
+              const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
+              const smoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
+              
+              // Aggiorna i dati di tracking con l'altitudine di fallback
+              setTrackingData({
+                distance,
+                avgSpeed,
+                altitude: smoothedAltitude,
+                duration: formattedDuration
+              });
+            },
+            // Configurazione ottimizzata per aggiornamenti più frequenti
+            { enableHighAccuracy: true, timeout: 1000, maximumAge: 500 }
+          );
+        } else {
+          // Fallback se la geolocalizzazione non è supportata
+          const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
+          const smoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
+          
+          // Aggiorna comunque i dati anche senza geolocalizzazione
+          setTrackingData({
+            distance,
+            avgSpeed,
+            altitude: smoothedAltitude,
+            duration: formattedDuration
+          });
+        }
+      };
       
-      return () => clearInterval(timer);
+      // Aggiorna i dati immediatamente all'avvio
+      updateTrackingData();
+      
+      // Aggiorna i dati più frequentemente (ogni 300ms) per una maggiore reattività
+      const timer = setInterval(updateTrackingData, 300);
+      
+      console.log('[TrackingData] Avviato timer di aggiornamento dati');
+      
+      return () => {
+        clearInterval(timer);
+        console.log('[TrackingData] Timer di aggiornamento dati fermato');
+      };
     }
-  }, [currentTrack, altitudeReadings]);
+  }, [currentTrack]); // Rimuoviamo le dipendenze non necessarie per evitare re-render eccessivi
   
   // Effetto per l'animazione iniziale della mappa e impostazione dello zoom
   useEffect(() => {
@@ -604,13 +591,15 @@ const NavigationPage: React.FC = () => {
               color="#FF9800"
               weight={3}
               opacity={0.8}
+              dashArray="5, 10"
+              dashOffset="0"
             />
             {/* Display findings markers */}
             {currentTrack.findings
               .filter(finding => !isLoadedFinding(finding))
               .map((finding) => {
                 const findingType = finding.type === 'poi' ? 'Interesse' : 
-                                   finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo';
+                                   finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
                 return (
                   <Marker
                     key={finding.id}
@@ -625,7 +614,7 @@ const NavigationPage: React.FC = () => {
         {/* Display loaded findings if any */}
         {loadedFindings?.map((finding) => {
           const findingType = finding.type === 'poi' ? 'Interesse' : 
-                             finding.name.startsWith('Fungo') ? 'Fungo' : 'Tartufo';
+                             finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
           return (
             <Marker
               key={`loaded-${finding.id}`}
@@ -639,6 +628,7 @@ const NavigationPage: React.FC = () => {
         {currentTrack?.findings
           .filter(finding => finding.type === 'Fungo' || finding.type === 'Tartufo' || finding.type === 'poi')
           .map((finding) => {
+            console.log('Visualizzazione tag:', finding.type, finding.coordinates);
             const findingType = finding.type === 'poi' ? 'Interesse' : 
                                finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
             return (
@@ -718,8 +708,16 @@ const NavigationPage: React.FC = () => {
               </button>
               <button
                 onClick={() => {
+                  console.log('Interruzione traccia: salvataggio in corso...');
                   stopTrack();
                   setShowStopConfirm(false);
+                  
+                  // Aggiungiamo un breve ritardo per assicurarci che lo store venga aggiornato
+                  setTimeout(() => {
+                    console.log('Traccia salvata con successo, reindirizzamento...');
+                    // Reindirizza alla pagina principale o alla pagina dello storico
+                    window.location.href = '/';
+                  }, 500);
                 }}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
               >

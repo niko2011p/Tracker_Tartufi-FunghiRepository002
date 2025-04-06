@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Navigation } from 'lucide-react';
 
 interface CompassIndicatorProps {
   position?: 'topLeft' | 'topRight';
@@ -86,12 +85,13 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
           height: '100%'
         }}
       >
-        <Navigation 
-          size={20} /* Icona ridotta ulteriormente per essere proporzionata alla bussola */
-          color="#f5a149" /* Colore arancione uniformato con il resto dell'interfaccia */
+        <img 
+          src="/CompassIco.svg" 
+          alt="Compass" 
           style={{ 
-            filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))',
-            transform: 'translateY(-2px)' /* Sposta leggermente l'icona verso l'alto per allinearla con la N */
+            width: '45px',
+            height: '45px',
+            filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))'
           }} 
         />
       </div>
@@ -108,19 +108,7 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
           zIndex: 1001
         }}
       />
-      {/* Punti cardinali che ruotano con la bussola */}
-      <div style={{ 
-        position: 'absolute', 
-        width: '100%', 
-        height: '100%',
-        transform: `rotate(${heading}deg)`,
-        transition: 'transform 0.3s ease-out'
-      }}>
-        <div style={{ position: 'absolute', top: '3px', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>N</div>
-        <div style={{ position: 'absolute', right: '3px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>E</div>
-        <div style={{ position: 'absolute', bottom: '3px', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>S</div>
-        <div style={{ position: 'absolute', left: '3px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 'bold', color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>W</div>
-      </div>
+      {/* Rimossi i punti cardinali come richiesto */}
     </div>
   );
 };

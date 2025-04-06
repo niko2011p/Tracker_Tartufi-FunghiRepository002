@@ -131,6 +131,8 @@ export const useTrackStore = create<TrackState>()(
       stopTrack: () => {
         const { currentTrack, tracks } = get();
         if (currentTrack) {
+          console.log('Stopping track:', currentTrack.id);
+          
           // Calcola i dati finali del tracciamento
           const endTime = new Date();
           const durationMs = endTime.getTime() - currentTrack.startTime.getTime();
@@ -153,13 +155,21 @@ export const useTrackStore = create<TrackState>()(
             totalDistance: currentTrack.distance
           };
           
+          // Aggiungiamo un log per verificare che la traccia venga salvata correttamente
+          console.log('Saving completed track:', completedTrack.id, 'with', completedTrack.coordinates.length, 'coordinates and', completedTrack.findings.length, 'findings');
+          
+          // Aggiorniamo lo stato con la nuova traccia completata
           set({
             tracks: [...tracks, completedTrack],
             currentTrack: null,
             isRecording: false,
             loadedFindings: null
           });
+          
+          console.log('Track stopped and saved successfully');
+          return completedTrack;
         }
+        return null;
       },
 
       deleteTrack: (id: string) => {

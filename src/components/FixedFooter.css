@@ -11,9 +11,10 @@
 
 .max-w-7xl {
   display: flex;
-  justify-content: center;
+  justify-content: space-evenly;
   width: 100%;
   padding: 0;
+  gap: 0;
 }
 
 .footer-link {
@@ -23,7 +24,7 @@
   padding: 10px 0;
   color: #4b5563;
   transition: all 0.2s ease;
-  min-width: 80px;
+  flex: 1;
   text-align: center;
 }
 
@@ -50,15 +51,15 @@
 /* Adjust spacing for mobile devices */
 @media (max-width: 640px) {
   .fixed-footer {
-    padding: 8px 12px;
+    padding: 8px 4px;
   }
   
   .max-w-7xl {
-    gap: 30px; /* Still increased but slightly less on mobile */
+    gap: 0;
   }
   
   .footer-link {
-    padding: 9px 18px; /* Increased by 50% */
+    padding: 9px 4px;
   }
 }
 
