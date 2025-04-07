@@ -141,33 +141,156 @@ export const useTrackStore = create<TrackState>()(
           // Calcola la velocità media (km/h)
           const avgSpeed = durationHours > 0 ? currentTrack.distance / durationHours : 0;
           
-          // Calcola l'altitudine media (simulata per ora)
-          // In un'implementazione reale, questo valore verrebbe calcolato dai dati GPS raccolti
-          const avgAltitude = currentTrack.coordinates.length > 0 ? 
-            Math.floor(Math.random() * 200) + 400 : 0; // Simulazione tra 400-600m
+          // Calcola l'altitudine media dai dati GPS raccolti
+          // Se non abbiamo dati di altitudine, utilizziamo un valore di fallback
+          let totalAltitude = 0;
+          let altitudePoints = 0;
           
-          const completedTrack: Track = {
-            ...currentTrack,
-            endTime,
-            duration: durationMs,
-            avgSpeed,
-            avgAltitude,
-            totalDistance: currentTrack.distance
+          // Ottieni l'altitudine attuale dal GPS con retry per garantire l'acquisizione
+          const getAltitude = () => {
+            return new Promise<number>((resolve) => {
+              if (!navigator.geolocation) {
+                console.warn('Geolocation non supportata, utilizzo altitudine di fallback');
+                resolve(0);
+                return;
+              }
+              
+              const tryGetAltitude = (retryCount = 0, maxRetries = 2) => {
+                navigator.geolocation.getCurrentPosition(
+                  (position) => {
+                    if (position.coords.altitude) {
+                      console.log(`Altitudine finale acquisita: ${position.coords.altitude}m`);
+                      resolve(position.coords.altitude);
+                    } else {
+                      console.warn('Altitudine non disponibile nel GPS');
+                      resolve(0);
+                    }
+                  },
+                  (error) => {
+                    console.warn(`Errore nell'acquisizione dell'altitudine (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
+                    if (retryCount < maxRetries) {
+                      setTimeout(() => tryGetAltitude(retryCount + 1, maxRetries), 500);
+                    } else {
+                      console.warn('Impossibile acquisire l\'altitudine dopo multipli tentativi');
+                      resolve(0);
+                    }
+                  },
+                  { enableHighAccuracy: true, timeout: 2000, maximumAge: 0 }
+                );
+              };
+              
+              tryGetAltitude();
+            });
           };
           
-          // Aggiungiamo un log per verificare che la traccia venga salvata correttamente
-          console.log('Saving completed track:', completedTrack.id, 'with', completedTrack.coordinates.length, 'coordinates and', completedTrack.findings.length, 'findings');
+          // Utilizziamo una funzione asincrona per gestire l'acquisizione dell'altitudine
+          const finalizeTrack = async () => {
+            try {
+              // Ottieni l'altitudine finale
+              const currentAltitude = await getAltitude();
+              
+              // Calcola l'altitudine media
+              if (currentAltitude > 0) {
+                totalAltitude += currentAltitude;
+                altitudePoints++;
+              }
+              
+              const avgAltitude = altitudePoints > 0 ? 
+                Math.round(totalAltitude / altitudePoints) : 
+                (currentTrack.coordinates.length > 0 ? 500 : 0); // Fallback
+              
+              // Prepara i dati storici degli ultimi 7 giorni
+              const sevenDaysAgo = new Date();
+              sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+              
+              const recentTracks = tracks
+                .filter(track => {
+                  // Assicuriamoci che startTime sia una data
+                  const startTime = track.startTime instanceof Date ? 
+                    track.startTime : new Date(track.startTime);
+                  return startTime >= sevenDaysAgo;
+                })
+                .slice(0, 20); // Limita a 20 tracce per evitare problemi di performance
+              
+              // Verifica che tutti i ritrovamenti abbiano coordinate valide
+              const validatedFindings = currentTrack.findings.map(finding => {
+                // Se le coordinate non sono valide, utilizza l'ultima posizione conosciuta
+                if (!finding.coordinates || finding.coordinates.some(isNaN)) {
+                  console.warn(`Coordinate non valide per il ritrovamento ${finding.id}, utilizzo ultima posizione conosciuta`);
+                  return {
+                    ...finding,
+                    coordinates: currentTrack.coordinates.length > 0 ? 
+                      currentTrack.coordinates[currentTrack.coordinates.length - 1] : 
+                      [0, 0] as [number, number]
+                  };
+                }
+                return finding;
+              });
+              
+              const completedTrack: Track = {
+                ...currentTrack,
+                findings: validatedFindings,
+                endTime,
+                duration: durationMs,
+                avgSpeed,
+                avgAltitude,
+                totalDistance: currentTrack.distance,
+                // Aggiungi metadati per lo storico
+                historyData: {
+                  recentTracks: recentTracks.map(t => t.id),
+                  lastUpdated: new Date().toISOString()
+                }
+              };
+              
+              // Aggiungiamo un log per verificare che la traccia venga salvata correttamente
+              console.log('Saving completed track:', completedTrack.id, 'with', 
+                completedTrack.coordinates.length, 'coordinates and', 
+                completedTrack.findings.length, 'findings');
+              console.log('Track data:', {
+                distance: completedTrack.distance.toFixed(2) + ' km',
+                duration: (completedTrack.duration / 60000).toFixed(0) + ' min',
+                avgSpeed: completedTrack.avgSpeed.toFixed(1) + ' km/h',
+                avgAltitude: completedTrack.avgAltitude + ' m',
+                findings: completedTrack.findings.length
+              });
+              
+              // Aggiorniamo lo stato con la nuova traccia completata
+              set({
+                tracks: [...tracks, completedTrack],
+                currentTrack: null,
+                isRecording: false,
+                loadedFindings: null
+              });
+              
+              console.log('Track stopped and saved successfully');
+              return completedTrack;
+            } catch (error) {
+              console.error('Errore durante il salvataggio della traccia:', error);
+              
+              // Fallback in caso di errore: salva comunque la traccia con i dati disponibili
+              const basicCompletedTrack: Track = {
+                ...currentTrack,
+                endTime,
+                duration: durationMs,
+                avgSpeed,
+                avgAltitude: 0,
+                totalDistance: currentTrack.distance
+              };
+              
+              set({
+                tracks: [...tracks, basicCompletedTrack],
+                currentTrack: null,
+                isRecording: false,
+                loadedFindings: null
+              });
+              
+              console.log('Track saved with basic data due to error');
+              return basicCompletedTrack;
+            }
+          };
           
-          // Aggiorniamo lo stato con la nuova traccia completata
-          set({
-            tracks: [...tracks, completedTrack],
-            currentTrack: null,
-            isRecording: false,
-            loadedFindings: null
-          });
-          
-          console.log('Track stopped and saved successfully');
-          return completedTrack;
+          // Avvia il processo di finalizzazione e restituisci una promessa
+          return finalizeTrack();
         }
         return null;
       },
@@ -185,12 +308,14 @@ export const useTrackStore = create<TrackState>()(
       updateCurrentPosition: (position: [number, number]) => {
         const { currentTrack, isRecording, loadedFindings } = get();
         
+        // Verifica se ci sono ritrovamenti caricati nelle vicinanze
         if (loadedFindings) {
           loadedFindings.forEach(finding => {
             const currentPoint = turf.point(position);
             const findingPoint = turf.point(finding.coordinates);
             const distance = turf.distance(currentPoint, findingPoint, { units: 'meters' });
             
+            // Notifica all'utente quando si avvicina a un ritrovamento caricato
             if (distance <= 10 && !get().isAlertPlaying) {
               const audio = new Audio('/alert.mp3');
               audio.volume = 0.3;
@@ -199,19 +324,33 @@ export const useTrackStore = create<TrackState>()(
                 nearbyFinding: finding,
                 isAlertPlaying: true
               });
+              
+              console.log(`Ritrovamento nelle vicinanze: ${finding.name} a ${distance.toFixed(1)}m`);
+            } else if (distance > 15 && get().nearbyFinding?.id === finding.id) {
+              // Resetta lo stato quando ci si allontana dal ritrovamento
+              set({
+                nearbyFinding: null,
+                isAlertPlaying: false
+              });
             }
           });
         }
 
+        // Aggiorna il tracciamento solo se stiamo registrando
         if (currentTrack && isRecording) {
+          // Aggiungi la nuova posizione alle coordinate del tracciamento
           const newCoordinates = [...currentTrack.coordinates, position];
           let distance = currentTrack.distance;
           let direction = get().currentDirection;
           
+          // Calcola la distanza e la direzione solo se abbiamo almeno due punti
           if (newCoordinates.length > 1) {
             const lastPoint = turf.point(newCoordinates[newCoordinates.length - 2]);
             const newPoint = turf.point(position);
-            distance += turf.distance(lastPoint, newPoint, { units: 'kilometers' });
+            
+            // Calcola la distanza in chilometri e aggiungila alla distanza totale
+            const segmentDistance = turf.distance(lastPoint, newPoint, { units: 'kilometers' });
+            distance += segmentDistance;
             
             // Calcola la direzione solo se la distanza è significativa per evitare fluttuazioni casuali
             const movementDistance = turf.distance(lastPoint, newPoint, { units: 'meters' });
@@ -221,10 +360,15 @@ export const useTrackStore = create<TrackState>()(
               // Normalizza l'angolo a valori positivi (0-360)
               if (direction < 0) direction += 360;
               
+              // Aggiorna la direzione nello store
               set({ currentDirection: direction });
+              
+              // Log per debug della direzione
+              console.debug(`Direzione aggiornata: ${direction.toFixed(1)}°, distanza segmento: ${segmentDistance.toFixed(5)}km`);
             }
           }
           
+          // Aggiorna lo stato del tracciamento con le nuove coordinate e la distanza
           set({
             currentTrack: {
               ...currentTrack,
@@ -232,33 +376,105 @@ export const useTrackStore = create<TrackState>()(
               distance
             }
           });
+          
+          // Log per debug dell'aggiornamento della posizione
+          if (newCoordinates.length % 10 === 0) { // Log ogni 10 aggiornamenti per non intasare la console
+            console.debug(`Tracciamento: ${newCoordinates.length} punti, distanza totale: ${distance.toFixed(3)}km`);
+          }
         }
       },
       
       addFinding: (finding) => {
         const { currentTrack } = get();
         if (currentTrack && navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition((position) => {
-            const coordinates: [number, number] = [
-              position.coords.latitude,
-              position.coords.longitude
-            ];
-            
-            const newFinding: Finding = {
-              ...finding,
-              id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              trackId: currentTrack.id,
-              coordinates,
-              timestamp: new Date()
-            };
-            
-            set({
-              currentTrack: {
-                ...currentTrack,
-                findings: [...currentTrack.findings, newFinding]
-              }
-            });
-          });
+          // Utilizziamo opzioni ottimizzate per ottenere la posizione più precisa possibile
+          const geoOptions = {
+            enableHighAccuracy: true,
+            timeout: 1000, // Ridotto per ottenere una risposta più rapida
+            maximumAge: 0 // Forza l'acquisizione di una nuova posizione
+          };
+          
+          // Mostra un messaggio di log per indicare che stiamo acquisendo la posizione
+          console.log(`Acquisizione posizione GPS per tag di tipo: ${finding.type}...`);
+          
+          // Utilizziamo getCurrentPosition con retry per garantire l'acquisizione della posizione
+          const tryGetPosition = (retryCount = 0, maxRetries = 3) => {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const coordinates: [number, number] = [
+                  position.coords.latitude,
+                  position.coords.longitude
+                ];
+                
+                console.log(`Aggiunta tag alle coordinate GPS precise: [${coordinates[0]}, ${coordinates[1]}], tipo: ${finding.type}, accuratezza: ${position.coords.accuracy}m`);
+                
+                const newFinding: Finding = {
+                  ...finding,
+                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  trackId: currentTrack.id,
+                  coordinates,
+                  timestamp: new Date()
+                };
+                
+                set({
+                  currentTrack: {
+                    ...currentTrack,
+                    findings: [...currentTrack.findings, newFinding]
+                  }
+                });
+                
+                // Riproduci un suono di conferma per indicare che il tag è stato aggiunto
+                try {
+                  const audio = new Audio('/alert.mp3');
+                  audio.volume = 0.3; // Aumentato leggermente il volume
+                  audio.play().catch(e => console.error('Errore nella riproduzione audio:', e));
+                } catch (error) {
+                  console.error('Errore nella riproduzione audio:', error);
+                }
+              },
+              (error) => {
+                console.warn(`Errore nell'acquisizione della posizione per il tag (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
+                
+                if (retryCount < maxRetries) {
+                  // Riprova con opzioni meno restrittive
+                  const retryOptions = {
+                    ...geoOptions,
+                    enableHighAccuracy: retryCount < 1, // Disabilita high accuracy dopo il primo retry
+                    timeout: geoOptions.timeout + (retryCount * 1000)
+                  };
+                  
+                  console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
+                  setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 500);
+                } else {
+                  // Fallback: usa l'ultima posizione conosciuta dal track
+                  if (currentTrack.coordinates.length > 0) {
+                    const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
+                    
+                    console.log(`Fallback: aggiunta tag all'ultima posizione conosciuta: [${lastPosition[0]}, ${lastPosition[1]}], tipo: ${finding.type}`);
+                    
+                    const newFinding: Finding = {
+                      ...finding,
+                      id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                      trackId: currentTrack.id,
+                      coordinates: lastPosition,
+                      timestamp: new Date()
+                    };
+                    
+                    set({
+                      currentTrack: {
+                        ...currentTrack,
+                        findings: [...currentTrack.findings, newFinding]
+                      }
+                    });
+                  }
+                }
+              },
+              geoOptions
+            );
+          };
+          
+          // Avvia il primo tentativo di acquisizione della posizione
+          tryGetPosition();
         }
       },
 

@@ -53,8 +53,8 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
     }
   }, []);
 
-  // Posizionamento fisso a destra ma più in alto
-  const positionStyle = { top: '100px', right: '10px' };
+  // Posizionamento fisso a destra e spostato più in basso
+  const positionStyle = { top: '160px', right: '10px' };
 
   return (
     <div 
@@ -64,8 +64,8 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
         ...positionStyle,
         backgroundColor: 'rgba(0, 0, 0, 0.6)', /* Sfondo scuro semi-trasparente come la tabellina Dati Traccia */
         borderRadius: '50%',
-        width: '56px', /* Ridotta del 30% come richiesto */
-        height: '56px', /* Ridotta del 30% come richiesto */
+        width: '73px', /* Aumentata del 30% come richiesto */
+        height: '73px', /* Aumentata del 30% come richiesto */
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -89,8 +89,8 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
           src="/CompassIco.svg" 
           alt="Compass" 
           style={{ 
-            width: '45px',
-            height: '45px',
+            width: '58px',
+            height: '58px',
             filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))'
           }} 
         />

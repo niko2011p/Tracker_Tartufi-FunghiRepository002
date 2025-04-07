@@ -25,15 +25,16 @@ const GEOLOCATION_OPTIONS = {
 
 // Reuse icon creation functions from Map.tsx
 const createGpsArrowIcon = (direction = 0) => {
+  // Riduzione del 30% delle dimensioni dell'icona (da 32x32 a 22x22)
   return new DivIcon({
     html: `
       <div class="gps-arrow-wrapper navigation-gps-cursor" style="transform: rotate(${direction}deg);">
-        <img src="/map-navigation-orange-icon.svg" width="32" height="32" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
+        <img src="/map-navigation-orange-icon.svg" width="22" height="22" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
       </div>
     `,
     className: 'gps-arrow-icon',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
+    iconSize: [22, 22],
+    iconAnchor: [11, 11]
   });
 };
 
@@ -132,9 +133,9 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
       
       lastPositionRef.current = newPosition;
       
-      // Aggiorna la posizione del marker sulla mappa e mantiene lo zoom a 15
-      // Utilizziamo flyTo per un'animazione più fluida e garantire lo zoom corretto
-      map.flyTo(newPosition, MAX_ZOOM, { animate: true, duration: 1 });
+      // Non utilizziamo più flyTo qui per evitare che la mappa si sposti automaticamente
+      // quando l'utente sta esplorando manualmente la mappa
+      // map.flyTo(newPosition, MAX_ZOOM, { animate: true, duration: 1 });
       
       console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}], accuratezza: ${posAccuracy}m, altitudine: ${altitude || 'N/D'}m`);
     };
@@ -155,18 +156,24 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
         console.warn('Geolocation error:', error.message);
         setIsAcquiringGps(false);
       },
-      GEOLOCATION_OPTIONS
+      // Configurazione ottimizzata per l'acquisizione iniziale
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
 
-    // Avvia il monitoraggio continuo della posizione SEMPRE, non solo durante il tracciamento
-    // Questo garantisce che l'indicatore GPS e i dati di tracciamento siano sempre aggiornati
+    // Avvia il monitoraggio continuo della posizione con configurazione ottimizzata
+    const watchOptions = {
+      enableHighAccuracy: true,
+      timeout: 2000,
+      maximumAge: 0 // Impostato a 0 per ottenere sempre dati freschi
+    };
+    
     const watchId = navigator.geolocation.watchPosition(
       updatePosition,
       (error) => {
         console.warn('Geolocation watch error:', error.message);
         setIsAcquiringGps(false);
       },
-      GEOLOCATION_OPTIONS
+      watchOptions
     );
 
     return () => {
@@ -174,7 +181,7 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [map, updateCurrentPosition, currentTrack]); // Aggiunto currentTrack per garantire aggiornamenti quando cambia la traccia
+  }, [map, updateCurrentPosition]); // Rimosso currentTrack per evitare reset del watchPosition
 
   // Effetto per assicurarsi che lo zoom sia sempre al massimo all'avvio
   useEffect(() => {
@@ -195,26 +202,41 @@ function CenterButton() {
     // Impostiamo lo zoom massimo come richiesto
     const targetZoom = MAX_ZOOM;
     
-    if (currentTrack?.coordinates.length) {
-      const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-      map.setView(lastPosition, targetZoom, { animate: true });
-    } else {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          map.setView([latitude, longitude], targetZoom, { animate: true });
-        },
-        (error) => {
-          console.warn('Geolocation error:', error.message);
-          map.setView(DEFAULT_POSITION, targetZoom, { animate: true });
-        },
-        GEOLOCATION_OPTIONS
-      );
-    }
+    // Utilizziamo sempre la geolocalizzazione per ottenere la posizione GPS reale
+    // invece di usare l'ultima coordinata del track, per garantire che la mappa
+    // sia sempre centrata sulla posizione GPS reale dell'utente
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        // Utilizziamo flyTo per un'animazione più fluida
+        map.flyTo([latitude, longitude], targetZoom, { animate: true, duration: 1 });
+        console.log(`Mappa centrata sulla posizione GPS reale: [${latitude}, ${longitude}]`);
+        
+        // Forza l'aggiornamento della posizione nello store per garantire che il marker sia sincronizzato
+        const newPosition: [number, number] = [latitude, longitude];
+        const { updateCurrentPosition } = useTrackStore.getState();
+        updateCurrentPosition(newPosition);
+      },
+      (error) => {
+        console.warn('Geolocation error:', error.message);
+        // Se non riusciamo a ottenere la posizione GPS reale, utilizziamo l'ultima coordinata del track
+        if (currentTrack?.coordinates.length) {
+          const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
+          map.flyTo(lastPosition, targetZoom, { animate: true, duration: 1 });
+          console.log(`Mappa centrata sull'ultima posizione tracciata: [${lastPosition[0]}, ${lastPosition[1]}]`);
+        } else {
+          // Se non abbiamo neanche una coordinata del track, utilizziamo la posizione di default
+          map.flyTo(DEFAULT_POSITION, targetZoom, { animate: true, duration: 1 });
+          console.log(`Mappa centrata sulla posizione di default: [${DEFAULT_POSITION[0]}, ${DEFAULT_POSITION[1]}]`);
+        }
+      },
+      // Configurazione ottimizzata per l'acquisizione della posizione
+      { enableHighAccuracy: true, timeout: 1000, maximumAge: 0 }
+    );
   };
   
   return (
-    <div className="center-button-container" style={{ position: 'absolute', top: '280px', left: '10px', zIndex: 1001 }}>
+    <div className="center-button-container" style={{ position: 'absolute', top: '480px', left: '10px', zIndex: 1001 }}>
       <button 
         className="center-button"
         onClick={handleCenterClick}
@@ -373,9 +395,11 @@ const NavigationPage: React.FC = () => {
   
   // Aggiorna i dati di tracking in tempo reale
   useEffect(() => {
-    if (currentTrack) {
-      // Funzione per aggiornare i dati di tracking
-      const updateTrackingData = () => {
+    if (!currentTrack) return; // Uscita anticipata se non c'è una traccia attiva
+    
+    // Funzione per aggiornare i dati di tracking
+    const updateTrackingData = () => {
+      try {
         // Calcola la distanza totale - ottieni il valore più recente dallo store
         const distance = currentTrack.distance;
         
@@ -397,8 +421,23 @@ const NavigationPage: React.FC = () => {
         // Log per debug dell'aggiornamento in tempo reale
         console.debug(`[TrackingData] Aggiornamento: ${new Date().toISOString()} - Distanza: ${distance.toFixed(2)}km, Velocità: ${avgSpeed.toFixed(1)}km/h`);
         
-        // Ottieni l'altitudine reale dal GPS con timeout ridotto per maggiore reattività
+        // Aggiorna i dati di tracking con valori calcolati, senza attendere la geolocalizzazione
+        // Questo garantisce che almeno questi dati siano sempre aggiornati
+        setTrackingData(prevData => ({
+          ...prevData,
+          distance,
+          avgSpeed,
+          duration: formattedDuration
+        }));
+        
+        // Ottieni l'altitudine reale dal GPS con timeout ottimizzato
         if (navigator.geolocation) {
+          const geoOptions = { 
+            enableHighAccuracy: true, 
+            timeout: 500, // Ridotto ulteriormente per aggiornamenti più frequenti
+            maximumAge: 0 // Impostato a 0 per ottenere sempre dati freschi
+          };
+          
           navigator.geolocation.getCurrentPosition(
             (position) => {
               let newAltitude = 0;
@@ -414,13 +453,19 @@ const NavigationPage: React.FC = () => {
               // Applica lo smoothing all'altitudine
               const smoothedAltitude = smoothAltitude(newAltitude, altitudeReadings);
               
-              // Aggiorna i dati di tracking immediatamente
-              setTrackingData({
-                distance,
-                avgSpeed,
-                altitude: smoothedAltitude,
-                duration: formattedDuration
-              });
+              // Aggiorna solo l'altitudine, gli altri dati sono già stati aggiornati
+              setTrackingData(prevData => ({
+                ...prevData,
+                altitude: smoothedAltitude
+              }));
+              
+              // Aggiorna anche la posizione corrente per garantire che il marker GPS sia sempre aggiornato
+              const newPosition: [number, number] = [position.coords.latitude, position.coords.longitude];
+              setCurrentPosition(newPosition);
+              updateCurrentPosition(newPosition);
+              
+              // Log per debug della posizione aggiornata
+              console.debug(`[TrackingData] Posizione aggiornata: [${newPosition[0]}, ${newPosition[1]}]`);
             },
             (error) => {
               // Log dell'errore per debug
@@ -430,46 +475,51 @@ const NavigationPage: React.FC = () => {
               const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
               const smoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
               
-              // Aggiorna i dati di tracking con l'altitudine di fallback
-              setTrackingData({
-                distance,
-                avgSpeed,
-                altitude: smoothedAltitude,
-                duration: formattedDuration
-              });
+              // Aggiorna solo l'altitudine con il valore di fallback
+              setTrackingData(prevData => ({
+                ...prevData,
+                altitude: smoothedAltitude
+              }));
             },
-            // Configurazione ottimizzata per aggiornamenti più frequenti
-            { enableHighAccuracy: true, timeout: 1000, maximumAge: 500 }
+            geoOptions
           );
         } else {
           // Fallback se la geolocalizzazione non è supportata
           const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
           const smoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
           
-          // Aggiorna comunque i dati anche senza geolocalizzazione
-          setTrackingData({
-            distance,
-            avgSpeed,
-            altitude: smoothedAltitude,
-            duration: formattedDuration
-          });
+          // Aggiorna solo l'altitudine
+          setTrackingData(prevData => ({
+            ...prevData,
+            altitude: smoothedAltitude
+          }));
         }
-      };
-      
-      // Aggiorna i dati immediatamente all'avvio
-      updateTrackingData();
-      
-      // Aggiorna i dati più frequentemente (ogni 300ms) per una maggiore reattività
-      const timer = setInterval(updateTrackingData, 300);
-      
-      console.log('[TrackingData] Avviato timer di aggiornamento dati');
-      
-      return () => {
-        clearInterval(timer);
-        console.log('[TrackingData] Timer di aggiornamento dati fermato');
-      };
-    }
-  }, [currentTrack]); // Rimuoviamo le dipendenze non necessarie per evitare re-render eccessivi
+      } catch (err) {
+        // Gestione degli errori per evitare crash dell'applicazione
+        console.error('[TrackingData] Errore nell\'aggiornamento dei dati:', err);
+        
+        // Aggiorna comunque i dati con valori di fallback
+        setTrackingData(prev => ({
+          ...prev,
+          distance: currentTrack.distance,
+          duration: prev.duration
+        }));
+      }
+    };
+    
+    // Aggiorna i dati immediatamente all'avvio
+    updateTrackingData();
+    
+    // Aggiorna i dati ogni 250ms per aggiornamenti più frequenti e fluidi
+    const timer = setInterval(updateTrackingData, 250);
+    
+    console.log('[TrackingData] Avviato timer di aggiornamento dati');
+    
+    return () => {
+      clearInterval(timer);
+      console.log('[TrackingData] Timer di aggiornamento dati fermato');
+    };
+  }, [currentTrack, smoothAltitude, updateCurrentPosition, altitudeReadings]); // Aggiungiamo altitudeReadings alle dipendenze
   
   // Effetto per l'animazione iniziale della mappa e impostazione dello zoom
   useEffect(() => {
@@ -514,25 +564,25 @@ const NavigationPage: React.FC = () => {
           <div className="tracking-data-item">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Route size={18} className="tracking-data-icon" />
-              <p className="tracking-data-value">{trackingData.distance.toFixed(2)} km</p>
+              <p className="tracking-data-value" data-testid="distance-value">{trackingData.distance.toFixed(2)} km</p>
             </div>
           </div>
           <div className="tracking-data-item">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ArrowUpDown size={18} className="tracking-data-icon" />
-              <p className="tracking-data-value">{trackingData.avgSpeed.toFixed(1)} km/h</p>
+              <p className="tracking-data-value" data-testid="speed-value">{trackingData.avgSpeed.toFixed(1)} km/h</p>
             </div>
           </div>
           <div className="tracking-data-item">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Mountain size={18} className="tracking-data-icon" />
-              <p className="tracking-data-value">{trackingData.altitude} m</p>
+              <p className="tracking-data-value" data-testid="altitude-value">{trackingData.altitude} m</p>
             </div>
           </div>
           <div className="tracking-data-item">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Clock size={18} className="tracking-data-icon" />
-              <p className="tracking-data-value">{trackingData.duration}</p>
+              <p className="tracking-data-value" data-testid="duration-value">{trackingData.duration}</p>
             </div>
           </div>
         </div>
@@ -571,8 +621,8 @@ const NavigationPage: React.FC = () => {
         />
         <CenterButton />
         <ZoomControl />
-        {/* Posiziono la bussola in alto a destra */}
-        <div style={{ position: 'absolute', right: '10px', top: '160px', zIndex: 1001 }}>
+        {/* Posiziono la bussola in alto a destra, spostata più in basso */}
+        <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 1001 }}>
           <CompassIndicator position="topRight" />
         </div>
         {/* Posiziono l'indicatore GPS al centro in alto */}
@@ -583,23 +633,24 @@ const NavigationPage: React.FC = () => {
         {/* Display current position marker */}
         <Marker position={currentPosition} icon={gpsArrowIcon} />
         
-        {/* Display track polyline */}
+        {/* Display track polyline - Percorso in tempo reale in arancione */}
         {currentTrack && (
           <>
             <Polyline
               positions={currentTrack.coordinates}
               color="#FF9800"
-              weight={3}
-              opacity={0.8}
-              dashArray="5, 10"
-              dashOffset="0"
+              weight={4}
+              opacity={0.9}
+              // Linea continua come richiesto
             />
             {/* Display findings markers */}
             {currentTrack.findings
               .filter(finding => !isLoadedFinding(finding))
               .map((finding) => {
+                // Determina il tipo di icona in base al tipo di ritrovamento
                 const findingType = finding.type === 'poi' ? 'Interesse' : 
                                    finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
+                console.log(`Visualizzazione tag ritrovamento: ${finding.name}, tipo: ${finding.type}, coordinate: [${finding.coordinates[0]}, ${finding.coordinates[1]}]`);
                 return (
                   <Marker
                     key={finding.id}
