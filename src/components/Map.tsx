@@ -90,7 +90,7 @@ export default function Map() {
     <div style={mapContainerStyle}>
       {/* Logo in alto al centro */}
       <img 
-        src="/LogoFTL.svg" 
+        src="/icon/LogoFTL.svg" 
         alt="Logo FTL" 
         style={logoStyle} 
       />

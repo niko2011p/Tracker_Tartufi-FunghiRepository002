@@ -3,7 +3,7 @@ import { Navigation, FileText } from 'lucide-react';
 
 // Stile per il contenitore principale
 const naviContainerStyle = {
-  backgroundImage: 'url(/SfondoAPP.svg)',
+  backgroundImage: 'url(/icon/SfondoAPP.svg)',
   backgroundSize: 'cover',
   backgroundPosition: 'center',
   backgroundRepeat: 'no-repeat',

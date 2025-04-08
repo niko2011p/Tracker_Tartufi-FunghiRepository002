@@ -349,7 +349,7 @@ const StoricoTracce: React.FC = () => {
 
   return (
     <div data-page="storico" className="p-4 pb-20">
-      <img src="/LogoFTL.svg" alt="LogoFTL" style={logoStyle} />
+      <img src="/icon/LogoFTL.svg" alt="LogoFTL" style={logoStyle} />
       {selectedTrack && (
         <TrackDetails
           key={`details-${uniqueId}-${selectedTrack.id}`}

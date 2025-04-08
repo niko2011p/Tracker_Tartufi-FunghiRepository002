@@ -29,7 +29,7 @@ const createGpsArrowIcon = (direction = 0) => {
   return new DivIcon({
     html: `
       <div class="gps-arrow-wrapper navigation-gps-cursor" style="transform: rotate(${direction}deg);">
-        <img src="/map-navigation-orange-icon.svg" width="22" height="22" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
+        <img src="/icon/map-navigation-orange-icon.svg" width="22" height="22" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
       </div>
     `,
     className: 'gps-arrow-icon',
@@ -45,7 +45,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper fungo-finding">
-          <img src="/mushroom-tag-icon.svg" width="24" height="24" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+          <img src="/icon/mushroom-tag-icon.svg" width="24" height="24" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon fungo-finding',
@@ -57,7 +57,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper tartufo-finding">
-          <img src="/Truffle-tag-icon.svg" width="24" height="24" alt="Tartufo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+          <img src="/icon/Truffle-tag-icon.svg" width="24" height="24" alt="Tartufo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon tartufo-finding',
@@ -70,7 +70,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: bo
     return new DivIcon({
       html: `
         <div class="finding-icon-wrapper interesse-finding">
-          <img src="/point-of-interest-tag-icon.svg" width="24" height="24" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
+          <img src="/icon/point-of-interest-tag-icon.svg" width="24" height="24" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
         </div>
       `,
       className: 'finding-icon interesse-finding',

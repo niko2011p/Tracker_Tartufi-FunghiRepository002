@@ -86,7 +86,7 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft
         }}
       >
         <img 
-          src="/CompassIco.svg" 
+          src="/icon/CompassIco.svg" 
           alt="Compass" 
           style={{ 
             width: '58px',

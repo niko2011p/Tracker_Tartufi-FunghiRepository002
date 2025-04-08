@@ -317,7 +317,7 @@ export const useTrackStore = create<TrackState>()(
             
             // Notifica all'utente quando si avvicina a un ritrovamento caricato
             if (distance <= 10 && !get().isAlertPlaying) {
-              const audio = new Audio('/alert.mp3');
+              const audio = new Audio('/sound/alert.mp3');
               audio.volume = 0.3;
               audio.play().catch(console.error);
               set({
@@ -425,7 +425,7 @@ export const useTrackStore = create<TrackState>()(
                 
                 // Riproduci un suono di conferma per indicare che il tag è stato aggiunto
                 try {
-                  const audio = new Audio('/alert.mp3');
+                  const audio = new Audio('/sound/alert.mp3');
                   audio.volume = 0.3; // Aumentato leggermente il volume
                   audio.play().catch(e => console.error('Errore nella riproduzione audio:', e));
                 } catch (error) {
