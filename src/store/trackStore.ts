@@ -155,10 +155,10 @@ export const useTrackStore = create<TrackState>()(
                 return;
               }
               
-              const tryGetAltitude = (retryCount = 0, maxRetries = 2) => {
+              const tryGetAltitude = (retryCount = 0, maxRetries = 3) => {
                 navigator.geolocation.getCurrentPosition(
                   (position) => {
-                    if (position.coords.altitude) {
+                    if (position.coords.altitude !== null) {
                       console.log(`Altitudine finale acquisita: ${position.coords.altitude}m`);
                       resolve(position.coords.altitude);
                     } else {
@@ -169,13 +169,13 @@ export const useTrackStore = create<TrackState>()(
                   (error) => {
                     console.warn(`Errore nell'acquisizione dell'altitudine (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
                     if (retryCount < maxRetries) {
-                      setTimeout(() => tryGetAltitude(retryCount + 1, maxRetries), 500);
+                      setTimeout(() => tryGetAltitude(retryCount + 1, maxRetries), 1000);
                     } else {
                       console.warn('Impossibile acquisire l\'altitudine dopo multipli tentativi');
                       resolve(0);
                     }
                   },
-                  { enableHighAccuracy: true, timeout: 2000, maximumAge: 0 }
+                  { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
                 );
               };
               
@@ -255,14 +255,17 @@ export const useTrackStore = create<TrackState>()(
               });
               
               // Aggiorniamo lo stato con la nuova traccia completata
+              // Assicuriamoci che la traccia venga aggiunta all'array tracks
+              const updatedTracks = [...tracks, completedTrack];
+              
               set({
-                tracks: [...tracks, completedTrack],
+                tracks: updatedTracks,
                 currentTrack: null,
                 isRecording: false,
                 loadedFindings: null
               });
               
-              console.log('Track stopped and saved successfully');
+              console.log('Track stopped and saved successfully. Total tracks:', updatedTracks.length);
               return completedTrack;
             } catch (error) {
               console.error('Errore durante il salvataggio della traccia:', error);
@@ -277,14 +280,17 @@ export const useTrackStore = create<TrackState>()(
                 totalDistance: currentTrack.distance
               };
               
+              // Assicuriamoci che la traccia venga aggiunta all'array tracks anche in caso di errore
+              const updatedTracks = [...tracks, basicCompletedTrack];
+              
               set({
-                tracks: [...tracks, basicCompletedTrack],
+                tracks: updatedTracks,
                 currentTrack: null,
                 isRecording: false,
                 loadedFindings: null
               });
               
-              console.log('Track saved with basic data due to error');
+              console.log('Track saved with basic data due to error. Total tracks:', updatedTracks.length);
               return basicCompletedTrack;
             }
           };

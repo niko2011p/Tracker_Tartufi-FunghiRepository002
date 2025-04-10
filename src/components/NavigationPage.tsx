@@ -1,17 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import { useTrackStore } from '../store/trackStore';
-import { Square, MapPin, AlertCircle, Crosshair, Navigation, Clock, ArrowUpDown, Mountain, Route } from 'lucide-react';
+import { Square, MapPin, AlertCircle, Crosshair, Navigation } from 'lucide-react';
 import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import './UnifiedButtons.css';
-import './TrackingDataPanel.css';
 import { Finding } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
 import GpsStatusIndicator from './GpsStatusIndicator';
 import CompassIndicator from './CompassIndicator';
+import TrackingDataPanel from './TrackingDataPanel';
 
 // Constants from Map.tsx
 const MIN_ZOOM = 4;
@@ -330,12 +330,6 @@ const NavigationPage: React.FC = () => {
   const { currentTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection: storeDirection, loadedFindings, updateCurrentPosition, gpsStatus } = useTrackStore();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
-  const [trackingData, setTrackingData] = useState({
-    distance: 0,
-    avgSpeed: 0,
-    altitude: 0,
-    duration: '00:00'
-  });
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
   const [currentDirection, setCurrentDirection] = useState<number>(0);
   const [accuracy, setAccuracy] = useState<number | null>(null);
@@ -377,149 +371,10 @@ const NavigationPage: React.FC = () => {
 
   const mapRef = React.useRef(null);
 
-  // Array per lo smoothing dell'altitudine
-  const [altitudeReadings, setAltitudeReadings] = useState<number[]>([]);
+  // Rimosso il codice per lo smoothing dell'altitudine, ora gestito nel componente TrackingDataPanel
   
-  // Funzione per stabilizzare l'altitudine con media mobile
-  const smoothAltitude = (newReading: number, readings: number[]): number => {
-    const MAX_READINGS = 5; // Numero di letture da considerare per lo smoothing
-    
-    // Aggiungi la nuova lettura all'array
-    const updatedReadings = [...readings, newReading].slice(-MAX_READINGS);
-    setAltitudeReadings(updatedReadings);
-    
-    // Calcola la media delle letture disponibili
-    const sum = updatedReadings.reduce((acc, val) => acc + val, 0);
-    return Math.round(sum / updatedReadings.length);
-  };
-  
-  // Aggiorna i dati di tracking in tempo reale
-  useEffect(() => {
-    if (!currentTrack) return; // Uscita anticipata se non c'è una traccia attiva
-    
-    // Funzione per aggiornare i dati di tracking
-    const updateTrackingData = () => {
-      try {
-        // Calcola la distanza totale - ottieni il valore più recente dallo store
-        const distance = currentTrack.distance;
-        
-        // Calcola la durata del tracciamento con il timestamp corrente
-        const startTime = currentTrack.startTime;
-        const currentTime = new Date();
-        const durationMs = currentTime.getTime() - startTime.getTime();
-        const durationMinutes = Math.floor(durationMs / 60000);
-        
-        // Formatta la durata nel formato HH:mm
-        const hours = Math.floor(durationMinutes / 60);
-        const minutes = durationMinutes % 60;
-        const formattedDuration = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-        
-        // Calcola la velocità media (km/h) in tempo reale
-        const durationHours = durationMs / 3600000;
-        const avgSpeed = durationHours > 0 ? distance / durationHours : 0;
-        
-        // Log per debug dell'aggiornamento in tempo reale
-        console.debug(`[TrackingData] Aggiornamento: ${new Date().toISOString()} - Distanza: ${distance.toFixed(2)}km, Velocità: ${avgSpeed.toFixed(1)}km/h`);
-        
-        // Aggiorna i dati di tracking con valori calcolati, senza attendere la geolocalizzazione
-        // Questo garantisce che almeno questi dati siano sempre aggiornati
-        setTrackingData(prevData => ({
-          ...prevData,
-          distance,
-          avgSpeed,
-          duration: formattedDuration
-        }));
-        
-        // Ottieni l'altitudine reale dal GPS con timeout ottimizzato
-        if (navigator.geolocation) {
-          const geoOptions = { 
-            enableHighAccuracy: true, 
-            timeout: 500, // Ridotto ulteriormente per aggiornamenti più frequenti
-            maximumAge: 0 // Impostato a 0 per ottenere sempre dati freschi
-          };
-          
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              let newAltitude = 0;
-              if (position.coords.altitude) {
-                newAltitude = position.coords.altitude;
-                console.debug(`[TrackingData] Altitudine GPS: ${newAltitude.toFixed(1)}m`);
-              } else {
-                // Fallback se l'altitudine non è disponibile
-                newAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-                console.debug(`[TrackingData] Usando altitudine fallback: ${newAltitude}m`);
-              }
-              
-              // Applica lo smoothing all'altitudine
-              const smoothedAltitude = smoothAltitude(newAltitude, altitudeReadings);
-              
-              // Aggiorna solo l'altitudine, gli altri dati sono già stati aggiornati
-              setTrackingData(prevData => ({
-                ...prevData,
-                altitude: smoothedAltitude
-              }));
-              
-              // Aggiorna anche la posizione corrente per garantire che il marker GPS sia sempre aggiornato
-              const newPosition: [number, number] = [position.coords.latitude, position.coords.longitude];
-              setCurrentPosition(newPosition);
-              updateCurrentPosition(newPosition);
-              
-              // Log per debug della posizione aggiornata
-              console.debug(`[TrackingData] Posizione aggiornata: [${newPosition[0]}, ${newPosition[1]}]`);
-            },
-            (error) => {
-              // Log dell'errore per debug
-              console.debug(`[TrackingData] Errore GPS: ${error.message}`);
-              
-              // Fallback in caso di errore
-              const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-              const smoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
-              
-              // Aggiorna solo l'altitudine con il valore di fallback
-              setTrackingData(prevData => ({
-                ...prevData,
-                altitude: smoothedAltitude
-              }));
-            },
-            geoOptions
-          );
-        } else {
-          // Fallback se la geolocalizzazione non è supportata
-          const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-          const smoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
-          
-          // Aggiorna solo l'altitudine
-          setTrackingData(prevData => ({
-            ...prevData,
-            altitude: smoothedAltitude
-          }));
-        }
-      } catch (err) {
-        // Gestione degli errori per evitare crash dell'applicazione
-        console.error('[TrackingData] Errore nell\'aggiornamento dei dati:', err);
-        
-        // Aggiorna comunque i dati con valori di fallback
-        setTrackingData(prev => ({
-          ...prev,
-          distance: currentTrack.distance,
-          duration: prev.duration
-        }));
-      }
-    };
-    
-    // Aggiorna i dati immediatamente all'avvio
-    updateTrackingData();
-    
-    // Aggiorna i dati ogni 250ms per aggiornamenti più frequenti e fluidi
-    const timer = setInterval(updateTrackingData, 250);
-    
-    console.log('[TrackingData] Avviato timer di aggiornamento dati');
-    
-    return () => {
-      clearInterval(timer);
-      console.log('[TrackingData] Timer di aggiornamento dati fermato');
-    };
-  }, [currentTrack, smoothAltitude, updateCurrentPosition, altitudeReadings]); // Aggiungiamo altitudeReadings alle dipendenze
+  // Rimosso l'effetto useEffect per l'aggiornamento dei dati di tracking
+  // Questa funzionalità è stata spostata nel componente TrackingDataPanel
   
   // Effetto per l'animazione iniziale della mappa e impostazione dello zoom
   useEffect(() => {
@@ -557,36 +412,8 @@ const NavigationPage: React.FC = () => {
   
   return (
     <div className="fixed inset-0 z-[9999] bg-white">
-      {/* Pannello informazioni di tracking con sfondo quasi trasparente */}
-      <div className="tracking-data-panel">
-        {/* Dati di tracciamento in formato verticale */}
-        <div className="tracking-data-grid">
-          <div className="tracking-data-item">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Route size={18} className="tracking-data-icon" />
-              <p className="tracking-data-value" data-testid="distance-value">{trackingData.distance.toFixed(2)} km</p>
-            </div>
-          </div>
-          <div className="tracking-data-item">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ArrowUpDown size={18} className="tracking-data-icon" />
-              <p className="tracking-data-value" data-testid="speed-value">{trackingData.avgSpeed.toFixed(1)} km/h</p>
-            </div>
-          </div>
-          <div className="tracking-data-item">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Mountain size={18} className="tracking-data-icon" />
-              <p className="tracking-data-value" data-testid="altitude-value">{trackingData.altitude} m</p>
-            </div>
-          </div>
-          <div className="tracking-data-item">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Clock size={18} className="tracking-data-icon" />
-              <p className="tracking-data-value" data-testid="duration-value">{trackingData.duration}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Pannello informazioni di tracking con il nuovo componente */}
+      <TrackingDataPanel />
       
       {/* Full screen map */}
       <MapContainer
@@ -707,20 +534,21 @@ const NavigationPage: React.FC = () => {
           Stop
         </button>
         
-        {/* Tasto Tag - posizionato in basso al centro */}
-        <div className="absolute left-1/2 transform -translate-x-1/2">
-          <button
-            onClick={() => setShowTagOptions(true)}
-            className="unified-button tag"
-            style={{
-              backgroundColor: 'rgba(59, 130, 246, 0.9)', /* Blu */
-              borderRadius: '50%', /* Pulsante circolare */
-            }}
-          >
-            <MapPin className="w-6 h-6" />
-            Tag
-          </button>
-        </div>
+        {/* Tasto Tag - spostato in basso a destra attaccato al bordo */}
+        <button
+          onClick={() => setShowTagOptions(true)}
+          className="unified-button tag"
+          style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.9)', /* Blu */
+            borderRadius: '50%', /* Pulsante circolare */
+            position: 'absolute',
+            right: '10px',
+            bottom: '0px'
+          }}
+        >
+          <MapPin className="w-6 h-6" />
+          Tag
+        </button>
       </div>
       
       {/* Mostra il form per aggiungere un ritrovamento quando richiesto */}
