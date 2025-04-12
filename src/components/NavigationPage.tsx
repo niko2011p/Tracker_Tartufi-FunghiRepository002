@@ -93,8 +93,8 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
   const lastPositionRef = useRef<[number, number] | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
-  const pathCoordsRef = useRef<[number, number][]>([]);
-  const polylineRef = useRef<L.Polyline | null>(null);
+  const [pathCoords, setPathCoords] = useState<L.LatLngExpression[]>([]);
+  const [polyline, setPolyline] = useState<L.Polyline | null>(null);
   
   // Effetto per aggiornare il componente principale con i dati GPS
   useEffect(() => {
@@ -138,18 +138,17 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
       // Aggiorna la traccia GPS in tempo reale
       if (currentTrack) {
         // Aggiungi la nuova posizione all'array delle coordinate
-        pathCoordsRef.current.push(newPosition);
-        
-        // Crea o aggiorna la polyline sulla mappa
-        if (!polylineRef.current) {
-          polylineRef.current = L.polyline(pathCoordsRef.current, { 
-            color: 'orange', 
-            weight: 4,
-            opacity: 0.9
-          }).addTo(map);
-        } else {
-          polylineRef.current.setLatLngs(pathCoordsRef.current);
-        }
+        const newPoint: L.LatLngExpression = [latitude, longitude];
+        setPathCoords(prev => {
+          const updated = [...prev, newPoint];
+          if (polyline) {
+            polyline.setLatLngs(updated);
+          } else {
+            const newPolyline = L.polyline(updated, { color: 'orange', weight: 4 }).addTo(map);
+            setPolyline(newPolyline);
+          }
+          return updated;
+        });
       }
       
       console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}], accuratezza: ${posAccuracy}m, altitudine: ${altitude || 'N/D'}m`);
@@ -196,38 +195,46 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
       }
-      if (polylineRef.current) {
-        map.removeLayer(polylineRef.current);
-        polylineRef.current = null;
+      if (polyline) {
+        map.removeLayer(polyline);
+        setPolyline(null);
       }
     };
   }, [map, updateCurrentPosition, currentTrack]); // Aggiunto currentTrack per reinizializzare la traccia quando cambia
 
   // Effetto per assicurarsi che lo zoom sia sempre al massimo all'avvio
+  // e per inizializzare la polyline con le coordinate esistenti
   useEffect(() => {
     if (map && currentTrack) {
       map.setZoom(MAX_ZOOM);
       
       // Inizializza l'array delle coordinate con quelle già presenti nel track
       if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
-        pathCoordsRef.current = [...currentTrack.coordinates];
+        // Converti le coordinate del track in formato LatLngExpression
+        const trackCoords = currentTrack.coordinates.map(coord => coord as L.LatLngExpression);
+        
+        // Aggiorna lo stato delle coordinate del percorso
+        setPathCoords(trackCoords);
         
         // Crea la polyline iniziale con le coordinate esistenti
-        if (!polylineRef.current) {
-          polylineRef.current = L.polyline(pathCoordsRef.current, { 
+        if (!polyline) {
+          const newPolyline = L.polyline(trackCoords, { 
             color: 'orange', 
             weight: 4,
             opacity: 0.9
           }).addTo(map);
+          setPolyline(newPolyline);
         } else {
-          polylineRef.current.setLatLngs(pathCoordsRef.current);
+          polyline.setLatLngs(trackCoords);
         }
       }
     }
-  }, [map, currentTrack]);
+  }, [map, currentTrack, polyline]);
 
   return null;
 }
+
+// Componente per il pulsante di centraggio
 
 // Componente per il pulsante di centraggio
 function CenterButton() {
