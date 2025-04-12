@@ -93,6 +93,8 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
   const lastPositionRef = useRef<[number, number] | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
+  const pathCoordsRef = useRef<[number, number][]>([]);
+  const polylineRef = useRef<L.Polyline | null>(null);
   
   // Effetto per aggiornare il componente principale con i dati GPS
   useEffect(() => {
@@ -114,7 +116,7 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
   
   // Effetto per richiedere e monitorare la posizione GPS
   useEffect(() => {
-    // Funzione per aggiornare la posizione
+    // Funzione per aggiornare la posizione e la traccia
     const updatePosition = (position: GeolocationPosition) => {
       const { latitude, longitude, accuracy: posAccuracy, altitude } = position.coords;
       const newPosition: [number, number] = [latitude, longitude];
@@ -133,9 +135,22 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
       
       lastPositionRef.current = newPosition;
       
-      // Non utilizziamo più flyTo qui per evitare che la mappa si sposti automaticamente
-      // quando l'utente sta esplorando manualmente la mappa
-      // map.flyTo(newPosition, MAX_ZOOM, { animate: true, duration: 1 });
+      // Aggiorna la traccia GPS in tempo reale
+      if (currentTrack) {
+        // Aggiungi la nuova posizione all'array delle coordinate
+        pathCoordsRef.current.push(newPosition);
+        
+        // Crea o aggiorna la polyline sulla mappa
+        if (!polylineRef.current) {
+          polylineRef.current = L.polyline(pathCoordsRef.current, { 
+            color: 'orange', 
+            weight: 4,
+            opacity: 0.9
+          }).addTo(map);
+        } else {
+          polylineRef.current.setLatLngs(pathCoordsRef.current);
+        }
+      }
       
       console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}], accuratezza: ${posAccuracy}m, altitudine: ${altitude || 'N/D'}m`);
     };
@@ -176,17 +191,38 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
       watchOptions
     );
 
+    // Pulizia quando il componente viene smontato
     return () => {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
       }
+      if (polylineRef.current) {
+        map.removeLayer(polylineRef.current);
+        polylineRef.current = null;
+      }
     };
-  }, [map, updateCurrentPosition]); // Rimosso currentTrack per evitare reset del watchPosition
+  }, [map, updateCurrentPosition, currentTrack]); // Aggiunto currentTrack per reinizializzare la traccia quando cambia
 
   // Effetto per assicurarsi che lo zoom sia sempre al massimo all'avvio
   useEffect(() => {
     if (map && currentTrack) {
       map.setZoom(MAX_ZOOM);
+      
+      // Inizializza l'array delle coordinate con quelle già presenti nel track
+      if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
+        pathCoordsRef.current = [...currentTrack.coordinates];
+        
+        // Crea la polyline iniziale con le coordinate esistenti
+        if (!polylineRef.current) {
+          polylineRef.current = L.polyline(pathCoordsRef.current, { 
+            color: 'orange', 
+            weight: 4,
+            opacity: 0.9
+          }).addTo(map);
+        } else {
+          polylineRef.current.setLatLngs(pathCoordsRef.current);
+        }
+      }
     }
   }, [map, currentTrack]);
 

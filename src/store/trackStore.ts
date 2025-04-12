@@ -422,12 +422,17 @@ export const useTrackStore = create<TrackState>()(
                   timestamp: new Date()
                 };
                 
+                // Aggiorna immediatamente lo stato con il nuovo ritrovamento
+                // per garantire che il tag appaia subito sulla mappa
                 set({
                   currentTrack: {
                     ...currentTrack,
                     findings: [...currentTrack.findings, newFinding]
                   }
                 });
+                
+                // Log per confermare l'aggiunta del tag sulla mappa
+                console.log(`Tag aggiunto e visualizzato sulla mappa: ${finding.type} alle coordinate [${coordinates[0]}, ${coordinates[1]}]`);
                 
                 // Riproduci un suono di conferma per indicare che il tag è stato aggiunto
                 try {
