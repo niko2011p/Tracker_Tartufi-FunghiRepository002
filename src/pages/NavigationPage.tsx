@@ -164,11 +164,9 @@ const NavigationPage: React.FC = () => {
   }, [isRecording, isFollowingGPS]);
 
   const handleCenterMap = () => {
-    if (gpsData.latitude !== 0 && gpsData.longitude !== 0 && mapRef.current) {
-      mapRef.current.flyTo([gpsData.latitude, gpsData.longitude], 18, {
-        duration: 1.5,
-        easeLinearity: 0.25
-      });
+    if (mapRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
+      mapRef.current.setView([gpsData.latitude, gpsData.longitude], mapRef.current.getZoom());
+      console.log('Centraggio mappa su:', gpsData.latitude, gpsData.longitude);
     }
   };
 
@@ -238,10 +236,7 @@ const NavigationPage: React.FC = () => {
           height: '100vh',
           zIndex: 1
         }}
-        whenCreated={(map) => {
-          mapRef.current = map;
-          console.log('Mappa creata:', map);
-        }}
+        ref={mapRef}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -269,7 +264,7 @@ const NavigationPage: React.FC = () => {
       </MapContainer>
 
       {/* Controlli della mappa */}
-      <div className="absolute bottom-24 right-4 flex flex-col gap-2 z-[2000]">
+      <div className="absolute bottom-80 right-6 flex flex-col gap-2 z-[2000]">
         <button
           onClick={toggleGPSFollow}
           className={`p-3 rounded-full text-white hover:bg-opacity-80 transition-all shadow-lg ${
@@ -284,7 +279,7 @@ const NavigationPage: React.FC = () => {
         </button>
         <button
           onClick={handleCenterMap}
-          className="p-3 bg-[#f5a149] rounded-full text-white hover:bg-opacity-80 transition-all shadow-lg"
+          className="p-3 bg-[#94ae43] rounded-full text-white hover:bg-opacity-80 transition-all shadow-lg"
           title="Centra sulla posizione GPS"
         >
           <Crosshair className="w-6 h-6" />
