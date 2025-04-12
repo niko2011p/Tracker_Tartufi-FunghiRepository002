@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowUpDown, Mountain, Route, Clock } from 'lucide-react';
+import { ArrowUpDown, Mountain, Route, Clock, Thermometer, Navigation, Compass } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
+import { useWeatherStore } from '../services/weatherService';
 import './TrackingDataPanel.css';
 
 interface TrackingDataState {
@@ -33,6 +34,8 @@ const TrackingDataPanel: React.FC<{ realTimeData?: RealTimeData }> = ({ realTime
   
   // Ottieni lo stato corrente dal trackStore
   const { currentTrack } = useTrackStore();
+
+  const { currentTemperature, fetchCurrentWeather } = useWeatherStore();
 
   // Funzione per stabilizzare l'altitudine con media mobile
   const smoothAltitude = useCallback((newReading: number, readings: number[]): number => {
@@ -106,6 +109,18 @@ const TrackingDataPanel: React.FC<{ realTimeData?: RealTimeData }> = ({ realTime
       clearInterval(timer);
     };
   }, [currentTrack, realTimeData]);
+
+  useEffect(() => {
+    // Aggiorna la temperatura ogni 5 minuti
+    const updateTemperature = () => {
+      fetchCurrentWeather(realTimeData?.lat || 0, realTimeData?.lng || 0);
+    };
+
+    updateTemperature();
+    const interval = setInterval(updateTemperature, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [realTimeData?.lat, realTimeData?.lng, fetchCurrentWeather]);
 
   // Se non c'è una traccia attiva, mostra valori a zero
   if (!currentTrack) {

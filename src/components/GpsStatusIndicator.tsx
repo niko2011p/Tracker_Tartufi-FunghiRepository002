@@ -19,70 +19,36 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
   isAvailable = true,
   error = null,
   accuracy = null,
-  currentPosition
+  currentPosition = [0, 0]
 }) => {
   const { gpsStatus } = useTrackStore();
   // Rimuoviamo la logica di visibilità per mantenere l'indicatore sempre visibile
   const [visible, setVisible] = useState(true);
-  const [signalStrength, setSignalStrength] = useState<'high' | 'medium' | 'low' | 'none'>('none');
-  const [signalHistory, setSignalHistory] = useState<string[]>([]);
+  const [signalStrength, setSignalStrength] = useState<'strong' | 'medium' | 'weak' | 'none'>('none');
+  const [coordinates, setCoordinates] = useState<string>('');
   
-  // Determina la forza del segnale in base all'accuratezza GPS
   useEffect(() => {
-    if (accuracy !== null) {
-      let currentSignal: 'high' | 'medium' | 'low' | 'none' = 'none';
-      
-      // Calcola la percentuale di qualità del segnale in base all'accuratezza
-      // Minore è l'accuratezza (in metri), migliore è il segnale
-      // Consideriamo 30m come 0% e 0m come 100%
-      const signalPercentage = Math.max(0, Math.min(100, 100 - (accuracy / 30) * 100));
-      
-      // Applica le soglie richieste: 0-33% → 1 tacca, 34-66% → 2 tacche, 67-100% → 3 tacche
-      if (signalPercentage >= 67) {
-        currentSignal = 'high';
-      } else if (signalPercentage >= 34) {
-        currentSignal = 'medium';
-      } else if (signalPercentage > 0) {
-        currentSignal = 'low';
-      } else {
-        currentSignal = 'none';
-      }
-      
-      // Aggiorna la cronologia dei segnali
-      setSignalHistory(prev => {
-        const newHistory = [...prev, currentSignal].slice(-10);
-        const averageSignal = calculateAverageSignal(newHistory);
-        setSignalStrength(averageSignal);
-        return newHistory;
-      });
+    if (currentPosition && currentPosition.length === 2) {
+      const [lat, lng] = currentPosition;
+      setCoordinates(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
     }
-  }, [accuracy]);
-  
-  // Funzione per calcolare la forza del segnale media con smoothing
-  const calculateAverageSignal = (history: string[]): 'high' | 'medium' | 'low' | 'none' => {
-    if (history.length === 0) return 'none';
-    
-    // Utilizziamo una finestra mobile più ampia (ultimi 10 valori)
-    const recentHistory = history.slice(-10);
-    
-    const counts = recentHistory.reduce((acc, signal) => {
-      acc[signal] = (acc[signal] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    // Calcola le percentuali per ogni livello di segnale
-    const total = recentHistory.length;
-    const percentages = Object.entries(counts).map(([signal, count]) => ({
-      signal,
-      percentage: (count / total) * 100
-    }));
-    
-    // Applica una soglia per determinare il livello del segnale
-    if (percentages.find(p => p.signal === 'high' && p.percentage >= 60)) return 'high';
-    if (percentages.find(p => p.signal === 'medium' && p.percentage >= 50)) return 'medium';
-    if (percentages.find(p => p.signal === 'low' && p.percentage >= 40)) return 'low';
-    return 'none';
-  };
+  }, [currentPosition]);
+
+  useEffect(() => {
+    if (!isAvailable || error) {
+      setSignalStrength('none');
+    } else if (isAcquiring) {
+      setSignalStrength('weak');
+    } else if (accuracy !== null) {
+      if (accuracy <= 10) {
+        setSignalStrength('strong');
+      } else if (accuracy <= 50) {
+        setSignalStrength('medium');
+      } else {
+        setSignalStrength('weak');
+      }
+    }
+  }, [isAvailable, isAcquiring, error, accuracy]);
   
   // Mostra il messaggio quando cambia lo stato GPS (sempre visibile)
   useEffect(() => {
@@ -91,24 +57,19 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
       setVisible(true);
       
       // Determina la forza del segnale in base al tipo di stato
-      let currentSignal: 'high' | 'medium' | 'low' | 'none' = 'none';
+      let currentSignal: 'strong' | 'medium' | 'weak' | 'none' = 'none';
       if (gpsStatus.type === 'success') {
-        currentSignal = 'high';
+        currentSignal = 'strong';
       } else if (gpsStatus.type === 'warning') {
         currentSignal = 'medium';
       } else if (gpsStatus.type === 'error') {
         currentSignal = 'none';
       } else {
-        currentSignal = 'low';
+        currentSignal = 'weak';
       }
       
-      // Aggiorna la cronologia dei segnali con un intervallo più lungo (mantiene gli ultimi 10 valori)
-      setSignalHistory(prev => {
-        const newHistory = [...prev, currentSignal].slice(-10);
-        const averageSignal = calculateAverageSignal(newHistory);
-        setSignalStrength(averageSignal);
-        return newHistory;
-      });
+      // Aggiorna la forza del segnale
+      setSignalStrength(currentSignal);
       
       // Non c'è alcun timer che nasconde l'indicatore
     }
@@ -136,12 +97,17 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
     }
   });
 
-  const getStatusColor = () => {
-    if (isAcquiring) return 'text-yellow-500';
-    if (accuracy === null) return 'text-red-500';
-    if (accuracy <= 10) return 'text-green-500';
-    if (accuracy <= 30) return 'text-yellow-500';
-    return 'text-red-500';
+  const getSignalColor = () => {
+    switch (signalStrength) {
+      case 'strong':
+        return 'text-green-500';
+      case 'medium':
+        return 'text-yellow-500';
+      case 'weak':
+        return 'text-orange-500';
+      case 'none':
+        return 'text-red-500';
+    }
   };
 
   const getStatusText = () => {
@@ -157,38 +123,25 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
     // Posizionamento nella parte superiore della pagina, centrato orizzontalmente
     
     // Determina il colore in base alla forza del segnale
-    const signalColor = signalStrength === 'high' ? '#4CAF50' : 
-                        signalStrength === 'medium' ? '#FFC107' : 
-                        signalStrength === 'low' ? '#FF9800' : 
-                        '#F44336';
+    const signalColor = getSignalColor();
     
     // Determina il testo in base alla forza del segnale
-    const signalText = signalStrength === 'high' ? 'Eccellente' : 
-                       signalStrength === 'medium' ? 'Buono' : 
-                       signalStrength === 'low' ? 'Discreto' : 
-                       'Debole';
+    const signalText = getStatusText();
     
     return (
       <div className="fixed z-50 flex flex-col items-center bg-white bg-opacity-80 rounded-lg px-3 py-2 shadow-md" 
            style={{ top: '10px', left: '50%', transform: 'translateX(-50%)', transition: 'all 0.3s ease', opacity: 1, visibility: 'visible' }}>
         <div className="flex items-center">
-          <Navigation className="w-5 h-5 mr-2" style={{ color: signalColor }} />
-          <div className="flex space-x-1 items-end">
-            <div className={`h-3 w-1.5 rounded-sm ${signalStrength !== 'none' ? 'bg-current' : 'bg-gray-300'}`} style={{ color: signalColor }}></div>
-            <div className={`h-4 w-1.5 rounded-sm ${signalStrength === 'medium' || signalStrength === 'high' ? 'bg-current' : 'bg-gray-300'}`} style={{ color: signalColor }}></div>
-            <div className={`h-5 w-1.5 rounded-sm ${signalStrength === 'high' ? 'bg-current' : 'bg-gray-300'}`} style={{ color: signalColor }}></div>
-          </div>
+          <Signal className={`w-6 h-6 ${signalColor}`} />
           {accuracy !== null && (
-            <span className="ml-2 text-xs font-medium" style={{ color: '#f5a149', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-              {signalText} ({Math.round(accuracy)}m)
+            <span className="ml-2 text-sm text-gray-600">
+              ±{accuracy.toFixed(0)}m
             </span>
           )}
         </div>
-        {gpsPosition && (
-          <div className="text-xs mt-1 font-mono">
-            Lat: {gpsPosition[0].toFixed(6)} | Lon: {gpsPosition[1].toFixed(6)}
-          </div>
-        )}
+        <div className="mt-1 text-xs text-gray-600 font-mono">
+          {coordinates}
+        </div>
       </div>
     );
   };
@@ -211,38 +164,16 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
              visibility: 'visible' 
            }}>
         <div className="flex items-center">
-          <Navigation className="w-5 h-5 mr-2" style={{ color: '#f5a149' }} />
-          <div className="flex space-x-1 items-end">
-            <div className={`h-3 w-1.5 rounded-sm ${signalStrength !== 'none' ? 'bg-current' : 'bg-gray-300'}`} 
-                 style={{ color: signalStrength === 'high' ? '#4CAF50' : 
-                                 signalStrength === 'medium' ? '#FFC107' : 
-                                 signalStrength === 'low' ? '#FF9800' : 
-                                 '#F44336' }}></div>
-            <div className={`h-4 w-1.5 rounded-sm ${signalStrength === 'medium' || signalStrength === 'high' ? 'bg-current' : 'bg-gray-300'}`} 
-                 style={{ color: signalStrength === 'high' ? '#4CAF50' : 
-                                 signalStrength === 'medium' ? '#FFC107' : 
-                                 signalStrength === 'low' ? '#FF9800' : 
-                                 '#F44336' }}></div>
-            <div className={`h-5 w-1.5 rounded-sm ${signalStrength === 'high' ? 'bg-current' : 'bg-gray-300'}`} 
-                 style={{ color: signalStrength === 'high' ? '#4CAF50' : 
-                                 signalStrength === 'medium' ? '#FFC107' : 
-                                 signalStrength === 'low' ? '#FF9800' : 
-                                 '#F44336' }}></div>
-          </div>
+          <Signal className={`w-6 h-6 ${getSignalColor()}`} />
           {accuracy !== null && (
-            <span className="ml-2 text-xs font-medium text-white">
-              {signalStrength === 'high' ? 'Eccellente' : 
-               signalStrength === 'medium' ? 'Buono' : 
-               signalStrength === 'low' ? 'Discreto' : 
-               'Debole'} ({Math.round(accuracy)}m)
+            <span className="ml-2 text-sm text-white">
+              ±{accuracy.toFixed(0)}m
             </span>
           )}
         </div>
-        {gpsPosition && (
-          <div className="text-xs mt-1 font-mono text-white">
-            Lat: {gpsPosition[0].toFixed(6)} | Lon: {gpsPosition[1].toFixed(6)}
-          </div>
-        )}
+        <div className="mt-1 text-xs text-white font-mono">
+          {coordinates}
+        </div>
       </div>
       
       {/* Messaggio di stato sempre visibile */}
@@ -259,10 +190,6 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
     </>
   );
 };
-
-/**
- * Funzione per ottenere un messaggio di errore leggibile
- */
 
 /**
  * Funzione per ottenere un messaggio di errore leggibile

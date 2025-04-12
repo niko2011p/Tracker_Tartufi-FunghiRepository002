@@ -19,6 +19,8 @@ import { UserProvider } from './context/UserContext';
 import PrivateRoute from './routes/PrivateRoute';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
+import Logger from './components/Logger';
+import Settings from './components/Settings';
 
 function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
   const location = useLocation();
@@ -58,14 +60,12 @@ function MainApp() {
   );
 }
 
-
-
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <UserProvider>
         <div className="min-h-screen bg-gray-50 flex flex-col pb-[60px]">
-          <ScrollToTop />
           <main className="flex-1">
             <Routes>
               {/* Rotte pubbliche */}
@@ -75,9 +75,9 @@ function App() {
               <Route element={<PrivateRoute />}>
                 <Route path="/" element={<MainApp />} />
                 <Route path="/NavigationPage" element={<NavigationPage />} />
-                <Route path="/storico" element={<StoricoTracce />} />
+                <Route path="/storico" element={<Logger />} />
                 <Route path="/meteo" element={<Meteo />} />
-                <Route path="/settings" element={<Impostazioni />} />
+                <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
               

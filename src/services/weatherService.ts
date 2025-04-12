@@ -1,4 +1,5 @@
 import { WeatherData, HourlyWeather } from '../types';
+import { create } from 'zustand';
 
 const WEATHER_API_KEY = import.meta.env.VITE_WEATHERAPI_KEY;
 const BASE_URL = 'https://api.weatherapi.com/v1';
@@ -473,3 +474,48 @@ export const getAstroData = async (location: string, date: string): Promise<any>
     return {...defaultAstroData};
   }
 };
+
+interface WeatherState {
+  currentTemperature: number | null;
+  isLoading: boolean;
+  error: string | null;
+  lastUpdate: number | null;
+}
+
+interface WeatherStore extends WeatherState {
+  fetchCurrentWeather: (lat: number, lon: number) => Promise<void>;
+}
+
+export const useWeatherStore = create<WeatherStore>((set) => ({
+  currentTemperature: null,
+  isLoading: false,
+  error: null,
+  lastUpdate: null,
+
+  fetchCurrentWeather: async (lat: number, lon: number) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const response = await fetch(
+        `https://api.weatherapi.com/v1/current.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}&aqi=no`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Errore nel recupero dei dati meteo');
+      }
+      
+      const data = await response.json();
+      
+      set({
+        currentTemperature: data.current.temp_c,
+        lastUpdate: Date.now(),
+        isLoading: false
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Errore sconosciuto',
+        isLoading: false
+      });
+    }
+  }
+}));

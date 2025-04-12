@@ -9,12 +9,35 @@ const ScrollToTop = () => {
   const { pathname } = useLocation();
   
   useEffect(() => {
-    // Assicuriamoci che lo scroll venga resettato ad ogni cambio di pagina
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'instant' // Utilizziamo 'instant' invece di 'smooth' per un reset immediato
-    });
+    // Forza lo scroll al top ad ogni cambio di rotta
+    const scrollToTop = () => {
+      // Prima prova con window.scrollTo
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'instant'
+      });
+
+      // Poi prova con document.documentElement.scrollTop
+      document.documentElement.scrollTop = 0;
+      
+      // Infine prova con document.body.scrollTop
+      document.body.scrollTop = 0;
+    };
+
+    // Eseguiamo lo scroll immediatamente
+    scrollToTop();
+
+    // Aggiungiamo un listener per il caricamento della pagina
+    const handleLoad = () => {
+      scrollToTop();
+    };
+
+    window.addEventListener('load', handleLoad);
+    
+    return () => {
+      window.removeEventListener('load', handleLoad);
+    };
   }, [pathname]);
   
   return null;

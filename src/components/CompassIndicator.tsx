@@ -1,114 +1,99 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useTrackStore } from '../store/trackStore';
 
 interface CompassIndicatorProps {
-  position?: 'topLeft' | 'topRight';
+  position?: 'topRight' | 'default';
 }
 
-const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'topLeft' }) => {
-  const [heading, setHeading] = useState<number>(0);
-  const [isSupported, setIsSupported] = useState<boolean>(true);
+const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'default' }) => {
+  const { currentDirection } = useTrackStore();
+  const [smoothedDirection, setSmoothedDirection] = useState(0);
+  const lastUpdateRef = useRef<number>(0);
+  const animationFrameRef = useRef<number>();
 
   useEffect(() => {
-    // Verifica se l'API DeviceOrientation è supportata
-    if (window.DeviceOrientationEvent) {
-      const handleOrientation = (event: DeviceOrientationEvent) => {
-        // Alpha è la direzione della bussola (0-360)
-        if (event.alpha !== null) {
-          // Normalizza l'angolo per puntare al Nord
-          // In DeviceOrientation, alpha=0 è Nord, ma ruota in senso antiorario
-          // Per la visualizzazione, vogliamo che la bussola punti al Nord quando è a 0 gradi
-          setHeading(360 - event.alpha);
-        }
-      };
+    const updateDirection = () => {
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastUpdateRef.current;
 
-      window.addEventListener('deviceorientation', handleOrientation, true);
+      // Aggiorna solo ogni 100ms per fluidità
+      if (timeSinceLastUpdate >= 100) {
+        const targetDirection = currentDirection || 0;
+        const currentDirectionValue = smoothedDirection;
+        
+        // Calcola la differenza minima tra le direzioni
+        let diff = targetDirection - currentDirectionValue;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        
+        // Applica un fattore di smoothing (0.2 = 20% del cambiamento per frame)
+        const newDirection = currentDirectionValue + diff * 0.2;
+        
+        setSmoothedDirection(newDirection);
+        lastUpdateRef.current = now;
+      }
 
-      // Fallback per dispositivi che non supportano l'evento deviceorientation
-      setTimeout(() => {
-        if (heading === 0) {
-          // Simula una rotazione lenta per dispositivi che non supportano l'orientamento
-          let simulatedHeading = 0;
-          const interval = setInterval(() => {
-            simulatedHeading = (simulatedHeading + 1) % 360;
-            setHeading(simulatedHeading);
-          }, 100);
+      animationFrameRef.current = requestAnimationFrame(updateDirection);
+    };
 
-          return () => clearInterval(interval);
-        }
-      }, 1000);
+    animationFrameRef.current = requestAnimationFrame(updateDirection);
 
-      return () => {
-        window.removeEventListener('deviceorientation', handleOrientation, true);
-      };
-    } else {
-      setIsSupported(false);
-      // Fallback: rotazione simulata per dispositivi che non supportano l'orientamento
-      let simulatedHeading = 0;
-      const interval = setInterval(() => {
-        simulatedHeading = (simulatedHeading + 1) % 360;
-        setHeading(simulatedHeading);
-      }, 100);
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [currentDirection]);
 
-      return () => clearInterval(interval);
+  const getPositionStyle = () => {
+    switch (position) {
+      case 'topRight':
+        return {
+          top: '200px',
+          right: '10px',
+        };
+      default:
+        return {
+          bottom: '200px',
+          right: '10px',
+          transform: 'translateY(50%)',
+        };
     }
-  }, []);
-
-  // Posizionamento fisso a destra e spostato più in basso
-  const positionStyle = { top: '160px', right: '10px' };
+  };
 
   return (
-    <div 
-      className="compass-indicator"
+    <div
+      className="fixed z-50 bg-black bg-opacity-60 rounded-full p-2 shadow-lg"
       style={{
-        position: 'absolute',
-        ...positionStyle,
-        backgroundColor: 'rgba(0, 0, 0, 0.6)', /* Sfondo scuro semi-trasparente come la tabellina Dati Traccia */
-        borderRadius: '50%',
-        width: '73px', /* Aumentata del 30% come richiesto */
-        height: '73px', /* Aumentata del 30% come richiesto */
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-        zIndex: 1000,
-        transition: 'transform 0.3s ease-out'
+        ...getPositionStyle(),
+        transition: 'transform 0.1s ease-out',
       }}
     >
-      <div 
-        style={{
-          transform: `rotate(${heading}deg)`,
-          transition: 'transform 0.3s ease-out',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-          height: '100%'
-        }}
-      >
-        <img 
-          src="/icon/CompassIco.svg" 
-          alt="Compass" 
-          style={{ 
-            width: '58px',
-            height: '58px',
-            filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))'
-          }} 
+      <div className="relative">
+        {/* Indicatore del Nord */}
+        <div 
+          className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-white text-sm font-bold"
+          style={{ transform: 'translateX(-50%)' }}
+        >
+          N
+        </div>
+        {/* Indicatore della direzione attuale */}
+        <div 
+          className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-white text-xs"
+          style={{ transform: 'translateX(-50%)' }}
+        >
+          {Math.round(smoothedDirection)}°
+        </div>
+        <img
+          src="/icon/CompassIco.svg"
+          alt="Bussola"
+          className="w-8 h-8"
+          style={{
+            transform: `rotate(${-smoothedDirection}deg)`, // Rotazione inversa per mantenere il Nord in alto
+            transition: 'transform 0.1s ease-out',
+          }}
         />
       </div>
-      <div 
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          width: '6px',
-          height: '6px',
-          backgroundColor: '#f5a149',
-          borderRadius: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 1001
-        }}
-      />
-      {/* Rimossi i punti cardinali come richiesto */}
     </div>
   );
 };

@@ -13,6 +13,7 @@ import TagOptionsPopup from './TagOptionsPopup';
 import GpsStatusIndicator from './GpsStatusIndicator';
 import CompassIndicator from './CompassIndicator';
 import TrackingDataPanel from './TrackingDataPanel';
+import { useLocation } from 'react-router-dom';
 
 // Constants from Map.tsx
 const MIN_ZOOM = 4;
@@ -364,6 +365,7 @@ interface Finding extends Omit<FindingType, 'coordinates'> {
 
 const NavigationPage: React.FC = () => {
   const { currentTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection: storeDirection, loadedFindings, updateCurrentPosition, gpsStatus } = useTrackStore();
+  const location = useLocation();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
@@ -451,211 +453,221 @@ const NavigationPage: React.FC = () => {
       }, 500);
     }
   }, [currentTrack]);
+
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'instant'
+    });
+  }, [location.pathname]);
   
   return (
-    <div className="fixed inset-0 z-[9999] bg-white">
-      {/* Pannello informazioni di tracking con il nuovo componente */}
-      <TrackingDataPanel realTimeData={trackingData} />
-      
-      {/* Full screen map */}
-      <MapContainer
-        ref={mapRef}
-        center={currentPosition}
-        zoom={MAX_ZOOM}
-        minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
-        className="h-full w-full"
-        attributionControl={false}
-        zoomControl={false}
-        dragging={true}
-        scrollWheelZoom={false}
-        doubleClickZoom={false}
-        touchZoom={false}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
+    <div data-page="navigation" className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Pannello informazioni di tracking con il nuovo componente */}
+        <TrackingDataPanel realTimeData={trackingData} />
         
-        <LocationUpdater 
-          onGpsUpdate={(acc, acquiring) => {
-            setAccuracy(acc);
-            setIsAcquiringGps(acquiring);
-          }} 
-          onPositionUpdate={(position, direction) => {
-            setCurrentPosition(position);
-            setDirection(direction);
-            setTrackingData(prev => ({
-              ...prev,
-              lat: position[0],
-              lng: position[1]
-            }));
-          }}
-        />
-        <CenterButton />
-        <ZoomControl />
-        {/* Posiziono la bussola in alto a destra, spostata più in basso */}
-        <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 1001 }}>
-          <CompassIndicator position="topRight" />
-        </div>
-        {/* Posiziono l'indicatore GPS al centro in alto */}
-        <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
-          <GpsStatusIndicator 
-            accuracy={accuracy} 
-            isAcquiring={isAcquiringGps}
-            currentPosition={currentPosition}
+        {/* Full screen map */}
+        <MapContainer
+          ref={mapRef}
+          center={currentPosition}
+          zoom={MAX_ZOOM}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
+          className="h-full w-full"
+          attributionControl={false}
+          zoomControl={false}
+          dragging={true}
+          scrollWheelZoom={false}
+          doubleClickZoom={false}
+          touchZoom={false}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-        </div>
-        
-        {/* Display current position marker */}
-        <Marker position={currentPosition} icon={gpsArrowIcon} />
-        
-        {/* Display track polyline - Percorso in tempo reale in arancione */}
-        {currentTrack && (
-          <>
-            <Polyline
-              positions={currentTrack.coordinates}
-              color="#FF9800"
-              weight={4}
-              opacity={0.9}
-              // Linea continua come richiesto
+          
+          <LocationUpdater 
+            onGpsUpdate={(acc, acquiring) => {
+              setAccuracy(acc);
+              setIsAcquiringGps(acquiring);
+            }} 
+            onPositionUpdate={(position, direction) => {
+              setCurrentPosition(position);
+              setDirection(direction);
+              setTrackingData(prev => ({
+                ...prev,
+                lat: position[0],
+                lng: position[1]
+              }));
+            }}
+          />
+          <CenterButton />
+          <ZoomControl />
+          {/* Posiziono la bussola in alto a destra, spostata più in basso */}
+          <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 1001 }}>
+            <CompassIndicator position="topRight" />
+          </div>
+          {/* Posiziono l'indicatore GPS al centro in alto */}
+          <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
+            <GpsStatusIndicator 
+              accuracy={accuracy} 
+              isAcquiring={isAcquiringGps}
+              currentPosition={currentPosition}
             />
-            {/* Display findings markers */}
-            {currentTrack.findings
-              .filter(finding => !isLoadedFinding(finding))
-              .map((finding) => {
-                // Determina il tipo di icona in base al tipo di ritrovamento
-                const findingType = finding.type === 'poi' ? 'Interesse' : 
-                                   finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
-                console.log(`Visualizzazione tag ritrovamento: ${finding.name}, tipo: ${finding.type}, coordinate: [${finding.coordinates[0]}, ${finding.coordinates[1]}]`);
-                return (
-                  <Marker
-                    key={finding.id}
-                    position={finding.coordinates}
-                    icon={createFindingIcon(findingType)}
-                  />
-                );
-              })}
-          </>
-        )}
-        
-        {/* Display loaded findings if any */}
-        {loadedFindings?.map((finding) => {
-          const findingType = finding.type === 'poi' ? 'Interesse' : 
-                             finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
-          return (
-            <Marker
-              key={`loaded-${finding.id}`}
-              position={finding.coordinates}
-              icon={createFindingIcon(findingType, true)}
-            />
-          );
-        })}
-        
-        {/* Display tags added during navigation */}
-        {currentTrack?.findings
-          .filter(finding => finding.type === 'Fungo' || finding.type === 'Tartufo' || finding.type === 'poi')
-          .map((finding) => {
-            console.log('Visualizzazione tag:', finding.type, finding.coordinates);
+          </div>
+          
+          {/* Display current position marker */}
+          <Marker position={currentPosition} icon={gpsArrowIcon} />
+          
+          {/* Display track polyline - Percorso in tempo reale in arancione */}
+          {currentTrack && (
+            <>
+              <Polyline
+                positions={currentTrack.coordinates}
+                color="#FF9800"
+                weight={4}
+                opacity={0.9}
+                // Linea continua come richiesto
+              />
+              {/* Display findings markers */}
+              {currentTrack.findings
+                .filter(finding => !isLoadedFinding(finding))
+                .map((finding) => {
+                  // Determina il tipo di icona in base al tipo di ritrovamento
+                  const findingType = finding.type === 'poi' ? 'Interesse' : 
+                                     finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
+                  console.log(`Visualizzazione tag ritrovamento: ${finding.name}, tipo: ${finding.type}, coordinate: [${finding.coordinates[0]}, ${finding.coordinates[1]}]`);
+                  return (
+                    <Marker
+                      key={finding.id}
+                      position={finding.coordinates}
+                      icon={createFindingIcon(findingType)}
+                    />
+                  );
+                })}
+            </>
+          )}
+          
+          {/* Display loaded findings if any */}
+          {loadedFindings?.map((finding) => {
             const findingType = finding.type === 'poi' ? 'Interesse' : 
                                finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
             return (
               <Marker
-                key={`tag-${finding.id}`}
+                key={`loaded-${finding.id}`}
                 position={finding.coordinates}
-                icon={createFindingIcon(findingType)}
+                icon={createFindingIcon(findingType, true)}
               />
             );
           })}
-      </MapContainer>
-      
-      {/* Control buttons */}
-      <div className="fixed bottom-10 left-0 right-0 flex justify-between px-10 z-[10000]">
-        {/* Tasto Stop - posizionato in basso a sinistra */}
-        <button
-          onClick={() => setShowStopConfirm(true)}
-          className="unified-button stop"
-          style={{
-            backgroundColor: 'rgba(220, 38, 38, 0.9)', /* Rosso */
-            borderRadius: '12px', /* Quadrato con angoli arrotondati */
-          }}
-        >
-          <Square className="w-6 h-6" />
-          Stop
-        </button>
+          
+          {/* Display tags added during navigation */}
+          {currentTrack?.findings
+            .filter(finding => finding.type === 'Fungo' || finding.type === 'Tartufo' || finding.type === 'poi')
+            .map((finding) => {
+              console.log('Visualizzazione tag:', finding.type, finding.coordinates);
+              const findingType = finding.type === 'poi' ? 'Interesse' : 
+                                 finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
+              return (
+                <Marker
+                  key={`tag-${finding.id}`}
+                  position={finding.coordinates}
+                  icon={createFindingIcon(findingType)}
+                />
+              );
+            })}
+        </MapContainer>
         
-        {/* Tasto Tag - spostato in basso a destra attaccato al bordo */}
-        <button
-          onClick={() => setShowTagOptions(true)}
-          className="unified-button tag"
-          style={{
-            backgroundColor: 'rgba(59, 130, 246, 0.9)', /* Blu */
-            borderRadius: '50%', /* Pulsante circolare */
-            position: 'absolute',
-            right: '10px',
-            bottom: '0px'
-          }}
-        >
-          <MapPin className="w-6 h-6" />
-          Tag
-        </button>
-      </div>
-      
-      {/* Mostra il form per aggiungere un ritrovamento quando richiesto */}
-      {showFindingForm && <FindingForm onClose={() => setShowFindingForm(false)} />}
-      
-      {/* Popup opzioni Tag */}
-      {showTagOptions && (
-        <TagOptionsPopup 
-          onClose={() => setShowTagOptions(false)}
-          onCenterMap={() => {}}
-        />
-      )}
-      
-      {/* Popup di conferma per lo Stop */}
-      {showStopConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="w-6 h-6 text-yellow-500" />
-              <h3 className="text-lg font-semibold">Conferma interruzione</h3>
-            </div>
-            
-            <p className="text-gray-600 mb-2">
-              Sei sicuro di voler interrompere la registrazione della traccia?
-            </p>
-            <p className="text-gray-600 mb-6">
-              La traccia verrà salvata automaticamente nello storico.
-            </p>
+        {/* Control buttons */}
+        <div className="fixed bottom-10 left-0 right-0 flex justify-between px-10 z-[10000]">
+          {/* Tasto Stop - posizionato in basso a sinistra */}
+          <button
+            onClick={() => setShowStopConfirm(true)}
+            className="unified-button stop"
+            style={{
+              backgroundColor: 'rgba(220, 38, 38, 0.9)', /* Rosso */
+              borderRadius: '12px', /* Quadrato con angoli arrotondati */
+            }}
+          >
+            <Square className="w-6 h-6" />
+            Stop
+          </button>
+          
+          {/* Tasto Tag - spostato in basso a destra attaccato al bordo */}
+          <button
+            onClick={() => setShowTagOptions(true)}
+            className="unified-button tag"
+            style={{
+              backgroundColor: 'rgba(59, 130, 246, 0.9)', /* Blu */
+              borderRadius: '50%', /* Pulsante circolare */
+              position: 'absolute',
+              right: '10px',
+              bottom: '0px'
+            }}
+          >
+            <MapPin className="w-6 h-6" />
+            Tag
+          </button>
+        </div>
+        
+        {/* Mostra il form per aggiungere un ritrovamento quando richiesto */}
+        {showFindingForm && <FindingForm onClose={() => setShowFindingForm(false)} />}
+        
+        {/* Popup opzioni Tag */}
+        {showTagOptions && (
+          <TagOptionsPopup 
+            onClose={() => setShowTagOptions(false)}
+            onCenterMap={() => {}}
+          />
+        )}
+        
+        {/* Popup di conferma per lo Stop */}
+        {showStopConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <div className="flex items-center gap-3 mb-4">
+                <AlertCircle className="w-6 h-6 text-yellow-500" />
+                <h3 className="text-lg font-semibold">Conferma interruzione</h3>
+              </div>
+              
+              <p className="text-gray-600 mb-2">
+                Sei sicuro di voler interrompere la registrazione della traccia?
+              </p>
+              <p className="text-gray-600 mb-6">
+                La traccia verrà salvata automaticamente nello storico.
+              </p>
 
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowStopConfirm(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={() => {
-                  console.log('Interruzione traccia: salvataggio in corso...');
-                  stopTrack();
-                  setShowStopConfirm(false);
-                  
-                  // Aggiungiamo un breve ritardo per assicurarci che lo store venga aggiornato
-                  setTimeout(() => {
-                    console.log('Traccia salvata con successo, reindirizzamento...');
-                    // Reindirizza alla pagina principale o alla pagina dello storico
-                    window.location.href = '/';
-                  }, 500);
-                }}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-              >
-                Salva Log e Interrompi
-              </button>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowStopConfirm(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('Interruzione traccia: salvataggio in corso...');
+                    stopTrack();
+                    setShowStopConfirm(false);
+                    
+                    // Aggiungiamo un breve ritardo per assicurarci che lo store venga aggiornato
+                    setTimeout(() => {
+                      console.log('Traccia salvata con successo, reindirizzamento...');
+                      // Reindirizza alla pagina principale o alla pagina dello storico
+                      window.location.href = '/';
+                    }, 500);
+                  }}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  Salva Log e Interrompi
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
