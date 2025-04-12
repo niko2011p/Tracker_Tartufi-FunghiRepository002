@@ -9,7 +9,7 @@ import Meteo from './components/Meteo';
 import Impostazioni from './components/Impostazioni';
 import FixedFooter from './components/FixedFooter';
 import MapLogo from './components/MapLogo';
-import NavigationPage from './components/NavigationPage';
+import NavigationPage from './pages/NavigationPage';
 import FindingForm from './components/FindingForm';
 import ScrollToTop from './components/ScrollToTop';
 import { useTrackStore } from './store/trackStore';

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { Compass } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
 
 interface CompassIndicatorProps {
@@ -16,8 +17,8 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'default
       const now = Date.now();
       const timeSinceLastUpdate = now - lastUpdateRef.current;
 
-      // Aggiorna solo ogni 100ms per fluidità
-      if (timeSinceLastUpdate >= 100) {
+      // Aggiorna più frequentemente per maggiore reattività
+      if (timeSinceLastUpdate >= 50) { // Ridotto a 50ms per maggiore fluidità
         const targetDirection = currentDirection || 0;
         const currentDirectionValue = smoothedDirection;
         
@@ -26,8 +27,8 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'default
         if (diff > 180) diff -= 360;
         if (diff < -180) diff += 360;
         
-        // Applica un fattore di smoothing (0.2 = 20% del cambiamento per frame)
-        const newDirection = currentDirectionValue + diff * 0.2;
+        // Aumentato il fattore di smoothing per maggiore reattività
+        const newDirection = currentDirectionValue + diff * 0.3;
         
         setSmoothedDirection(newDirection);
         lastUpdateRef.current = now;
@@ -72,25 +73,23 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'default
       <div className="relative">
         {/* Indicatore del Nord */}
         <div 
-          className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-white text-sm font-bold"
+          className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[#f5a149] text-sm font-bold"
           style={{ transform: 'translateX(-50%)' }}
         >
           N
         </div>
         {/* Indicatore della direzione attuale */}
         <div 
-          className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-white text-xs"
+          className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-[#f5a149] text-xs"
           style={{ transform: 'translateX(-50%)' }}
         >
           {Math.round(smoothedDirection)}°
         </div>
-        <img
-          src="/icon/CompassIco.svg"
-          alt="Bussola"
-          className="w-8 h-8"
+        <Compass
+          className="w-8 h-8 text-[#f5a149]"
           style={{
-            transform: `rotate(${-smoothedDirection}deg)`, // Rotazione inversa per mantenere il Nord in alto
-            transition: 'transform 0.1s ease-out',
+            transform: `rotate(${smoothedDirection}deg)`,
+            transition: 'transform 0.05s ease-out', // Transizione più veloce
           }}
         />
       </div>
