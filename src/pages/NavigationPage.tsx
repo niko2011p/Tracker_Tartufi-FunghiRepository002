@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
 import DataTrackingPanel from '../components/DataTrackingPanel';
+import CompassWidget from '../components/CompassWidget';
 import { Crosshair, Square, Navigation2, MapPin } from 'lucide-react';
 import StopTrackingDialog from '../components/StopTrackingDialog';
 import TagOptionsPopup from '../components/TagOptionsPopup';
@@ -263,8 +264,11 @@ const NavigationPage: React.FC = () => {
         <MapCenterUpdater center={mapCenter} />
       </MapContainer>
 
+      {/* Bussola */}
+      <CompassWidget direction={currentDirection} />
+
       {/* Controlli della mappa */}
-      <div className="absolute bottom-80 right-6 flex flex-col gap-2 z-[2000]">
+      <div className="absolute bottom-80 right-6 flex flex-col gap-10 z-[2000]">
         <button
           onClick={toggleGPSFollow}
           className={`p-3 rounded-full text-white hover:bg-opacity-80 transition-all shadow-lg ${
@@ -333,6 +337,7 @@ const NavigationPage: React.FC = () => {
         speed={gpsData.speed}
         altitude={gpsData.altitude}
         gpsSignal={gpsSignal}
+        direction={currentDirection}
       />
     </div>
   );
