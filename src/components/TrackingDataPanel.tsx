@@ -8,15 +8,24 @@ interface TrackingDataState {
   avgSpeed: number;
   altitude: number;
   duration: string;
+  currentSpeed: number;
 }
 
-const TrackingDataPanel: React.FC = () => {
+interface RealTimeData {
+  lat: number;
+  lng: number;
+  alt: number;
+  speed: number;
+}
+
+const TrackingDataPanel: React.FC<{ realTimeData?: RealTimeData }> = ({ realTimeData }) => {
   // Stato locale per i dati di tracciamento
   const [trackingData, setTrackingData] = useState<TrackingDataState>({
     distance: 0,
     avgSpeed: 0,
     altitude: 0,
-    duration: '00:00'
+    duration: '00:00',
+    currentSpeed: 0
   });
 
   // Array per lo smoothing dell'altitudine
@@ -68,71 +77,17 @@ const TrackingDataPanel: React.FC = () => {
         const durationHours = durationMs / 3600000;
         const avgSpeed = durationHours > 0 ? distance / durationHours : 0;
         
-        // Aggiorna i dati di tracking con valori calcolati, senza attendere la geolocalizzazione
-        // Questo garantisce che almeno questi dati siano sempre aggiornati
+        // Aggiorna i dati di tracking con valori calcolati
         setTrackingData(prevData => ({
           ...prevData,
           distance,
           avgSpeed,
-          duration: formattedDuration
+          duration: formattedDuration,
+          currentSpeed: realTimeData?.speed || 0,
+          altitude: realTimeData?.alt || prevData.altitude
         }));
-        
-        // Ottieni l'altitudine reale dal GPS con timeout ottimizzato
-        if (navigator.geolocation) {
-          const geoOptions = { 
-            enableHighAccuracy: true, 
-            timeout: 2000,
-            maximumAge: 0 // Impostato a 0 per ottenere sempre dati freschi
-          };
-          
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              let newAltitude = 0;
-              if (position.coords.altitude !== null) {
-                newAltitude = position.coords.altitude;
-              } else {
-                // Fallback se l'altitudine non è disponibile
-                newAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-              }
-              
-              // Applica lo smoothing all'altitudine
-              const smoothedAltitude = smoothAltitude(newAltitude, altitudeReadings);
-              
-              // Aggiorna solo l'altitudine, gli altri dati sono già stati aggiornati
-              setTrackingData(prevData => ({
-                ...prevData,
-                altitude: smoothedAltitude
-              }));
-            },
-            (error) => {
-              // Fallback in caso di errore
-              const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-              const smoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
-              
-              // Aggiorna solo l'altitudine con il valore di fallback
-              setTrackingData(prevData => ({
-                ...prevData,
-                altitude: smoothedAltitude
-              }));
-            },
-            geoOptions
-          );
-        } else {
-          // Fallback se la geolocalizzazione non è supportata
-          const fallbackAltitude = currentTrack.coordinates.length > 0 ? 500 : 0;
-          const smoothedAltitude = smoothAltitude(fallbackAltitude, altitudeReadings);
-          
-          // Aggiorna solo l'altitudine
-          setTrackingData(prevData => ({
-            ...prevData,
-            altitude: smoothedAltitude
-          }));
-        }
       } catch (err) {
-        // Gestione degli errori per evitare crash dell'applicazione
         console.error('[TrackingData] Errore nell\'aggiornamento dei dati:', err);
-        
-        // Aggiorna comunque i dati con valori di fallback
         setTrackingData(prev => ({
           ...prev,
           distance: currentTrack?.distance || 0,
@@ -144,13 +99,13 @@ const TrackingDataPanel: React.FC = () => {
     // Aggiorna i dati immediatamente all'avvio
     updateTrackingData();
     
-    // Aggiorna i dati ogni 500ms (0.5 secondi) per un aggiornamento più frequente
+    // Aggiorna i dati ogni 500ms (0.5 secondi)
     const timer = setInterval(updateTrackingData, 500);
     
     return () => {
       clearInterval(timer);
     };
-  }, [currentTrack, smoothAltitude, altitudeReadings]);
+  }, [currentTrack, realTimeData]);
 
   // Se non c'è una traccia attiva, mostra valori a zero
   if (!currentTrack) {
@@ -198,7 +153,7 @@ const TrackingDataPanel: React.FC = () => {
         <div className="tracking-data-item">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ArrowUpDown size={18} className="tracking-data-icon" />
-            <p className="tracking-data-value" data-testid="speed-value">{trackingData.avgSpeed.toFixed(1)} km/h</p>
+            <p className="tracking-data-value" data-testid="speed-value">{trackingData.currentSpeed.toFixed(1)} km/h</p>
           </div>
         </div>
         <div className="tracking-data-item">

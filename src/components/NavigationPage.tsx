@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, MapContainerRef } from 'react-leaflet';
+import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
 import { Square, MapPin, AlertCircle, Crosshair, Navigation } from 'lucide-react';
 import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import './UnifiedButtons.css';
-import { Finding } from '../types';
+import { Finding as FindingType } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
 import GpsStatusIndicator from './GpsStatusIndicator';
@@ -95,6 +96,13 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
   const [pathCoords, setPathCoords] = useState<L.LatLngExpression[]>([]);
   const [polyline, setPolyline] = useState<L.Polyline | null>(null);
+  const [trackingData, setTrackingData] = useState({
+    lat: 0,
+    lng: 0,
+    alt: 0,
+    speed: 0
+  });
+  const [followMode, setFollowMode] = useState(true);
   
   // Effetto per aggiornare il componente principale con i dati GPS
   useEffect(() => {
@@ -113,12 +121,35 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
     const angle = Math.atan2(deltaLng, deltaLat) * 180 / Math.PI;
     return (angle + 360) % 360; // Normalizza a 0-360 gradi
   };
+
+  // Effetto per aggiornare la polyline quando cambiano le coordinate
+  useEffect(() => {
+    if (!map || pathCoords.length < 2) return;
+
+    if (polyline) {
+      polyline.setLatLngs(pathCoords);
+    } else {
+      const newPolyline = L.polyline(pathCoords, {
+        color: 'orange',
+        weight: 4,
+        opacity: 0.9
+      }).addTo(map);
+      setPolyline(newPolyline);
+    }
+  }, [pathCoords, map, polyline]);
+
+  // Effetto per seguire la posizione quando followMode è attivo
+  useEffect(() => {
+    if (followMode && map && currentPosition) {
+      map.panTo(currentPosition, { animate: true });
+    }
+  }, [currentPosition, followMode, map]);
   
   // Effetto per richiedere e monitorare la posizione GPS
   useEffect(() => {
     // Funzione per aggiornare la posizione e la traccia
     const updatePosition = (position: GeolocationPosition) => {
-      const { latitude, longitude, accuracy: posAccuracy, altitude } = position.coords;
+      const { latitude, longitude, accuracy: posAccuracy, altitude, speed } = position.coords;
       const newPosition: [number, number] = [latitude, longitude];
       
       // Aggiorna la posizione corrente nello store e localmente
@@ -135,59 +166,35 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
       
       lastPositionRef.current = newPosition;
       
+      // Aggiorna i dati di tracciamento
+      setTrackingData({
+        lat: latitude,
+        lng: longitude,
+        alt: altitude ?? 0,
+        speed: speed ?? 0
+      });
+      
       // Aggiorna la traccia GPS in tempo reale
       if (currentTrack) {
-        // Aggiungi la nuova posizione all'array delle coordinate
-        const newPoint: L.LatLngExpression = [latitude, longitude];
-        setPathCoords(prev => {
-          const updated = [...prev, newPoint];
-          if (polyline) {
-            polyline.setLatLngs(updated);
-          } else {
-            const newPolyline = L.polyline(updated, { color: 'orange', weight: 4 }).addTo(map);
-            setPolyline(newPolyline);
-          }
-          return updated;
-        });
+        setPathCoords(prev => [...prev, newPosition]);
       }
       
       console.log(`Posizione GPS aggiornata: [${latitude}, ${longitude}], accuratezza: ${posAccuracy}m, altitudine: ${altitude || 'N/D'}m`);
     };
 
-    // Ottieni la posizione iniziale e imposta lo zoom massimo
-    // Questo viene eseguito sempre, indipendentemente dallo stato di currentTrack
+    // Avvia il monitoraggio continuo della posizione
     setIsAcquiringGps(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        updatePosition(position);
-        // Forza l'impostazione dello zoom al massimo all'avvio
-        map.setZoom(MAX_ZOOM);
-        // Centra la mappa sulla posizione attuale
-        const { latitude, longitude } = position.coords;
-        map.setView([latitude, longitude], MAX_ZOOM, { animate: true });
-      },
-      (error) => {
-        console.warn('Geolocation error:', error.message);
-        setIsAcquiringGps(false);
-      },
-      // Configurazione ottimizzata per l'acquisizione iniziale
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
-
-    // Avvia il monitoraggio continuo della posizione con configurazione ottimizzata
-    const watchOptions = {
-      enableHighAccuracy: true,
-      timeout: 2000,
-      maximumAge: 0 // Impostato a 0 per ottenere sempre dati freschi
-    };
-    
     const watchId = navigator.geolocation.watchPosition(
       updatePosition,
       (error) => {
         console.warn('Geolocation watch error:', error.message);
         setIsAcquiringGps(false);
       },
-      watchOptions
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000
+      }
     );
 
     // Pulizia quando il componente viene smontato
@@ -200,36 +207,15 @@ function LocationUpdater({ onGpsUpdate, onPositionUpdate }: {
         setPolyline(null);
       }
     };
-  }, [map, updateCurrentPosition, currentTrack]); // Aggiunto currentTrack per reinizializzare la traccia quando cambia
+  }, [map, updateCurrentPosition, currentTrack]);
 
-  // Effetto per assicurarsi che lo zoom sia sempre al massimo all'avvio
-  // e per inizializzare la polyline con le coordinate esistenti
-  useEffect(() => {
-    if (map && currentTrack) {
-      map.setZoom(MAX_ZOOM);
-      
-      // Inizializza l'array delle coordinate con quelle già presenti nel track
-      if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
-        // Converti le coordinate del track in formato LatLngExpression
-        const trackCoords = currentTrack.coordinates.map(coord => coord as L.LatLngExpression);
-        
-        // Aggiorna lo stato delle coordinate del percorso
-        setPathCoords(trackCoords);
-        
-        // Crea la polyline iniziale con le coordinate esistenti
-        if (!polyline) {
-          const newPolyline = L.polyline(trackCoords, { 
-            color: 'orange', 
-            weight: 4,
-            opacity: 0.9
-          }).addTo(map);
-          setPolyline(newPolyline);
-        } else {
-          polyline.setLatLngs(trackCoords);
-        }
-      }
-    }
-  }, [map, currentTrack, polyline]);
+  // Funzione per aggiungere un tag alla mappa
+  const addTagToMap = (tag: Finding) => {
+    const icon = createFindingIcon(tag.type);
+    L.marker([tag.lat, tag.lng], { icon })
+      .addTo(map)
+      .bindPopup(tag.note || tag.type);
+  };
 
   return null;
 }
@@ -369,14 +355,27 @@ function ZoomControl() {
   );
 }
 
+// Update the Finding type to include lat, lng, and note properties
+interface Finding extends Omit<FindingType, 'coordinates'> {
+  lat: number;
+  lng: number;
+  note?: string;
+}
+
 const NavigationPage: React.FC = () => {
   const { currentTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection: storeDirection, loadedFindings, updateCurrentPosition, gpsStatus } = useTrackStore();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<[number, number]>(DEFAULT_POSITION);
-  const [currentDirection, setCurrentDirection] = useState<number>(0);
+  const [direction, setDirection] = useState<number>(0);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
+  const [trackingData, setTrackingData] = useState({
+    lat: 0,
+    lng: 0,
+    alt: 0,
+    speed: 0
+  });
   
   // Helper function to determine if a finding is from loaded findings
   const isLoadedFinding = (finding: Finding) => {
@@ -410,9 +409,9 @@ const NavigationPage: React.FC = () => {
 
   // Create the GPS arrow icon with the current direction
   // Utilizziamo la direzione locale invece di quella dallo store per garantire la sincronizzazione
-  const gpsArrowIcon = createGpsArrowIcon(currentDirection);
+  const gpsArrowIcon = createGpsArrowIcon(direction);
 
-  const mapRef = React.useRef(null);
+  const mapRef = useRef<L.Map | null>(null);
 
   // Rimosso il codice per lo smoothing dell'altitudine, ora gestito nel componente TrackingDataPanel
   
@@ -456,7 +455,7 @@ const NavigationPage: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[9999] bg-white">
       {/* Pannello informazioni di tracking con il nuovo componente */}
-      <TrackingDataPanel />
+      <TrackingDataPanel realTimeData={trackingData} />
       
       {/* Full screen map */}
       <MapContainer
@@ -474,8 +473,8 @@ const NavigationPage: React.FC = () => {
         touchZoom={false}
       >
         <TileLayer
-          url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-          attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
         <LocationUpdater 
@@ -485,8 +484,12 @@ const NavigationPage: React.FC = () => {
           }} 
           onPositionUpdate={(position, direction) => {
             setCurrentPosition(position);
-            setCurrentDirection(direction);
-            console.log(`Position updated in NavigationPage: [${position[0]}, ${position[1]}], direction: ${direction}°`);
+            setDirection(direction);
+            setTrackingData(prev => ({
+              ...prev,
+              lat: position[0],
+              lng: position[1]
+            }));
           }}
         />
         <CenterButton />
@@ -497,7 +500,11 @@ const NavigationPage: React.FC = () => {
         </div>
         {/* Posiziono l'indicatore GPS al centro in alto */}
         <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
-          <GpsStatusIndicator accuracy={accuracy} isAcquiring={isAcquiringGps} />
+          <GpsStatusIndicator 
+            accuracy={accuracy} 
+            isAcquiring={isAcquiringGps}
+            currentPosition={currentPosition}
+          />
         </div>
         
         {/* Display current position marker */}

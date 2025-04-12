@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useTrackStore } from '../store/trackStore';
-import { Navigation } from 'lucide-react';
+import { Navigation, Signal } from 'lucide-react';
 import { useGps } from '../services/GpsService';
+import './GpsStatusIndicator.css';
 
 interface GpsStatusIndicatorProps {
   position?: 'default' | 'navigation';
@@ -9,6 +10,7 @@ interface GpsStatusIndicatorProps {
   isAvailable?: boolean;
   error?: GeolocationPositionError | Error | null;
   accuracy?: number | null;
+  currentPosition?: [number, number];
 }
 
 const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
@@ -16,7 +18,8 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
   isAcquiring = false,
   isAvailable = true,
   error = null,
-  accuracy = null
+  accuracy = null,
+  currentPosition
 }) => {
   const { gpsStatus } = useTrackStore();
   // Rimuoviamo la logica di visibilità per mantenere l'indicatore sempre visibile
@@ -132,6 +135,22 @@ const GpsStatusIndicator: React.FC<GpsStatusIndicatorProps> = ({
       maximumAge: 10000
     }
   });
+
+  const getStatusColor = () => {
+    if (isAcquiring) return 'text-yellow-500';
+    if (accuracy === null) return 'text-red-500';
+    if (accuracy <= 10) return 'text-green-500';
+    if (accuracy <= 30) return 'text-yellow-500';
+    return 'text-red-500';
+  };
+
+  const getStatusText = () => {
+    if (isAcquiring) return 'Acquisizione GPS...';
+    if (accuracy === null) return 'GPS non disponibile';
+    if (accuracy <= 10) return 'Alta precisione';
+    if (accuracy <= 30) return 'Precisione media';
+    return 'Bassa precisione';
+  };
 
   // Mostra sempre un indicatore di segnale GPS anche quando il messaggio non è visibile
   const renderSignalIndicator = () => {

@@ -1,0 +1,60 @@
+.gps-status-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  color: white;
+  font-family: monospace;
+}
+
+.gps-status-indicator .signal-strength {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.gps-status-indicator .signal-bar {
+  width: 2px;
+  border-radius: 1px;
+  transition: all 0.3s ease;
+}
+
+.gps-status-indicator .signal-bar-1 {
+  height: 8px;
+}
+
+.gps-status-indicator .signal-bar-2 {
+  height: 12px;
+}
+
+.gps-status-indicator .signal-bar-3 {
+  height: 16px;
+}
+
+.gps-status-indicator .coordinates {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.gps-status-indicator .accuracy {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+/* Status colors */
+.gps-status-indicator .text-green-500 {
+  color: #4CAF50;
+}
+
+.gps-status-indicator .text-yellow-500 {
+  color: #FFC107;
+}
+
+.gps-status-indicator .text-red-500 {
+  color: #F44336;
+} 
