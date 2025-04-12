@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Compass } from 'lucide-react';
 
 interface CompassWidgetProps {
@@ -6,49 +6,48 @@ interface CompassWidgetProps {
 }
 
 const CompassWidget: React.FC<CompassWidgetProps> = ({ direction }) => {
-  // Converti la direzione in un formato leggibile (0-360°)
-  const normalizedDirection = ((direction % 360) + 360) % 360;
+  const [smoothedDirection, setSmoothedDirection] = useState(direction);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    setIsAnimating(true);
+    const timeout = setTimeout(() => setIsAnimating(false), 1000);
+    return () => clearTimeout(timeout);
+  }, [direction]);
+
+  useEffect(() => {
+    const smoothingFactor = 0.1;
+    const targetDirection = direction;
+    const currentDirection = smoothedDirection;
+    
+    // Calcola la differenza più breve tra due angoli
+    let diff = targetDirection - currentDirection;
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+    
+    const newDirection = currentDirection + diff * smoothingFactor;
+    setSmoothedDirection(newDirection);
+  }, [direction]);
 
   return (
-    <div className="absolute bottom-48 right-6 bg-white bg-opacity-80 backdrop-blur-sm p-3 rounded-full shadow-lg z-[2000]">
-      <div className="relative w-16 h-16 flex items-center justify-center">
-        {/* Cerchio esterno della bussola */}
-        <div className="absolute inset-0 border-2 border-gray-300 rounded-full">
-          {/* Punti cardinali statici */}
-          {['N', 'E', 'S', 'W'].map((point, index) => (
-            <div
-              key={point}
-              className="absolute w-full h-full flex items-center justify-center"
-              style={{ transform: `rotate(${index * 90}deg)` }}
-            >
-              <span
-                className="absolute text-xs font-bold"
-                style={{
-                  transform: `translateY(-26px) rotate(-${index * 90}deg)`,
-                  color: point === 'N' ? '#ef4444' : '#666'
-                }}
-              >
-                {point}
-              </span>
-            </div>
-          ))}
+    <div className="absolute top-48 right-4 z-[2000]">
+      <div className="bg-black bg-opacity-40 backdrop-blur-md px-2 py-2 rounded-lg shadow-lg">
+        <div className="relative w-8 h-8">
+          <div 
+            className="absolute inset-0 transition-transform duration-1000 ease-out"
+            style={{ 
+              transform: `rotate(${smoothedDirection}deg)`,
+              transformOrigin: 'center'
+            }}
+          >
+            <Compass className="w-8 h-8 text-white" />
+          </div>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <span className="text-[10px] font-bold text-white">N</span>
+          </div>
         </div>
-
-        {/* Indicatore di direzione rotante */}
-        <div
-          className="relative w-14 h-14 flex items-center justify-center"
-          style={{
-            transform: `rotate(${normalizedDirection}deg)`,
-            transition: 'transform 0.3s ease-out'
-          }}
-        >
-          <div className="absolute top-0 left-1/2 w-0.5 h-6 bg-red-500 -translate-x-1/2 rounded-full" />
-          <div className="absolute bottom-0 left-1/2 w-0.5 h-6 bg-gray-400 -translate-x-1/2 rounded-full" />
-        </div>
-
-        {/* Valore numerico della direzione */}
-        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-medium text-gray-700">
-          {normalizedDirection.toFixed(0)}°
+        <div className="text-[10px] font-medium text-white text-center mt-1">
+          {Math.round(smoothedDirection)}°
         </div>
       </div>
     </div>

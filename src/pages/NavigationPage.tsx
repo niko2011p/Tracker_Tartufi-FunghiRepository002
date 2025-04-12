@@ -5,7 +5,7 @@ import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
 import DataTrackingPanel from '../components/DataTrackingPanel';
 import CompassWidget from '../components/CompassWidget';
-import { Crosshair, Square, Navigation2, MapPin } from 'lucide-react';
+import { Crosshair, Square, Navigation2, MapPin, Plus, Minus } from 'lucide-react';
 import StopTrackingDialog from '../components/StopTrackingDialog';
 import TagOptionsPopup from '../components/TagOptionsPopup';
 import FindingForm from '../components/FindingForm';
@@ -32,23 +32,45 @@ const style = document.createElement('style');
 style.innerHTML = pulseAnimation;
 document.head.appendChild(style);
 
-// Configurazione dell'icona del marker
+// Crea un'icona personalizzata per il marker GPS
 const customIcon = L.divIcon({
-  className: 'pulse-marker',
+  className: 'custom-gps-marker',
   html: `
-    <div style="
-      width: 25px;
-      height: 41px;
-      background-image: url('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png');
-      background-size: contain;
-      background-repeat: no-repeat;
-      transform-origin: bottom center;
-    "></div>
+    <div class="relative w-2 h-2">
+      <div class="absolute inset-0 bg-blue-500 rounded-full opacity-25 animate-ping"></div>
+      <div class="absolute inset-0 bg-blue-500 rounded-full opacity-25 animate-pulse" style="animation-delay: 0.5s"></div>
+      <div class="relative w-full h-full bg-blue-500 rounded-full border border-white shadow-lg"></div>
+    </div>
   `,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
+  iconSize: [8, 8],
+  iconAnchor: [4, 4]
 });
+
+// Stile CSS per l'animazione del marker
+style.textContent = `
+  .custom-gps-marker {
+    margin-left: -4px;
+    margin-top: -4px;
+  }
+  .custom-gps-marker .animate-ping {
+    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  .custom-gps-marker .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes ping {
+    75%, 100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+  @keyframes pulse {
+    50% {
+      opacity: .1;
+    }
+  }
+`;
+document.head.appendChild(style);
 
 // Componente per aggiornare il centro della mappa con effetto volo
 const MapCenterUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
@@ -82,6 +104,8 @@ const NavigationPage: React.FC = () => {
   const lastUpdateRef = useRef<number>(Date.now());
   const [showStopDialog, setShowStopDialog] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
+  const gpsMarkerRef = useRef<L.Marker | null>(null);
+  const [locationName, setLocationName] = useState<string>('Caricamento...');
 
   // Inizializza il tracking all'avvio
   useEffect(() => {
@@ -164,6 +188,20 @@ const NavigationPage: React.FC = () => {
     };
   }, [isRecording, isFollowingGPS]);
 
+  // Aggiorna il marker GPS
+  useEffect(() => {
+    if (mapRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
+      if (gpsMarkerRef.current) {
+        gpsMarkerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
+      } else {
+        gpsMarkerRef.current = L.marker(
+          [gpsData.latitude, gpsData.longitude],
+          { icon: customIcon }
+        ).addTo(mapRef.current);
+      }
+    }
+  }, [gpsData.latitude, gpsData.longitude]);
+
   const handleCenterMap = () => {
     if (mapRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
       mapRef.current.setView([gpsData.latitude, gpsData.longitude], mapRef.current.getZoom());
@@ -204,6 +242,29 @@ const NavigationPage: React.FC = () => {
       console.log('Aggiunta POI');
     }
   };
+
+  // Funzione per ottenere il nome della località
+  const fetchLocationName = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      const data = await response.json();
+      if (data.address) {
+        const { road, hamlet, village, town, city, state, country } = data.address;
+        const location = road || hamlet || village || town || city || state || country;
+        setLocationName(location || 'Posizione sconosciuta');
+      }
+    } catch (error) {
+      console.error('Errore nel recupero della località:', error);
+      setLocationName('Posizione sconosciuta');
+    }
+  };
+
+  // Aggiorna il nome della località quando cambia la posizione
+  useEffect(() => {
+    if (gpsData.latitude !== 0 && gpsData.longitude !== 0) {
+      fetchLocationName(gpsData.latitude, gpsData.longitude);
+    }
+  }, [gpsData.latitude, gpsData.longitude]);
 
   if (mapError) {
     return (
@@ -246,10 +307,18 @@ const NavigationPage: React.FC = () => {
         {gpsData.latitude !== 0 && gpsData.longitude !== 0 && (
           <Marker
             position={[gpsData.latitude, gpsData.longitude]}
-            icon={new L.Icon.Default()}
+            icon={customIcon}
           >
             <Popup>
-              Posizione attuale
+              <div className="p-2">
+                <h3 className="font-bold text-sm mb-1">{locationName}</h3>
+                <div className="text-xs space-y-1">
+                  <p>Lat: {gpsData.latitude.toFixed(6)}°</p>
+                  <p>Lon: {gpsData.longitude.toFixed(6)}°</p>
+                  <p>Alt: {gpsData.altitude.toFixed(1)}m</p>
+                  <p>Precisione: {gpsData.accuracy.toFixed(1)}m</p>
+                </div>
+              </div>
             </Popup>
           </Marker>
         )}
@@ -339,6 +408,28 @@ const NavigationPage: React.FC = () => {
         gpsSignal={gpsSignal}
         direction={currentDirection}
       />
+
+      <div className="absolute bottom-4 right-4 z-[2000]">
+        <div className="bg-black bg-opacity-40 backdrop-blur-md px-2 py-2 rounded-lg shadow-lg">
+          <div className="flex flex-col space-y-1.5">
+            <button 
+              onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom() || 0) + 1)}
+              className="text-white hover:text-gray-300 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            <div className="text-[10px] font-medium text-white text-center">
+              {mapRef.current?.getZoom() || 0}x
+            </div>
+            <button 
+              onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom() || 0) - 1)}
+              className="text-white hover:text-gray-300 transition-colors"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
