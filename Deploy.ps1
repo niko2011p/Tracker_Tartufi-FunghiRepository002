@@ -1,7 +1,7 @@
 # deploy.ps1
 
 # Percorso del file che contiene la versione
-$versionFile = "version.txt"
+$versionFile = "public\version.txt"
 
 # Se il file non esiste, crealo con la versione iniziale 1.00.01
 if (-Not (Test-Path $versionFile)) {
