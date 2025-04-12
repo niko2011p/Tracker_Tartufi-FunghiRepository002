@@ -36,21 +36,24 @@ document.head.appendChild(style);
 const customIcon = L.divIcon({
   className: 'custom-gps-marker',
   html: `
-    <div class="relative w-2 h-2">
-      <div class="absolute inset-0 bg-blue-500 rounded-full opacity-25 animate-ping"></div>
-      <div class="absolute inset-0 bg-blue-500 rounded-full opacity-25 animate-pulse" style="animation-delay: 0.5s"></div>
-      <div class="relative w-full h-full bg-blue-500 rounded-full border border-white shadow-lg"></div>
+    <div class="relative w-4 h-6">
+      <div class="absolute inset-0 bg-[#f5a149] rounded-full opacity-25 animate-ping"></div>
+      <div class="absolute inset-0 bg-[#f5a149] rounded-full opacity-25 animate-pulse" style="animation-delay: 0.5s"></div>
+      <div class="relative w-full h-full">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#f5a149] rounded-full"></div>
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 w-2 h-4 bg-[#f5a149] rounded-b-full"></div>
+      </div>
     </div>
   `,
-  iconSize: [8, 8],
-  iconAnchor: [4, 4]
+  iconSize: [16, 24],
+  iconAnchor: [8, 24]
 });
 
 // Stile CSS per l'animazione del marker
 style.textContent = `
   .custom-gps-marker {
-    margin-left: -4px;
-    margin-top: -4px;
+    margin-left: -8px;
+    margin-top: -24px;
   }
   .custom-gps-marker .animate-ping {
     animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
@@ -227,6 +230,8 @@ const NavigationPage: React.FC = () => {
   const handleConfirmStop = () => {
     stopTrack();
     setShowStopDialog(false);
+    // Navigate to Logger page
+    window.location.href = '/logger';
   };
 
   const handleCancelStop = () => {
@@ -337,7 +342,7 @@ const NavigationPage: React.FC = () => {
       <CompassWidget direction={currentDirection} />
 
       {/* Controlli della mappa */}
-      <div className="absolute bottom-80 right-6 flex flex-col gap-10 z-[2000]">
+      <div className="absolute top-1/2 right-4 transform -translate-y-1/2 flex flex-col gap-6 z-[2000]">
         <button
           onClick={toggleGPSFollow}
           className={`p-3 rounded-full text-white hover:bg-opacity-80 transition-all shadow-lg ${
@@ -408,28 +413,6 @@ const NavigationPage: React.FC = () => {
         gpsSignal={gpsSignal}
         direction={currentDirection}
       />
-
-      <div className="absolute bottom-4 right-4 z-[2000]">
-        <div className="bg-black bg-opacity-40 backdrop-blur-md px-2 py-2 rounded-lg shadow-lg">
-          <div className="flex flex-col space-y-1.5">
-            <button 
-              onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom() || 0) + 1)}
-              className="text-white hover:text-gray-300 transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-            <div className="text-[10px] font-medium text-white text-center">
-              {mapRef.current?.getZoom() || 0}x
-            </div>
-            <button 
-              onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom() || 0) - 1)}
-              className="text-white hover:text-gray-300 transition-colors"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
