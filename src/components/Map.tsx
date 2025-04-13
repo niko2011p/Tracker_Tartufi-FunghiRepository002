@@ -192,6 +192,76 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
     };
   }, [track, onTakePhoto]);
 
+  // Gestione dei marker
+  useEffect(() => {
+    if (!mapRef.current || !track) return;
+
+    // Rimuovi i marker esistenti
+    if (markersRef.current) {
+      mapRef.current.removeLayer(markersRef.current);
+    }
+
+    // Crea un nuovo layer per i marker
+    const newMarkerLayer = L.layerGroup();
+    
+    // Aggiungi i marker per i ritrovamenti
+    track.findings.forEach(finding => {
+      if (!finding || !finding.coordinates || finding.coordinates.some(isNaN)) {
+        console.warn('Coordinate non valide per il ritrovamento:', finding);
+        return;
+      }
+
+      // Crea l'icona personalizzata
+      const iconUrl = finding.type === 'Fungo' ? 
+        '/icons/mushroom.png' : 
+        '/icons/truffle.png';
+      
+      const customIcon = L.icon({
+        iconUrl,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      });
+
+      // Crea il marker
+      const marker = L.marker(finding.coordinates, { icon: customIcon });
+      
+      // Aggiungi il popup
+      const popupContent = `
+        <div class="p-2">
+          <h3 class="font-bold">${finding.name}</h3>
+          <p>${finding.description || 'Nessuna descrizione'}</p>
+          <p class="text-sm text-gray-500">
+            ${new Date(finding.timestamp).toLocaleString()}
+          </p>
+        </div>
+      `;
+      
+      marker.bindPopup(popupContent);
+      
+      // Aggiungi il marker al layer
+      newMarkerLayer.addLayer(marker);
+      
+      // Forza l'aggiornamento del marker
+      marker.update();
+      
+      console.log('Marker aggiunto:', {
+        findingId: finding.id,
+        coordinates: finding.coordinates,
+        iconUrl,
+        popupContent
+      });
+    });
+
+    // Aggiungi il layer alla mappa
+    newMarkerLayer.addTo(mapRef.current);
+    
+    // Aggiorna il riferimento al layer
+    markersRef.current = newMarkerLayer;
+    
+    console.log('Layer marker aggiornato con', track.findings.length, 'marker');
+  }, [track]);
+
   return (
     <div 
       ref={mapContainerRef} 

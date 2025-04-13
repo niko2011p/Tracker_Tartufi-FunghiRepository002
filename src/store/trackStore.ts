@@ -419,9 +419,19 @@ export const useTrackStore = create<TrackState>()(
             try {
               const audio = new Audio('/sound/alert.mp3');
               audio.volume = 0.3;
-              audio.play().catch(e => console.error('Errore nella riproduzione audio:', e));
+              audio.play().catch(e => {
+                console.warn('Errore nella riproduzione audio:', e);
+                // Fallback a un suono di sistema
+                if (window.navigator.vibrate) {
+                  window.navigator.vibrate(200);
+                }
+              });
             } catch (error) {
-              console.error('Errore nella riproduzione audio:', error);
+              console.warn('Errore nella riproduzione audio:', error);
+              // Fallback a un suono di sistema
+              if (window.navigator.vibrate) {
+                window.navigator.vibrate(200);
+              }
             }
           } catch (error) {
             console.error('Errore durante l\'aggiornamento dello stato:', error);
@@ -480,9 +490,19 @@ export const useTrackStore = create<TrackState>()(
                 try {
                   const audio = new Audio('/sound/alert.mp3');
                   audio.volume = 0.3;
-                  audio.play().catch(e => console.error('Errore nella riproduzione audio:', e));
+                  audio.play().catch(e => {
+                    console.warn('Errore nella riproduzione audio:', e);
+                    // Fallback a un suono di sistema
+                    if (window.navigator.vibrate) {
+                      window.navigator.vibrate(200);
+                    }
+                  });
                 } catch (error) {
-                  console.error('Errore nella riproduzione audio:', error);
+                  console.warn('Errore nella riproduzione audio:', error);
+                  // Fallback a un suono di sistema
+                  if (window.navigator.vibrate) {
+                    window.navigator.vibrate(200);
+                  }
                 }
               } catch (error) {
                 console.error('Errore durante l\'aggiornamento dello stato:', error);
