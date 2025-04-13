@@ -44,11 +44,13 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
 
     // Rimuovi i marker precedenti se esistono
     if (markersRef.current) {
+      console.log('Removing previous markers layer');
       map.removeLayer(markersRef.current);
     }
 
     // Crea un nuovo layer per i marker
     markersRef.current = L.layerGroup().addTo(map);
+    console.log('Created new markers layer:', markersRef.current);
 
     // Se ci sono coordinate, disegna la traccia
     if (track.coordinates && track.coordinates.length > 0) {
@@ -63,6 +65,13 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
         opacity: 0.8,
         smoothFactor: 1
       }).addTo(map);
+
+      // Verifica che il layer group sia stato aggiunto correttamente alla mappa
+      console.log('Layer group added to map:', {
+        layerGroup: markersRef.current,
+        mapLayers: map.getLayers(),
+        layerCount: markersRef.current.getLayers().length
+      });
 
       // Aggiungi i marker per i ritrovamenti
       track.findings.forEach(finding => {
@@ -143,7 +152,24 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
             </div>
           `);
 
+          // Aggiungi il marker al layer group
           marker.addTo(markersRef.current);
+          
+          // Log dettagliato per il debug
+          console.log('Marker creation details:', {
+            findingId: finding.id,
+            coordinates: finding.coordinates,
+            iconUrl: iconUrl,
+            layerGroup: markersRef.current,
+            map: mapRef.current,
+            marker: marker,
+            isAdded: marker.isAdded(),
+            latLng: marker.getLatLng()
+          });
+          
+          // Forza il ridisegno del marker
+          marker.update();
+          
           console.log('Added marker for finding:', finding.id);
         } else {
           console.warn('Finding has no coordinates:', finding);

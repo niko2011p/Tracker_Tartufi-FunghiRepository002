@@ -433,15 +433,29 @@ export const useTrackStore = create<TrackState>()(
                 
                 // Aggiorna immediatamente lo stato con il nuovo ritrovamento
                 // per garantire che il tag appaia subito sulla mappa
-                set({
-                  currentTrack: {
-                    ...currentTrack,
-                    findings: [...currentTrack.findings, newFinding]
-                  }
+                const updatedTrack = {
+                  ...currentTrack,
+                  findings: [...currentTrack.findings, newFinding]
+                };
+                
+                console.log('Updating track state with new finding:', {
+                  findingId: newFinding.id,
+                  coordinates: newFinding.coordinates,
+                  currentFindingsCount: currentTrack.findings.length,
+                  updatedFindingsCount: updatedTrack.findings.length,
+                  trackId: currentTrack.id
                 });
                 
-                // Log per confermare l'aggiunta del tag sulla mappa
-                console.log(`Tag aggiunto e visualizzato sulla mappa: ${finding.type} alle coordinate [${coordinates[0]}, ${coordinates[1]}]`);
+                set({
+                  currentTrack: updatedTrack
+                }, true); // Forza l'aggiornamento immediato dello stato
+                
+                // Verifica che lo stato sia stato aggiornato correttamente
+                console.log('State updated, current track:', {
+                  trackId: get().currentTrack?.id,
+                  findingsCount: get().currentTrack?.findings.length,
+                  lastFinding: get().currentTrack?.findings[get().currentTrack?.findings.length - 1]
+                });
                 
                 // Riproduci un suono di conferma per indicare che il tag è stato aggiunto
                 try {
@@ -485,7 +499,7 @@ export const useTrackStore = create<TrackState>()(
                         ...currentTrack,
                         findings: [...currentTrack.findings, newFinding]
                       }
-                    });
+                    }, true); // Forza l'aggiornamento immediato dello stato
                   }
                 }
               },
