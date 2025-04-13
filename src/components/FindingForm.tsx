@@ -76,25 +76,50 @@ function FindingForm({ onClose, position }: FindingFormProps) {
 
   const handleTakePhoto = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const constraints = {
+        video: {
+          facingMode: 'environment', // Preferisce la fotocamera posteriore
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // Crea un elemento video temporaneo
       const video = document.createElement('video');
       video.srcObject = stream;
-      video.play();
+      video.autoplay = true;
+      video.playsInline = true;
+      
+      // Aspetta che il video sia pronto
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          video.play();
+          resolve(true);
+        };
+      });
 
+      // Crea un canvas per catturare il frame
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
       const context = canvas.getContext('2d');
       if (context) {
+        // Disegna il frame corrente sul canvas
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const photoDataUrl = canvas.toDataURL('image/jpeg');
+        
+        // Converti in base64
+        const photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
         setPhotoUrl(photoDataUrl);
       }
 
+      // Ferma lo stream della fotocamera
       stream.getTracks().forEach(track => track.stop());
     } catch (error) {
-      console.error('Error accessing camera:', error);
+      console.error('Errore nell\'accesso alla fotocamera:', error);
+      setError('Impossibile accedere alla fotocamera. Assicurati di aver concesso i permessi necessari.');
     }
   };
 
@@ -110,8 +135,8 @@ function FindingForm({ onClose, position }: FindingFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Aggiungi Ritrovamento</h2>
           <div className="flex items-center gap-2">
@@ -139,7 +164,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex gap-4">
               <button
                 type="button"
                 onClick={() => {
@@ -147,13 +172,13 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                   setSpeciesName('');
                   setShowSuggestions(false);
                 }}
-                className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+                className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
                   findingType === 'Fungo'
                     ? 'bg-[#8eaa36] text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-6 h-6" />
+                <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-8 h-8" />
                 Fungo
               </button>
               <button
@@ -163,13 +188,13 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                   setSpeciesName('');
                   setShowSuggestions(false);
                 }}
-                className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+                className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
                   findingType === 'Tartufo'
                     ? 'bg-[#8B4513] text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-6 h-6" />
+                <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-8 h-8" />
                 Tartufo
               </button>
             </div>
@@ -182,8 +207,9 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                   setSpeciesName(e.target.value);
                   setShowSuggestions(true);
                 }}
-                placeholder="Nome specie"
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#8eaa36] focus:border-[#8eaa36]"
+                placeholder="Nome specie *"
+                className="w-full px-4 py-3 border-2 border-[#8eaa36] rounded-lg focus:ring-2 focus:ring-[#8eaa36] focus:border-[#8eaa36] bg-gray-50 text-lg"
+                required
               />
               {showSuggestions && (
                 <div 
@@ -208,13 +234,13 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-4">
               <button
                 type="button"
                 onClick={handleTakePhoto}
-                className="flex-1 py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
               >
-                <Camera className="w-5 h-5" />
+                <Camera className="w-6 h-6" />
                 Scatta Foto
               </button>
               <input
@@ -227,9 +253,9 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-2 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
               >
-                <Upload className="w-5 h-5" />
+                <Upload className="w-6 h-6" />
                 Carica Foto
               </button>
             </div>
