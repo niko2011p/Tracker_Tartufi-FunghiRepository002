@@ -80,53 +80,23 @@ function FindingForm({ onClose, position }: FindingFormProps) {
     }
   };
 
-  const handleTakePhoto = async () => {
-    try {
-      const constraints = {
-        video: {
-          facingMode: 'environment', // Preferisce la fotocamera posteriore
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        }
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      // Crea un elemento video temporaneo
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.playsInline = true;
-      
-      // Aspetta che il video sia pronto
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => {
-          video.play();
-          resolve(true);
+  const handleTakePhoto = () => {
+    // Apri l'app fotocamera nativa
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Forza l'uso della fotocamera posteriore
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPhotoUrl(reader.result as string);
         };
-      });
-
-      // Crea un canvas per catturare il frame
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const context = canvas.getContext('2d');
-      if (context) {
-        // Disegna il frame corrente sul canvas
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Converti in base64
-        const photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        setPhotoUrl(photoDataUrl);
+        reader.readAsDataURL(file);
       }
-
-      // Ferma lo stream della fotocamera
-      stream.getTracks().forEach(track => track.stop());
-    } catch (error) {
-      console.error('Errore nell\'accesso alla fotocamera:', error);
-      setError('Impossibile accedere alla fotocamera. Assicurati di aver concesso i permessi necessari.');
-    }
+    };
+    input.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
