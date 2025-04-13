@@ -29,12 +29,12 @@ interface ButtonConfigState {
 
 const useButtonConfigStore = create<ButtonConfigState>((set) => ({
   navigationButton: {
-    position: { x: 1, y: 60 },
+    position: { x: 1, y: 50 },
     positionType: 'percentage',
-    size: 100,
+    size: 75,
     color: 'bg-[#f5a149]',
     iconColor: 'text-white',
-    iconSize: 50,
+    iconSize: 42,
     borderRadius: 50,
     shadow: {
       color: 'rgba(0, 0, 0, 0.2)',
@@ -43,12 +43,12 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
     }
   },
   centerButton: {
-    position: { x: 1, y: 90 },
+    position: { x: 1, y: 70 },
     positionType: 'percentage',
-    size: 100,
+    size: 75,
     color: 'bg-white',
     iconColor: 'text-red-700',
-    iconSize: 50,
+    iconSize: 42,
     borderRadius: 50,
     shadow: {
       color: 'rgba(0, 0, 0, 0.2)',
@@ -59,7 +59,7 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
   tagButton: {
     position: { x: 50, y: 90 },
     positionType: 'percentage',
-    size: 100,
+    size: 80,
     color: 'bg-[#8eaa36]',
     iconColor: 'text-white',
     iconSize: 42,
@@ -73,11 +73,11 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
   stopButton: {
     position: { x: 3, y: 90 },
     positionType: 'percentage',
-    size: 80,
+    size: 75,
     color: 'bg-red-500',
     iconColor: 'text-white',
     iconSize: 42,
-    borderRadius: 15,
+    borderRadius: 30,
     shadow: {
       color: 'rgba(0, 0, 0, 0.3)',
       blur: 15,

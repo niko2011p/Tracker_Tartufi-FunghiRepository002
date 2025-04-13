@@ -4,10 +4,11 @@ import { Finding } from '../types/track';
 
 interface FindingMarkerProps {
   finding: Finding;
+  map: L.Map;
   onClick?: () => void;
 }
 
-const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, onClick }) => {
+const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map, onClick }) => {
   const markerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
@@ -45,7 +46,7 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, onClick }) => {
         markerRef.current = null;
       }
     };
-  }, [finding, onClick]);
+  }, [finding, map, onClick]);
 
   return null;
 };
