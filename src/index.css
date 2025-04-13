@@ -280,3 +280,25 @@ html {
 img {
   @apply max-w-full h-auto;
 }
+
+.marker-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.marker-icon-wrapper:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.custom-div-icon {
+  border: none;
+  background: none;
+}

@@ -29,7 +29,7 @@ interface ButtonConfigState {
 
 const useButtonConfigStore = create<ButtonConfigState>((set) => ({
   navigationButton: {
-    position: { x: 1, y: 50 },
+    position: { x: 1, y: 60 },
     positionType: 'percentage',
     size: 75,
     color: 'bg-[#f5a149]',
@@ -43,7 +43,7 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
     }
   },
   centerButton: {
-    position: { x: 1, y: 70 },
+    position: { x: 5, y: 90 },
     positionType: 'percentage',
     size: 75,
     color: 'bg-white',
@@ -71,13 +71,13 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
     }
   },
   stopButton: {
-    position: { x: 3, y: 90 },
+    position: { x: 5, y: 90 },
     positionType: 'percentage',
     size: 75,
     color: 'bg-red-500',
     iconColor: 'text-white',
     iconSize: 42,
-    borderRadius: 30,
+    borderRadius: 48,
     shadow: {
       color: 'rgba(0, 0, 0, 0.3)',
       blur: 15,
