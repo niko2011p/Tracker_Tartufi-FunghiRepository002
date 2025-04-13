@@ -87,11 +87,43 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
     // Add markers for findings
     track.findings.forEach(finding => {
       if (finding.coordinates) {
-        const icon = L.icon({
-          iconUrl: `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`,
+        const icon = L.divIcon({
+          html: `
+            <div class="finding-icon-wrapper ${finding.type.toLowerCase()}-finding" style="
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              width: 32px;
+              height: 32px;
+              position: relative;
+              cursor: pointer;
+            ">
+              <div class="finding-icon-pulse" style="
+                position: absolute;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: ${finding.type === 'Fungo' ? '#8eaa36' : finding.type === 'Tartufo' ? '#8B4513' : '#f5a149'}40;
+                animation: pulse 2s infinite;
+              "></div>
+              <img 
+                src="/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}" 
+                width="24" 
+                height="24" 
+                alt="${finding.type} Icon" 
+                style="
+                  position: relative;
+                  z-index: 1;
+                  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                  transition: transform 0.2s ease;
+                "
+              />
+            </div>
+          `,
+          className: 'finding-icon',
           iconSize: [32, 32],
-          iconAnchor: [16, 32],
-          popupAnchor: [0, -32]
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -16]
         });
 
         const marker = L.marker(finding.coordinates, { icon })
