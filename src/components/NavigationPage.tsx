@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap, MapContainerRef } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, MapContainerRef, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
 import { Square, MapPin, AlertCircle, Crosshair, Navigation } from 'lucide-react';
@@ -7,7 +7,7 @@ import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import './UnifiedButtons.css';
-import { Finding as FindingType, Track } from '../types';
+import { Finding } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
 import GpsStatusIndicator from './GpsStatusIndicator';
@@ -40,8 +40,8 @@ const createGpsArrowIcon = (direction = 0) => {
   });
 };
 
-const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse' | 'poi', isLoaded: boolean = false) => {
-  const iconUrl = type === 'Fungo' || type === 'poi'
+const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean = false) => {
+  const iconUrl = type === 'Fungo' 
     ? '/icon/mushroom-tag-icon.svg'
     : type === 'Tartufo'
       ? '/icon/Truffle-tag-icon.svg'
@@ -56,13 +56,14 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse' | 'poi', isLo
         width: 32px;
         height: 32px;
         position: relative;
+        cursor: pointer;
       ">
         <div class="finding-icon-pulse" style="
           position: absolute;
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: ${type === 'Fungo' || type === 'poi' ? '#8eaa36' : type === 'Tartufo' ? '#8B4513' : '#f5a149'}40;
+          background: ${type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#8B4513' : '#f5a149'}40;
           animation: pulse 2s infinite;
         "></div>
         <img 
@@ -77,8 +78,6 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse' | 'poi', isLo
             opacity: ${isLoaded ? '0.6' : '1'};
             transition: transform 0.2s ease;
           "
-          onmouseover="this.style.transform='scale(1.1)'"
-          onmouseout="this.style.transform='scale(1)'"
         />
       </div>
     `,
@@ -558,60 +557,54 @@ const NavigationPage: React.FC = () => {
                 // Linea continua come richiesto
               />
               {/* Display findings markers */}
-              {currentTrack.findings
-                .filter(finding => !isLoadedFinding(finding))
-                .map((finding) => {
-                  // Determina il tipo di icona in base al tipo di ritrovamento
-                  const findingType = finding.type === 'poi' ? 'Interesse' : 
-                                     finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
-                  console.log(`Visualizzazione tag ritrovamento: ${finding.name}, tipo: ${finding.type}, coordinate: [${finding.coordinates[0]}, ${finding.coordinates[1]}]`);
-                  return (
-                    <Marker
-                      key={finding.id}
-                      position={finding.coordinates}
-                      icon={createFindingIcon(findingType)}
-                    >
-                      <Popup>
-                        <div className="p-2">
-                          <h3 className="font-semibold">{finding.name || finding.type}</h3>
-                          {finding.description && (
-                            <p className="text-sm mt-1">{finding.description}</p>
-                          )}
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(finding.timestamp).toLocaleString('it-IT')}
-                          </p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  );
-                })}
+              {currentTrack?.findings.map((finding) => {
+                if (!finding.coordinates) return null;
+                
+                console.log('Rendering finding:', finding); // Debug log
+                
+                return (
+                  <Marker
+                    key={finding.id}
+                    position={finding.coordinates}
+                    icon={createFindingIcon(finding.type)}
+                  >
+                    <Popup>
+                      <div className="p-2">
+                        <h3 className="font-semibold">{finding.name || finding.type}</h3>
+                        {finding.description && (
+                          <p className="text-sm mt-1">{finding.description}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(finding.timestamp).toLocaleString('it-IT')}
+                        </p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
             </>
           )}
           
           {/* Display loaded findings if any */}
-          {loadedFindings?.map((finding) => {
-            const findingType = finding.type === 'poi' ? 'Interesse' : 
-                               finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
-            return (
-              <Marker
-                key={`loaded-${finding.id}`}
-                position={finding.coordinates}
-                icon={createFindingIcon(findingType, true)}
-              >
-                <Popup>
-                  <div className="p-2">
-                    <h3 className="font-semibold">{finding.name || finding.type}</h3>
-                    {finding.description && (
-                      <p className="text-sm mt-1">{finding.description}</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(finding.timestamp).toLocaleString('it-IT')}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+          {loadedFindings?.map((finding) => (
+            <Marker
+              key={`loaded-${finding.id}`}
+              position={finding.coordinates}
+              icon={createFindingIcon(finding.type, true)}
+            >
+              <Popup>
+                <div className="p-2">
+                  <h3 className="font-semibold">{finding.name || finding.type}</h3>
+                  {finding.description && (
+                    <p className="text-sm mt-1">{finding.description}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(finding.timestamp).toLocaleString('it-IT')}
+                  </p>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
           
           {/* Display tags added during navigation */}
           {currentTrack?.findings
@@ -661,14 +654,26 @@ const NavigationPage: React.FC = () => {
           </button>
         </div>
         
-        {/* Mostra il form per aggiungere un ritrovamento quando richiesto */}
-        {showFindingForm && <FindingForm onClose={() => setShowFindingForm(false)} />}
+        {/* Finding Form */}
+        {showFindingForm && (
+          <FindingForm 
+            onClose={() => setShowFindingForm(false)} 
+            position={currentPosition}
+          />
+        )}
         
-        {/* Popup opzioni Tag */}
+        {/* Tag Options Popup */}
         {showTagOptions && (
           <TagOptionsPopup 
             onClose={() => setShowTagOptions(false)}
-            onCenterMap={() => {}}
+            onFindingClick={() => {
+              setShowTagOptions(false);
+              setShowFindingForm(true);
+            }}
+            onPointOfInterestClick={() => {
+              setShowTagOptions(false);
+              // Implementa la logica per i punti di interesse
+            }}
           />
         )}
       </div>

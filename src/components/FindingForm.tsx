@@ -62,7 +62,11 @@ function FindingForm({ onClose, position }: FindingFormProps) {
         name: `${findingType} - ${speciesName}`,
         description: `Tipo: ${findingType}\nSpecie: ${speciesName}`,
         photoUrl: photoPreview || undefined,
-        type: findingType
+        type: findingType,
+        coordinates: position,
+        timestamp: new Date(),
+        id: crypto.randomUUID(),
+        trackId: crypto.randomUUID()
       };
 
       await addFinding(finding);

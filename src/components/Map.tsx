@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Track } from '../types';
+import { Track, Finding } from '../types';
 import FindingMarker from './FindingMarker';
 
 interface MapProps {
@@ -14,6 +14,7 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const trackLayerRef = useRef<L.Polyline | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
+  const findingMarkersRef = useRef<L.Marker[]>([]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -78,6 +79,35 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
         maxZoom: 16
       });
     }
+
+    // Clear existing finding markers
+    findingMarkersRef.current.forEach(marker => marker.remove());
+    findingMarkersRef.current = [];
+
+    // Add markers for findings
+    track.findings.forEach(finding => {
+      if (finding.coordinates) {
+        const icon = L.icon({
+          iconUrl: `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 32],
+          popupAnchor: [0, -32]
+        });
+
+        const marker = L.marker(finding.coordinates, { icon })
+          .bindPopup(`
+            <div>
+              <h3>${finding.name}</h3>
+              <p>${finding.description}</p>
+              ${finding.photoUrl ? `<img src="${finding.photoUrl}" alt="${finding.name}" style="max-width: 200px;">` : ''}
+              <p>Data: ${new Date(finding.timestamp).toLocaleString('it-IT')}</p>
+            </div>
+          `)
+          .addTo(map);
+
+        findingMarkersRef.current.push(marker);
+      }
+    });
 
     // Cleanup
     return () => {
