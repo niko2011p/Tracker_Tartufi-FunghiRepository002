@@ -401,14 +401,19 @@ export const useTrackStore = create<TrackState>()(
           };
           
           try {
-            const updatedTrack = {
+            // Crea una copia sicura del track corrente
+            const currentTrackCopy = {
               ...currentTrack,
-              findings: [...(currentTrack.findings || []), newFinding]
+              findings: [...(currentTrack.findings || [])]
             };
             
+            // Aggiungi il nuovo finding
+            currentTrackCopy.findings.push(newFinding);
+            
+            // Aggiorna lo stato
             set({
-              currentTrack: updatedTrack
-            }, true);
+              currentTrack: currentTrackCopy
+            });
             
             // Riproduci un suono di conferma
             try {
@@ -432,7 +437,7 @@ export const useTrackStore = create<TrackState>()(
 
         const geoOptions = {
           enableHighAccuracy: true,
-          timeout: 10000, // Aumentato il timeout a 10 secondi
+          timeout: 10000,
           maximumAge: 0
         };
         
@@ -457,14 +462,19 @@ export const useTrackStore = create<TrackState>()(
               };
               
               try {
-                const updatedTrack = {
+                // Crea una copia sicura del track corrente
+                const currentTrackCopy = {
                   ...currentTrack,
-                  findings: [...(currentTrack.findings || []), newFinding]
+                  findings: [...(currentTrack.findings || [])]
                 };
                 
+                // Aggiungi il nuovo finding
+                currentTrackCopy.findings.push(newFinding);
+                
+                // Aggiorna lo stato
                 set({
-                  currentTrack: updatedTrack
-                }, true);
+                  currentTrack: currentTrackCopy
+                });
                 
                 // Riproduci un suono di conferma
                 try {
@@ -506,14 +516,19 @@ export const useTrackStore = create<TrackState>()(
                   };
                   
                   try {
-                    const updatedTrack = {
+                    // Crea una copia sicura del track corrente
+                    const currentTrackCopy = {
                       ...currentTrack,
-                      findings: [...(currentTrack.findings || []), newFinding]
+                      findings: [...(currentTrack.findings || [])]
                     };
                     
+                    // Aggiungi il nuovo finding
+                    currentTrackCopy.findings.push(newFinding);
+                    
+                    // Aggiorna lo stato
                     set({
-                      currentTrack: updatedTrack
-                    }, true);
+                      currentTrack: currentTrackCopy
+                    });
                   } catch (error) {
                     console.error('Errore durante l\'aggiornamento dello stato con fallback:', error);
                   }
