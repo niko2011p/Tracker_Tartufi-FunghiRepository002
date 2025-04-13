@@ -151,7 +151,6 @@ export const useTrackStore = create<TrackState>()(
           const avgSpeed = durationHours > 0 ? currentTrack.distance / durationHours : 0;
           
           // Calcola l'altitudine media dai dati GPS raccolti
-          // Se non abbiamo dati di altitudine, utilizziamo un valore di fallback
           let totalAltitude = 0;
           let altitudePoints = 0;
           
@@ -212,20 +211,17 @@ export const useTrackStore = create<TrackState>()(
               const sevenDaysAgo = new Date();
               sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
               
-              const recentTracks = tracks
-                .filter(track => {
-                  // Assicuriamoci che startTime sia una data
-                  const startTime = track.startTime instanceof Date ? 
-                    track.startTime : new Date(track.startTime);
-                  return startTime >= sevenDaysAgo;
-                })
-                .slice(0, 20); // Limita a 20 tracce per evitare problemi di performance
+              const recentTracks = (tracks || []).filter(track => {
+                if (!track || !track.startTime) return false;
+                const startTime = track.startTime instanceof Date ? 
+                  track.startTime : new Date(track.startTime);
+                return startTime >= sevenDaysAgo;
+              }).slice(0, 20);
               
               // Verifica che tutti i ritrovamenti abbiano coordinate valide
-              const validatedFindings = currentTrack.findings.map(finding => {
-                // Se le coordinate non sono valide, utilizza l'ultima posizione conosciuta
-                if (!finding.coordinates || finding.coordinates.some(isNaN)) {
-                  console.warn(`Coordinate non valide per il ritrovamento ${finding.id}, utilizzo ultima posizione conosciuta`);
+              const validatedFindings = (currentTrack.findings || []).map(finding => {
+                if (!finding || !finding.coordinates || finding.coordinates.some(isNaN)) {
+                  console.warn(`Coordinate non valide per il ritrovamento ${finding?.id}, utilizzo ultima posizione conosciuta`);
                   return {
                     ...finding,
                     coordinates: currentTrack.coordinates.length > 0 ? 
@@ -244,7 +240,6 @@ export const useTrackStore = create<TrackState>()(
                 avgSpeed,
                 avgAltitude,
                 totalDistance: currentTrack.distance,
-                // Aggiungi metadati per lo storico
                 historyData: {
                   recentTracks: recentTracks.map(t => t.id),
                   lastUpdated: new Date().toISOString()
@@ -255,26 +250,16 @@ export const useTrackStore = create<TrackState>()(
               console.log('Saving completed track:', completedTrack.id, 'with', 
                 completedTrack.coordinates.length, 'coordinates and', 
                 completedTrack.findings.length, 'findings');
-              console.log('Track data:', {
-                distance: completedTrack.distance.toFixed(2) + ' km',
-                duration: (completedTrack.duration / 60000).toFixed(0) + ' min',
-                avgSpeed: completedTrack.avgSpeed.toFixed(1) + ' km/h',
-                avgAltitude: completedTrack.avgAltitude + ' m',
-                findings: completedTrack.findings.length
-              });
               
               // Aggiorniamo lo stato con la nuova traccia completata
-              // Assicuriamoci che la traccia venga aggiunta all'array tracks
-              const updatedTracks = [...tracks, completedTrack];
-              
               set({
-                tracks: updatedTracks,
+                tracks: [...(tracks || []), completedTrack],
                 currentTrack: null,
                 isRecording: false,
                 loadedFindings: null
               });
               
-              console.log('Track stopped and saved successfully. Total tracks:', updatedTracks.length);
+              console.log('Track stopped and saved successfully. Total tracks:', (tracks || []).length + 1);
               return completedTrack;
             } catch (error) {
               console.error('Errore durante il salvataggio della traccia:', error);
@@ -289,17 +274,14 @@ export const useTrackStore = create<TrackState>()(
                 totalDistance: currentTrack.distance
               };
               
-              // Assicuriamoci che la traccia venga aggiunta all'array tracks anche in caso di errore
-              const updatedTracks = [...tracks, basicCompletedTrack];
-              
               set({
-                tracks: updatedTracks,
+                tracks: [...(tracks || []), basicCompletedTrack],
                 currentTrack: null,
                 isRecording: false,
                 loadedFindings: null
               });
               
-              console.log('Track saved with basic data due to error. Total tracks:', updatedTracks.length);
+              console.log('Track saved with basic data due to error. Total tracks:', (tracks || []).length + 1);
               return basicCompletedTrack;
             }
           };
@@ -572,15 +554,31 @@ export const useTrackStore = create<TrackState>()(
 
       exportTracks: () => {
         const { tracks } = get();
-        const metadata = {
-          name: "Tracker Funghi e Tartufi",
-          desc: "Exported tracks and findings",
-          author: "Tracker App",
-          time: new Date().toISOString(),
-          keywords: "mushrooms,truffles,tracking"
-        };
+        try {
+          // Verifica che tracks sia un array valido
+          if (!Array.isArray(tracks)) {
+            console.error('Tracks is not an array:', tracks);
+            return '';
+          }
 
-        const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+          const metadata = {
+            name: "Tracker Funghi e Tartufi",
+            desc: "Exported tracks and findings",
+            author: "Tracker App",
+            time: new Date().toISOString(),
+            keywords: "mushrooms,truffles,tracking"
+          };
+
+          // Verifica che ogni track sia valida
+          const validTracks = tracks.filter(track => {
+            if (!track || typeof track !== 'object') {
+              console.warn('Invalid track found:', track);
+              return false;
+            }
+            return true;
+          });
+
+          const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" 
      creator="${metadata.name}"
      xmlns="http://www.topografix.com/GPX/1/1"
@@ -593,34 +591,52 @@ export const useTrackStore = create<TrackState>()(
     <time>${metadata.time}</time>
     <keywords>${metadata.keywords}</keywords>
   </metadata>
-  ${tracks.map(track => `
+  ${validTracks.map(track => {
+    try {
+      return `
   <trk>
     <name>Track ${format(track.startTime, 'yyyy-MM-dd HH:mm')}</name>
     <desc>${track.location ? `Location: ${track.location.name}${track.location.region ? ` (${track.location.region})` : ''}` : 'Unknown Location'}
-Distance: ${track.distance.toFixed(2)} km
-Findings: ${track.findings.length}
-Start Time: ${track.startTime.toISOString()}
-${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
+Distance: ${track.distance?.toFixed(2) || '0.00'} km
+Findings: ${track.findings?.length || 0}
+Start Time: ${track.startTime instanceof Date ? track.startTime.toISOString() : new Date(track.startTime).toISOString()}
+${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toISOString() : new Date(track.endTime).toISOString()}` : ''}</desc>
     <trkseg>
-      ${track.coordinates.map(coord => `
+      ${(track.coordinates || []).map(coord => `
       <trkpt lat="${coord[0]}" lon="${coord[1]}">
         <ele>0</ele>
-        <time>${track.startTime.toISOString()}</time>
+        <time>${track.startTime instanceof Date ? track.startTime.toISOString() : new Date(track.startTime).toISOString()}</time>
       </trkpt>`).join('')}
     </trkseg>
   </trk>
-  ${track.findings.map(finding => `
+  ${(track.findings || []).map(finding => {
+    try {
+      return `
   <wpt lat="${finding.coordinates[0]}" lon="${finding.coordinates[1]}">
     <name>${finding.name}</name>
     <desc>${finding.description || ''}</desc>
-    <time>${finding.timestamp.toISOString()}</time>
+    <time>${finding.timestamp instanceof Date ? finding.timestamp.toISOString() : new Date(finding.timestamp).toISOString()}</time>
     ${finding.photoUrl ? `<link href="${finding.photoUrl}">
       <text>Photo</text>
     </link>` : ''}
     <sym>${finding.name.startsWith('Fungo') ? 'Mushroom' : 'Flag, Blue'}</sym>
-  </wpt>`).join('')}`).join('')}
+  </wpt>`;
+    } catch (error) {
+      console.error('Error processing finding:', error);
+      return '';
+    }
+  }).join('')}`;
+    } catch (error) {
+      console.error('Error processing track:', error);
+      return '';
+    }
+  }).join('')}
 </gpx>`;
-        return gpx;
+          return gpx;
+        } catch (error) {
+          console.error('Error during export:', error);
+          return '';
+        }
       },
 
       importTracks: (gpxData: string) => {
@@ -633,70 +649,74 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           }
 
           const tracks = Array.from(gpx.getElementsByTagName('trk')).map(trk => {
-            const name = trk.getElementsByTagName('name')[0]?.textContent || '';
-            const desc = trk.getElementsByTagName('desc')[0]?.textContent || '';
-            
-            // Parse location from description
-            const locationMatch = desc.match(/Location: (.+?)(?:\s*\((.+?)\))?$/m);
-            const location = locationMatch ? {
-              name: locationMatch[1],
-              region: locationMatch[2],
-              coordinates: [0, 0] as [number, number]
-            } : undefined;
+            try {
+              const name = trk.getElementsByTagName('name')[0]?.textContent || '';
+              const desc = trk.getElementsByTagName('desc')[0]?.textContent || '';
+              
+              const locationMatch = desc.match(/Location: (.+?)(?:\s*\((.+?)\))?$/m);
+              const location = locationMatch ? {
+                name: locationMatch[1],
+                region: locationMatch[2],
+                coordinates: [0, 0] as [number, number]
+              } : undefined;
 
-            const coordinates: [number, number][] = Array.from(trk.getElementsByTagName('trkpt')).map(trkpt => [
-              parseFloat(trkpt.getAttribute('lat') || '0'),
-              parseFloat(trkpt.getAttribute('lon') || '0')
-            ]);
+              const coordinates: [number, number][] = Array.from(trk.getElementsByTagName('trkpt')).map(trkpt => {
+                const lat = parseFloat(trkpt.getAttribute('lat') || '0');
+                const lon = parseFloat(trkpt.getAttribute('lon') || '0');
+                return [lat, lon];
+              });
 
-            if (coordinates.length > 0 && location) {
-              location.coordinates = coordinates[0];
+              if (coordinates.length > 0 && location) {
+                location.coordinates = coordinates[0];
+              }
+
+              const findings: Finding[] = Array.from(gpx.getElementsByTagName('wpt'))
+                .filter(wpt => {
+                  const wptLat = parseFloat(wpt.getAttribute('lat') || '0');
+                  const wptLon = parseFloat(wpt.getAttribute('lon') || '0');
+                  return coordinates.some(coord => 
+                    Math.abs(coord[0] - wptLat) < 0.0001 && 
+                    Math.abs(coord[1] - wptLon) < 0.0001
+                  );
+                })
+                .map(wpt => ({
+                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  trackId: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  name: wpt.getElementsByTagName('name')[0]?.textContent || '',
+                  description: wpt.getElementsByTagName('desc')[0]?.textContent,
+                  photoUrl: wpt.getElementsByTagName('link')[0]?.getAttribute('href'),
+                  coordinates: [
+                    parseFloat(wpt.getAttribute('lat') || '0'),
+                    parseFloat(wpt.getAttribute('lon') || '0')
+                  ] as [number, number],
+                  timestamp: new Date(wpt.getElementsByTagName('time')[0]?.textContent || '')
+                }));
+
+                let distance = 0;
+                if (coordinates.length > 1) {
+                  const line = turf.lineString(coordinates);
+                  distance = turf.length(line, { units: 'kilometers' });
+                }
+
+                const startTime = new Date(trk.getElementsByTagName('time')[0]?.textContent || Date.now());
+                const endTimeMatch = desc.match(/End Time: (.+)$/m);
+                const endTime = endTimeMatch ? new Date(endTimeMatch[1]) : undefined;
+
+                return {
+                  id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  startTime,
+                  endTime,
+                  coordinates,
+                  distance,
+                  findings,
+                  isPaused: false,
+                  location
+                };
+            } catch (error) {
+              console.error('Error processing track during import:', error);
+              return null;
             }
-
-            const findings: Finding[] = Array.from(gpx.getElementsByTagName('wpt'))
-              .filter(wpt => {
-                const wptLat = parseFloat(wpt.getAttribute('lat') || '0');
-                const wptLon = parseFloat(wpt.getAttribute('lon') || '0');
-                return coordinates.some(coord => 
-                  Math.abs(coord[0] - wptLat) < 0.0001 && 
-                  Math.abs(coord[1] - wptLon) < 0.0001
-                );
-              })
-              .map(wpt => ({
-                id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                trackId: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                name: wpt.getElementsByTagName('name')[0]?.textContent || '',
-                description: wpt.getElementsByTagName('desc')[0]?.textContent,
-                photoUrl: wpt.getElementsByTagName('link')[0]?.getAttribute('href'),
-                coordinates: [
-                  parseFloat(wpt.getAttribute('lat') || '0'),
-                  parseFloat(wpt.getAttribute('lon') || '0')
-                ] as [number, number],
-                timestamp: new Date(wpt.getElementsByTagName('time')[0]?.textContent || '')
-              }));
-
-            // Calculate track distance using turf.js
-            let distance = 0;
-            if (coordinates.length > 1) {
-              const line = turf.lineString(coordinates);
-              distance = turf.length(line, { units: 'kilometers' });
-            }
-
-            const startTime = new Date(trk.getElementsByTagName('time')[0]?.textContent || Date.now());
-            const endTimeMatch = desc.match(/End Time: (.+)$/m);
-            const endTime = endTimeMatch ? new Date(endTimeMatch[1]) : undefined;
-
-            return {
-              id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              startTime,
-              endTime,
-              coordinates,
-              distance,
-              findings,
-              isPaused: false,
-              location
-            };
-          });
+          }).filter(track => track !== null);
 
           set(state => ({
             tracks: [...state.tracks, ...tracks]
