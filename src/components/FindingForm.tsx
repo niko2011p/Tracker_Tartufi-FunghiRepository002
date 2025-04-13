@@ -65,6 +65,12 @@ function FindingForm({ onClose, position }: FindingFormProps) {
       };
 
       await addFinding(finding);
+      
+      // Aggiungi un feedback visivo
+      const audio = new Audio('/sound/alert.mp3');
+      audio.volume = 0.3;
+      audio.play().catch(console.error);
+      
       onClose();
     } catch (e) {
       console.error("Errore durante la salvataggio:", e);

@@ -85,8 +85,8 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
 
           const iconHtml = `
             <div class="finding-marker" style="
-              width: 32px;
-              height: 32px;
+              width: 40px;
+              height: 40px;
               position: relative;
               display: flex;
               justify-content: center;
@@ -103,10 +103,10 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
               <img 
                 src="${iconUrl}" 
                 style="
-                  width: 24px;
-                  height: 24px;
+                  width: 32px;
+                  height: 32px;
                   position: relative;
-                  z-index: 1;
+                  z-index: 1000;
                   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
                 "
                 alt="${finding.type}"
@@ -119,23 +119,24 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
           const customIcon = L.divIcon({
             html: iconHtml,
             className: 'finding-icon',
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-            popupAnchor: [0, -16]
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            popupAnchor: [0, -20]
           });
 
           // Create and add the marker
           const marker = L.marker(finding.coordinates, {
             icon: customIcon,
-            riseOnHover: true
+            riseOnHover: true,
+            zIndexOffset: 1000
           });
 
           // Add popup with finding details
           marker.bindPopup(`
-            <div style="padding: 8px;">
-              <h3 style="margin: 0 0 8px 0; font-weight: bold;">${finding.name}</h3>
-              ${finding.description ? `<p style="margin: 0 0 8px 0;">${finding.description}</p>` : ''}
-              ${finding.photoUrl ? `<img src="${finding.photoUrl}" style="max-width: 200px; margin-bottom: 8px;" alt="${finding.name}">` : ''}
+            <div style="padding: 12px; min-width: 200px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: bold; color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};">${finding.name}</h3>
+              ${finding.description ? `<p style="margin: 0 0 8px 0; color: #666;">${finding.description}</p>` : ''}
+              ${finding.photoUrl ? `<img src="${finding.photoUrl}" style="max-width: 200px; margin-bottom: 8px; border-radius: 4px;" alt="${finding.name}">` : ''}
               <p style="margin: 0; font-size: 0.8em; color: #666;">
                 ${new Date(finding.timestamp).toLocaleString('it-IT')}
               </p>
