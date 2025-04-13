@@ -401,115 +401,118 @@ export const useTrackStore = create<TrackState>()(
       
       addFinding: (finding) => {
         const { currentTrack } = get();
-        if (currentTrack && navigator.geolocation) {
-          // Utilizziamo opzioni ottimizzate per ottenere la posizione più precisa possibile
-          const geoOptions = {
-            enableHighAccuracy: true,
-            timeout: 1000, // Ridotto per ottenere una risposta più rapida
-            maximumAge: 0 // Forza l'acquisizione di una nuova posizione
-          };
-          
-          // Mostra un messaggio di log per indicare che stiamo acquisendo la posizione
-          console.log(`Acquisizione posizione GPS per tag di tipo: ${finding.type}...`);
-          
-          // Utilizziamo getCurrentPosition con retry per garantire l'acquisizione della posizione
-          const tryGetPosition = (retryCount = 0, maxRetries = 3) => {
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const coordinates: [number, number] = [
-                  position.coords.latitude,
-                  position.coords.longitude
-                ];
-                
-                console.log(`Aggiunta tag alle coordinate GPS precise: [${coordinates[0]}, ${coordinates[1]}], tipo: ${finding.type}, accuratezza: ${position.coords.accuracy}m`);
-                
-                const newFinding: Finding = {
-                  ...finding,
-                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  trackId: currentTrack.id,
-                  coordinates,
-                  timestamp: new Date()
-                };
-                
-                // Aggiorna immediatamente lo stato con il nuovo ritrovamento
-                // per garantire che il tag appaia subito sulla mappa
+        if (!currentTrack) {
+          console.error('Nessuna traccia attiva per aggiungere il tag');
+          return;
+        }
+
+        // Utilizziamo opzioni ottimizzate per ottenere la posizione più precisa possibile
+        const geoOptions = {
+          enableHighAccuracy: true,
+          timeout: 5000, // Aumentato il timeout
+          maximumAge: 0
+        };
+        
+        console.log(`Acquisizione posizione GPS per tag di tipo: ${finding.type}...`);
+        
+        const tryGetPosition = (retryCount = 0, maxRetries = 3) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const coordinates: [number, number] = [
+                position.coords.latitude,
+                position.coords.longitude
+              ];
+              
+              console.log(`Aggiunta tag alle coordinate GPS precise: [${coordinates[0]}, ${coordinates[1]}], tipo: ${finding.type}, accuratezza: ${position.coords.accuracy}m`);
+              
+              const newFinding: Finding = {
+                ...finding,
+                id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                trackId: currentTrack.id,
+                coordinates,
+                timestamp: new Date()
+              };
+              
+              // Aggiorna lo stato in modo sicuro
+              try {
                 const updatedTrack = {
                   ...currentTrack,
-                  findings: [...currentTrack.findings, newFinding]
+                  findings: [...(currentTrack.findings || []), newFinding]
                 };
                 
                 console.log('Updating track state with new finding:', {
                   findingId: newFinding.id,
                   coordinates: newFinding.coordinates,
-                  currentFindingsCount: currentTrack.findings.length,
+                  currentFindingsCount: currentTrack.findings?.length || 0,
                   updatedFindingsCount: updatedTrack.findings.length,
                   trackId: currentTrack.id
                 });
                 
                 set({
                   currentTrack: updatedTrack
-                }, true); // Forza l'aggiornamento immediato dello stato
+                }, true);
                 
-                // Verifica che lo stato sia stato aggiornato correttamente
-                console.log('State updated, current track:', {
-                  trackId: get().currentTrack?.id,
-                  findingsCount: get().currentTrack?.findings.length,
-                  lastFinding: get().currentTrack?.findings[get().currentTrack?.findings.length - 1]
-                });
-                
-                // Riproduci un suono di conferma per indicare che il tag è stato aggiunto
+                // Riproduci un suono di conferma
                 try {
                   const audio = new Audio('/sound/alert.mp3');
-                  audio.volume = 0.3; // Aumentato leggermente il volume
+                  audio.volume = 0.3;
                   audio.play().catch(e => console.error('Errore nella riproduzione audio:', e));
                 } catch (error) {
                   console.error('Errore nella riproduzione audio:', error);
                 }
-              },
-              (error) => {
-                console.warn(`Errore nell'acquisizione della posizione per il tag (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
+              } catch (error) {
+                console.error('Errore durante l\'aggiornamento dello stato:', error);
+              }
+            },
+            (error) => {
+              console.warn(`Errore nell'acquisizione della posizione per il tag (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
+              
+              if (retryCount < maxRetries) {
+                const retryOptions = {
+                  ...geoOptions,
+                  enableHighAccuracy: retryCount < 1,
+                  timeout: geoOptions.timeout + (retryCount * 1000)
+                };
                 
-                if (retryCount < maxRetries) {
-                  // Riprova con opzioni meno restrittive
-                  const retryOptions = {
-                    ...geoOptions,
-                    enableHighAccuracy: retryCount < 1, // Disabilita high accuracy dopo il primo retry
-                    timeout: geoOptions.timeout + (retryCount * 1000)
+                console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
+                setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 500);
+              } else {
+                // Fallback all'ultima posizione conosciuta
+                if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
+                  const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
+                  
+                  console.log(`Fallback: aggiunta tag all'ultima posizione conosciuta: [${lastPosition[0]}, ${lastPosition[1]}], tipo: ${finding.type}`);
+                  
+                  const newFinding: Finding = {
+                    ...finding,
+                    id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    trackId: currentTrack.id,
+                    coordinates: lastPosition,
+                    timestamp: new Date()
                   };
                   
-                  console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
-                  setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 500);
-                } else {
-                  // Fallback: usa l'ultima posizione conosciuta dal track
-                  if (currentTrack.coordinates.length > 0) {
-                    const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-                    
-                    console.log(`Fallback: aggiunta tag all'ultima posizione conosciuta: [${lastPosition[0]}, ${lastPosition[1]}], tipo: ${finding.type}`);
-                    
-                    const newFinding: Finding = {
-                      ...finding,
-                      id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                      trackId: currentTrack.id,
-                      coordinates: lastPosition,
-                      timestamp: new Date()
+                  try {
+                    const updatedTrack = {
+                      ...currentTrack,
+                      findings: [...(currentTrack.findings || []), newFinding]
                     };
                     
                     set({
-                      currentTrack: {
-                        ...currentTrack,
-                        findings: [...currentTrack.findings, newFinding]
-                      }
-                    }, true); // Forza l'aggiornamento immediato dello stato
+                      currentTrack: updatedTrack
+                    }, true);
+                  } catch (error) {
+                    console.error('Errore durante l\'aggiornamento dello stato con fallback:', error);
                   }
+                } else {
+                  console.error('Impossibile aggiungere il tag: nessuna posizione disponibile');
                 }
-              },
-              geoOptions
-            );
-          };
-          
-          // Avvia il primo tentativo di acquisizione della posizione
-          tryGetPosition();
-        }
+              }
+            },
+            geoOptions
+          );
+        };
+        
+        tryGetPosition();
       },
 
       loadFindings: (findings: Finding[]) => {
