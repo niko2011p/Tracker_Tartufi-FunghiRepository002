@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Clock, Route, X, AlertTriangle, Navigation, Save, Info } from 'lucide-react';
-import { Track, Finding } from '../types';
+import { MapPin, Clock, Route, X, AlertTriangle, Navigation, Save, Info, Thermometer, Droplet, Wind, Cloud, Sun } from 'lucide-react';
+import { Track, Finding, WeatherData } from '../types';
 import Map from './Map';
+import { useWeatherStore } from '../store/weatherStore';
+
+interface TrackingData {
+  avgSpeed: number;
+  maxSpeed: number;
+  elevationGain: number;
+  elevationLoss: number;
+  calories: number;
+  steps: number;
+  temperature: number;
+  humidity: number;
+}
 
 interface TrackDetailsProps {
   track: Track;
@@ -12,6 +24,47 @@ interface TrackDetailsProps {
 
 const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const { currentWeather, historicalData } = useWeatherStore();
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+
+  useEffect(() => {
+    // Calcola i dati di tracking basati sulla traccia
+    if (track.coordinates && track.coordinates.length > 1) {
+      const totalDistance = track.distance;
+      const duration = track.endTime 
+        ? (track.endTime.getTime() - track.startTime.getTime()) / 1000 / 60 // in minuti
+        : 0;
+      
+      // Calcola velocità media e massima
+      const avgSpeed = duration > 0 ? (totalDistance / duration) * 60 : 0; // km/h
+      
+      // Calcola dislivello
+      let elevationGain = 0;
+      let elevationLoss = 0;
+      for (let i = 1; i < track.coordinates.length; i++) {
+        const prevCoord = track.coordinates[i-1];
+        const currCoord = track.coordinates[i];
+        const diff = currCoord[1] - prevCoord[1]; // Usa l'indice 1 per l'altitudine
+        if (diff > 0) elevationGain += diff;
+        else elevationLoss += Math.abs(diff);
+      }
+
+      // Stima calorie e passi
+      const calories = Math.round(totalDistance * 60); // Stima approssimativa
+      const steps = Math.round(totalDistance * 1300); // Stima approssimativa
+
+      setTrackingData({
+        avgSpeed,
+        maxSpeed: avgSpeed * 1.5, // Stima approssimativa
+        elevationGain: Math.round(elevationGain),
+        elevationLoss: Math.round(elevationLoss),
+        calories,
+        steps,
+        temperature: currentWeather?.temperature || 0,
+        humidity: currentWeather?.humidity || 0
+      });
+    }
+  }, [track, currentWeather]);
 
   const getFindingStyles = (finding: Finding) => {
     return {
@@ -21,12 +74,38 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
     };
   };
 
+  const getWeatherIcon = (condition: string) => {
+    switch (condition.toLowerCase()) {
+      case 'clear':
+        return <Sun className="w-5 h-5 text-yellow-500" />;
+      case 'clouds':
+        return <Cloud className="w-5 h-5 text-gray-500" />;
+      case 'rain':
+        return <Droplet className="w-5 h-5 text-blue-500" />;
+      default:
+        return <Cloud className="w-5 h-5 text-gray-500" />;
+    }
+  };
+
+  const getFindingIcon = (type: string) => {
+    switch (type) {
+      case 'Fungo':
+        return <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-5 h-5" />;
+      case 'Tartufo':
+        return <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-5 h-5" />;
+      case 'poi':
+        return <img src="/icon/point-of-interest-tag-icon.svg" alt="Punto di interesse" className="w-5 h-5" />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold">{track.name}</h2>
+          <h2 className="text-xl font-semibold">{track.location?.name || 'Traccia senza nome'}</h2>
           <p className="text-sm text-gray-600">
             {format(track.startTime, "PPP p", { locale: it })}
           </p>
@@ -47,7 +126,7 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
             <Map track={track} />
           </div>
 
-          {/* Stats */}
+          {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-2">
@@ -76,6 +155,78 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
             </div>
           </div>
 
+          {/* Tracking Data */}
+          {trackingData && (
+            <div className="bg-white rounded-lg shadow mb-6">
+              <h3 className="p-4 border-b text-lg font-semibold">Dati di Tracking</h3>
+              <div className="grid grid-cols-2 gap-4 p-4">
+                <div className="flex items-center gap-2">
+                  <Route className="w-5 h-5 text-[#FF9800]" />
+                  <div>
+                    <p className="text-sm text-gray-600">Velocità media</p>
+                    <p className="text-lg font-semibold">{trackingData.avgSpeed.toFixed(1)} km/h</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Route className="w-5 h-5 text-[#FF9800]" />
+                  <div>
+                    <p className="text-sm text-gray-600">Velocità max</p>
+                    <p className="text-lg font-semibold">{trackingData.maxSpeed.toFixed(1)} km/h</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Navigation className="w-5 h-5 text-[#8eaa36]" />
+                  <div>
+                    <p className="text-sm text-gray-600">Dislivello positivo</p>
+                    <p className="text-lg font-semibold">{trackingData.elevationGain} m</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Navigation className="w-5 h-5 text-[#8B4513]" />
+                  <div>
+                    <p className="text-sm text-gray-600">Dislivello negativo</p>
+                    <p className="text-lg font-semibold">{trackingData.elevationLoss} m</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Thermometer className="w-5 h-5 text-red-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Temperatura</p>
+                    <p className="text-lg font-semibold">{trackingData.temperature}°C</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Droplet className="w-5 h-5 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Umidità</p>
+                    <p className="text-lg font-semibold">{trackingData.humidity}%</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Weather History */}
+          {historicalData && historicalData.length > 0 && (
+            <div className="bg-white rounded-lg shadow mb-6">
+              <h3 className="p-4 border-b text-lg font-semibold">Storico Meteo</h3>
+              <div className="p-4">
+                <div className="grid grid-cols-7 gap-2">
+                  {historicalData.map((day: WeatherData, index: number) => (
+                    <div key={index} className="text-center">
+                      <p className="text-sm text-gray-600">{format(day.timestamp, 'dd/MM')}</p>
+                      <div className="my-2">
+                        {getWeatherIcon(day.condition)}
+                      </div>
+                      <p className="text-sm font-medium">{day.temperature}°C</p>
+                      <p className="text-xs text-gray-500">{day.humidity}%</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Findings List */}
           <div className="bg-white rounded-lg shadow">
             <h3 className="p-4 border-b text-lg font-semibold">Ritrovamenti</h3>
@@ -89,7 +240,7 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
                     onClick={() => setSelectedFinding(finding)}
                   >
                     <div className="flex items-center gap-2">
-                      <MapPin className={`w-5 h-5 ${styles.text}`} />
+                      {getFindingIcon(finding.type)}
                       <span className={`font-medium ${styles.text}`}>{finding.name}</span>
                     </div>
                     {finding.description && (
