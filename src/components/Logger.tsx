@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useTrackStore } from '../store/trackStore';
+import { useTrackHistoryStore } from '../store/trackHistoryStore';
 import { format, differenceInMinutes, differenceInHours } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { MapPin, Clock, Route, Download, Upload, Map as MapIcon, History, Cloud, Search, X, Trash2, AlertTriangle, Navigation, Save, Info } from 'lucide-react';
@@ -122,6 +123,7 @@ let renderCount = 0;
 
 const Logger: React.FC = () => {
   const { tracks, exportTracks, importTracks, deleteTrack, deleteAllTracks, loadFindings, startTrack } = useTrackStore();
+  const { trackHistory } = useTrackHistoryStore();
   const navigate = useNavigate();
   const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);

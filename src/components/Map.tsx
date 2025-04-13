@@ -1,103 +1,86 @@
 import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useTrackStore } from '../store/trackStore';
+import { Track } from '../types';
 import FindingMarker from './FindingMarker';
-import { Track } from '../types/track';
 
 interface MapProps {
-  initialCenter: [number, number];
-  initialZoom: number;
-  showControls?: boolean;
-  showCurrentLocation?: boolean;
+  showTrack?: boolean;
+  fitBounds?: boolean;
   track?: Track;
 }
 
-const MapContent: React.FC<{
-  showCurrentLocation?: boolean;
-  track?: Track;
-}> = ({ showCurrentLocation, track }) => {
-  const map = useMap();
+const Map: React.FC<MapProps> = ({ showTrack = false, fitBounds = false, track: propTrack }) => {
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const { currentTrack, currentPosition } = useTrackStore();
+  const track = propTrack || currentTrack;
 
   useEffect(() => {
-    if (track) {
+    if (!mapContainerRef.current) return;
+
+    // Inizializza la mappa se non esiste
+    if (!mapRef.current) {
+      mapRef.current = L.map(mapContainerRef.current).setView([45.4642, 9.1900], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(mapRef.current);
+    }
+
+    // Aggiorna la vista se c'è una posizione corrente
+    if (currentPosition && !track) {
+      mapRef.current.setView([currentPosition.lat, currentPosition.lng], 13);
+    }
+
+    // Visualizza la traccia se richiesto
+    if (showTrack && track && track.coordinates.length > 0) {
       // Rimuovi la traccia precedente se esiste
-      map.eachLayer((layer) => {
+      mapRef.current.eachLayer((layer) => {
         if (layer instanceof L.Polyline) {
-          map.removeLayer(layer);
+          mapRef.current?.removeLayer(layer);
         }
       });
 
       // Aggiungi la nuova traccia
-      const polyline = L.polyline(track.path, {
-        color: '#FF6B35',
-        weight: 4,
-        opacity: 0.8,
-      }).addTo(map);
+      const polyline = L.polyline(track.coordinates, {
+        color: '#FF9800',
+        weight: 5,
+        opacity: 0.7
+      }).addTo(mapRef.current);
 
-      // Centra la mappa sulla traccia
-      map.fitBounds(polyline.getBounds(), {
-        padding: [50, 50],
-      });
-    }
-  }, [map, track]);
-
-  useEffect(() => {
-    if (showCurrentLocation) {
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          map.setView([latitude, longitude], map.getZoom());
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0,
+      // Aggiungi i marker per i ritrovamenti
+      track.findings.forEach((finding) => {
+        if (finding.coordinates) {
+          FindingMarker({ 
+            position: finding.coordinates,
+            type: finding.type,
+            map: mapRef.current!
+          });
         }
-      );
+      });
 
-      return () => {
-        navigator.geolocation.clearWatch(watchId);
-      };
+      // Adatta la vista alla traccia se richiesto
+      if (fitBounds) {
+        mapRef.current.fitBounds(polyline.getBounds(), {
+          padding: [50, 50]
+        });
+      }
     }
-  }, [map, showCurrentLocation]);
 
-  return null;
-};
-
-const Map: React.FC<MapProps> = ({
-  initialCenter,
-  initialZoom,
-  showControls = true,
-  showCurrentLocation = false,
-  track,
-}) => {
-  const mapRef = useRef<L.Map>(null);
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [showTrack, fitBounds, track, currentPosition]);
 
   return (
-    <MapContainer
-      center={initialCenter}
-      zoom={initialZoom}
-      style={{ height: '100%', width: '100%' }}
-      zoomControl={showControls}
-      ref={mapRef}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      <MapContent showCurrentLocation={showCurrentLocation} track={track} />
-      {track?.findings.map((finding) => (
-        <FindingMarker
-          key={finding.id}
-          finding={finding}
-          map={mapRef.current!}
-        />
-      ))}
-    </MapContainer>
+    <div 
+      ref={mapContainerRef} 
+      className="w-full h-full"
+    />
   );
 };
 
