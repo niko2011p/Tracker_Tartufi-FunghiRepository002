@@ -71,7 +71,7 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
     }
   },
   stopButton: {
-    position: { x: 10, y: 90 },
+    position: { x: 15, y: 90 },
     positionType: 'percentage',
     size: 75,
     color: 'bg-red-500',
