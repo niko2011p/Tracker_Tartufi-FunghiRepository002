@@ -10,9 +10,19 @@ const Compass: React.FC = () => {
 
   useEffect(() => {
     const handleOrientation = (event: DeviceOrientationEvent) => {
-      if (event.alpha !== null) {
-        // Calcola la rotazione in base all'orientamento del dispositivo
-        const newHeading = event.alpha;
+      if (event.alpha !== null && event.beta !== null && event.gamma !== null) {
+        // Calcola l'heading usando tutti e tre gli angoli
+        const alpha = event.alpha; // rotazione attorno all'asse z
+        const beta = event.beta;   // rotazione attorno all'asse x
+        const gamma = event.gamma; // rotazione attorno all'asse y
+
+        // Calcola l'heading in base all'orientamento del dispositivo
+        let newHeading = alpha;
+        
+        // Aggiusta l'heading in base all'inclinazione del dispositivo
+        if (beta > 0) {
+          newHeading = (newHeading + 180) % 360;
+        }
         
         // Calcola la differenza minima per la rotazione
         let diff = newHeading - lastHeadingRef.current;
