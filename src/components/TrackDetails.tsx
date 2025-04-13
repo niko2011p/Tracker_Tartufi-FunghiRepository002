@@ -130,14 +130,14 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
             {format(track.startTime, "PPP p", { locale: it })}
           </p>
         </div>
-        <button
-          onClick={onClose}
+          <button 
+            onClick={onClose}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-        >
+          >
           <X className="w-5 h-5" />
-        </button>
-      </div>
-
+          </button>
+        </div>
+        
       {/* Content */}
       <div className="flex-1 overflow-auto">
         <div className="p-4">
@@ -200,29 +200,29 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
                 <span className="text-sm font-medium">Temperatura</span>
               </div>
               <p className="text-2xl font-semibold mt-2">{currentWeather?.temperature || 0}°C</p>
-            </div>
+          </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-2">
                 <Droplets className="w-5 h-5 text-blue-500" />
                 <span className="text-sm font-medium">Umidità</span>
-              </div>
+        </div>
               <p className="text-2xl font-semibold mt-2">{currentWeather?.humidity || 0}%</p>
-            </div>
+                      </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-2">
                 <Route className="w-5 h-5 text-[#FF9800]" />
                 <span className="text-sm font-medium">Calorie</span>
-              </div>
+                  </div>
               <p className="text-2xl font-semibold mt-2">{trackingData?.calories || 0} kcal</p>
-            </div>
+          </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-2">
                 <Route className="w-5 h-5 text-[#FF9800]" />
                 <span className="text-sm font-medium">Passi</span>
-              </div>
+        </div>
               <p className="text-2xl font-semibold mt-2">{trackingData?.steps || 0}</p>
             </div>
-          </div>
+                      </div>
 
           {/* Current Weather */}
           {currentWeather && (
@@ -252,7 +252,7 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
               <div className="p-4 border-b flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Ritrovamenti</h3>
                 <span className="text-sm text-gray-500">{track.findings.length} totali</span>
-              </div>
+        </div>
               <div className="divide-y">
                 {track.findings.map((finding, index) => {
                   const styles = getFindingStyles(finding);
@@ -265,25 +265,25 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
                       <div className="flex items-center gap-3">
                         <div className="flex-shrink-0">
                           {getFindingIcon(finding.type)}
-                        </div>
-                        <div>
+                    </div>
+                    <div>
                           <span className={`font-medium ${styles.text}`}>{finding.name || finding.type}</span>
                           {finding.description && (
                             <p className="text-sm text-gray-600 mt-1">{finding.description}</p>
                           )}
-                        </div>
-                      </div>
-                      {finding.photoUrl && (
-                        <img 
-                          src={finding.photoUrl} 
+                    </div>
+                  </div>
+                  {finding.photoUrl && (
+                      <img 
+                        src={finding.photoUrl} 
                           alt={finding.name || finding.type}
                           className="mt-2 rounded-lg w-full max-h-48 object-cover"
-                        />
+                      />
                       )}
                     </div>
                   );
                 })}
-              </div>
+                </div>
             </div>
           )}
         </div>
