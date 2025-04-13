@@ -91,7 +91,7 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
   return (
     <div 
       ref={mapContainerRef} 
-      className="w-full h-full"
+      className="w-full h-full bg-white"
       style={{ minHeight: '300px' }}
     />
   );

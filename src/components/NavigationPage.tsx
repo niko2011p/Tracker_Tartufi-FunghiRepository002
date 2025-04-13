@@ -7,7 +7,7 @@ import { DivIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import './UnifiedButtons.css';
-import { Finding as FindingType } from '../types';
+import { Finding as FindingType, Track } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
 import GpsStatusIndicator from './GpsStatusIndicator';
@@ -40,48 +40,74 @@ const createGpsArrowIcon = (direction = 0) => {
   });
 };
 
-const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse', isLoaded: boolean = false) => {
-  const opacity = isLoaded ? '0.5' : '1';
-  
-  if (type === 'Fungo') {
-    return new DivIcon({
-      html: `
-        <div class="finding-icon-wrapper fungo-finding">
-          <img src="/icon/mushroom-tag-icon.svg" width="24" height="24" alt="Fungo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
-        </div>
-      `,
-      className: 'finding-icon fungo-finding',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12]
-    });
-  } else if (type === 'Tartufo') {
-    return new DivIcon({
-      html: `
-        <div class="finding-icon-wrapper tartufo-finding">
-          <img src="/icon/Truffle-tag-icon.svg" width="24" height="24" alt="Tartufo Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
-        </div>
-      `,
-      className: 'finding-icon tartufo-finding',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12]
-    });
-  } else {
-    // Punto di interesse
-    return new DivIcon({
-      html: `
-        <div class="finding-icon-wrapper interesse-finding">
-          <img src="/icon/point-of-interest-tag-icon.svg" width="24" height="24" alt="Punto di Interesse Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); opacity: ${opacity};" />
-        </div>
-      `,
-      className: 'finding-icon interesse-finding',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12]
-    });
-  }
+const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'Interesse' | 'poi', isLoaded: boolean = false) => {
+  const iconUrl = type === 'Fungo' || type === 'poi'
+    ? '/icon/mushroom-tag-icon.svg'
+    : type === 'Tartufo'
+      ? '/icon/Truffle-tag-icon.svg'
+      : '/icon/point-of-interest-tag-icon.svg';
+
+  return new L.DivIcon({
+    html: `
+      <div class="finding-icon-wrapper ${type.toLowerCase()}-finding" style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 32px;
+        height: 32px;
+        position: relative;
+      ">
+        <div class="finding-icon-pulse" style="
+          position: absolute;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: ${type === 'Fungo' || type === 'poi' ? '#8eaa36' : type === 'Tartufo' ? '#8B4513' : '#f5a149'}40;
+          animation: pulse 2s infinite;
+        "></div>
+        <img 
+          src="${iconUrl}" 
+          width="24" 
+          height="24" 
+          alt="${type} Icon" 
+          style="
+            position: relative;
+            z-index: 1;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+            opacity: ${isLoaded ? '0.6' : '1'};
+            transition: transform 0.2s ease;
+          "
+          onmouseover="this.style.transform='scale(1.1)'"
+          onmouseout="this.style.transform='scale(1)'"
+        />
+      </div>
+    `,
+    className: 'finding-icon',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  });
 };
+
+// Aggiungi lo stile CSS per l'animazione pulse
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes pulse {
+    0% {
+      transform: scale(0.95);
+      opacity: 0.5;
+    }
+    50% {
+      transform: scale(1.2);
+      opacity: 0.2;
+    }
+    100% {
+      transform: scale(0.95);
+      opacity: 0.5;
+    }
+  }
+`;
+document.head.appendChild(style);
 
 // Componente per aggiornare la posizione in tempo reale
 function LocationUpdater({ onGpsUpdate, onPositionUpdate }: { 
@@ -357,7 +383,7 @@ function ZoomControl() {
 }
 
 // Update the Finding type to include lat, lng, and note properties
-interface Finding extends Omit<FindingType, 'coordinates'> {
+interface Finding extends TrackFinding {
   lat: number;
   lng: number;
   note?: string;
@@ -544,7 +570,19 @@ const NavigationPage: React.FC = () => {
                       key={finding.id}
                       position={finding.coordinates}
                       icon={createFindingIcon(findingType)}
-                    />
+                    >
+                      <Popup>
+                        <div className="p-2">
+                          <h3 className="font-semibold">{finding.name || finding.type}</h3>
+                          {finding.description && (
+                            <p className="text-sm mt-1">{finding.description}</p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(finding.timestamp).toLocaleString('it-IT')}
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
                   );
                 })}
             </>
@@ -559,7 +597,19 @@ const NavigationPage: React.FC = () => {
                 key={`loaded-${finding.id}`}
                 position={finding.coordinates}
                 icon={createFindingIcon(findingType, true)}
-              />
+              >
+                <Popup>
+                  <div className="p-2">
+                    <h3 className="font-semibold">{finding.name || finding.type}</h3>
+                    {finding.description && (
+                      <p className="text-sm mt-1">{finding.description}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(finding.timestamp).toLocaleString('it-IT')}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
             );
           })}
           
@@ -575,7 +625,19 @@ const NavigationPage: React.FC = () => {
                   key={`tag-${finding.id}`}
                   position={finding.coordinates}
                   icon={createFindingIcon(findingType)}
-                />
+                >
+                  <Popup>
+                    <div className="p-2">
+                      <h3 className="font-semibold">{finding.name || finding.type}</h3>
+                      {finding.description && (
+                        <p className="text-sm mt-1">{finding.description}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(finding.timestamp).toLocaleString('it-IT')}
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
               );
             })}
         </MapContainer>

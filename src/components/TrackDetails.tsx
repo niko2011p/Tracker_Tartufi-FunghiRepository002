@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Clock, Route, X, AlertTriangle, Navigation, Save, Info, Thermometer, Droplet, Wind, Cloud, Sun } from 'lucide-react';
+import { Clock, Route, X, AlertTriangle, Navigation, Save, Info, Thermometer, Droplets, Wind, Cloud, Sun, ArrowUp, ArrowDown, Timer, Mountain } from 'lucide-react';
 import { Track, Finding, WeatherData } from '../types';
 import Map from './Map';
 import { useWeatherStore } from '../store/weatherStore';
+import { useTrackStore } from '../store/trackStore';
 
 interface TrackingData {
-  avgSpeed: number;
-  maxSpeed: number;
+  totalTime: number;
+  totalDistance: number;
+  averageSpeed: number;
   elevationGain: number;
   elevationLoss: number;
+  averageHeight: number;
   calories: number;
   steps: number;
-  temperature: number;
-  humidity: number;
-  totalDistance: number;
-  totalTime: number;
 }
 
 interface TrackDetailsProps {
@@ -26,93 +25,57 @@ interface TrackDetailsProps {
 
 const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
-  const { currentWeather, historicalData } = useWeatherStore();
+  const { currentWeather } = useWeatherStore();
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
 
-  const handleTakePhoto = async (findingId: string) => {
-    try {
-      // Verifica se il browser supporta l'API della fotocamera
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('La fotocamera non è supportata dal browser');
-      }
-
-      // Richiedi l'accesso alla fotocamera
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment' // Preferisci la fotocamera posteriore
-        } 
-      });
-
-      // Crea un elemento video per mostrare l'anteprima
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.autoplay = true;
-
-      // Crea un elemento canvas per catturare la foto
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-
-      // Quando il video è pronto, cattura la foto
-      video.onloadedmetadata = () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // Converti la foto in base64
-        const photoData = canvas.toDataURL('image/jpeg');
-
-        // Ferma lo stream della fotocamera
-        stream.getTracks().forEach(track => track.stop());
-
-        // TODO: Salva la foto nel ritrovamento
-        console.log('Foto scattata:', photoData);
-      };
-    } catch (error) {
-      console.error('Errore durante l\'accesso alla fotocamera:', error);
-      alert('Impossibile accedere alla fotocamera. Assicurati di aver concesso i permessi necessari.');
-    }
-  };
-
   useEffect(() => {
-    // Calcola i dati di tracking basati sulla traccia
+    if (!track) return;
+
+    // Calcola i dati di tracking
+    const totalTime = track.endTime 
+      ? (new Date(track.endTime).getTime() - new Date(track.startTime).getTime()) / (1000 * 60)
+      : (new Date().getTime() - new Date(track.startTime).getTime()) / (1000 * 60);
+
+    const totalDistance = track.totalDistance || track.distance || 0;
+    const averageSpeed = totalDistance / (totalTime / 60);
+
+    // Calcola l'elevazione usando le coordinate
+    let elevationGain = 0;
+    let elevationLoss = 0;
+    let totalHeight = 0;
+
     if (track.coordinates && track.coordinates.length > 1) {
-      const totalDistance = track.distance;
-      const totalTime = track.endTime 
-        ? (track.endTime.getTime() - track.startTime.getTime()) / 1000 / 60 // in minuti
-        : 0;
-      
-      // Calcola velocità media e massima
-      const avgSpeed = totalTime > 0 ? (totalDistance / totalTime) * 60 : 0; // km/h
-      
-      // Calcola dislivello
-      let elevationGain = 0;
-      let elevationLoss = 0;
       for (let i = 1; i < track.coordinates.length; i++) {
-        const prevCoord = track.coordinates[i-1];
-        const currCoord = track.coordinates[i];
-        const diff = currCoord[1] - prevCoord[1]; // Usa l'indice 1 per l'altitudine
+        const prevHeight = track.coordinates[i - 1][0] || 0;
+        const currHeight = track.coordinates[i][0] || 0;
+        const diff = currHeight - prevHeight;
+        
         if (diff > 0) elevationGain += diff;
         else elevationLoss += Math.abs(diff);
+        
+        totalHeight += currHeight;
       }
-
-      // Stima calorie e passi
-      const calories = Math.round(totalDistance * 60); // Stima approssimativa
-      const steps = Math.round(totalDistance * 1300); // Stima approssimativa
-
-      setTrackingData({
-        totalDistance,
-        totalTime,
-        avgSpeed,
-        maxSpeed: avgSpeed * 1.5, // Stima approssimativa
-        elevationGain: Math.round(elevationGain),
-        elevationLoss: Math.round(elevationLoss),
-        calories,
-        steps,
-        temperature: currentWeather?.temperature || 0,
-        humidity: currentWeather?.humidity || 0
-      });
     }
-  }, [track, currentWeather]);
+
+    const averageHeight = track.coordinates && track.coordinates.length > 0
+      ? totalHeight / track.coordinates.length
+      : 0;
+
+    // Stima calorie e passi
+    const calories = Math.round(totalDistance * 60);
+    const steps = Math.round(totalDistance * 1312);
+
+    setTrackingData({
+      totalTime,
+      totalDistance,
+      averageSpeed,
+      elevationGain,
+      elevationLoss,
+      averageHeight,
+      calories,
+      steps
+    });
+  }, [track]);
 
   const getFindingStyles = (finding: Finding) => {
     return {
@@ -122,6 +85,19 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
     };
   };
 
+  const getFindingIcon = (type: string) => {
+    switch (type) {
+      case 'Fungo':
+        return <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-6 h-6" />;
+      case 'Tartufo':
+        return <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-6 h-6" />;
+      case 'poi':
+        return <img src="/icon/point-of-interest-tag-icon.svg" alt="Punto di interesse" className="w-6 h-6" />;
+      default:
+        return null;
+    }
+  };
+
   const getWeatherIcon = (condition: string) => {
     switch (condition.toLowerCase()) {
       case 'clear':
@@ -129,23 +105,19 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
       case 'clouds':
         return <Cloud className="w-5 h-5 text-gray-500" />;
       case 'rain':
-        return <Droplet className="w-5 h-5 text-blue-500" />;
+        return <Droplets className="w-5 h-5 text-blue-500" />;
       default:
         return <Cloud className="w-5 h-5 text-gray-500" />;
     }
   };
 
-  const getFindingIcon = (type: string) => {
-    switch (type) {
-      case 'Fungo':
-        return <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-5 h-5" />;
-      case 'Tartufo':
-        return <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-5 h-5" />;
-      case 'poi':
-        return <img src="/icon/point-of-interest-tag-icon.svg" alt="Punto di interesse" className="w-5 h-5" />;
-      default:
-        return null;
+  const formatDuration = (minutes: number) => {
+    if (minutes < 60) {
+      return `${Math.round(minutes)} min`;
     }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = Math.round(minutes % 60);
+    return `${hours}h ${remainingMinutes}min`;
   };
 
   return (
@@ -170,147 +142,150 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
       <div className="flex-1 overflow-auto">
         <div className="p-4">
           {/* Map */}
-          <div className="h-64 mb-6 rounded-lg overflow-hidden">
-            <Map track={track} onTakePhoto={handleTakePhoto} />
+          <div className="h-64 mb-6 rounded-lg overflow-hidden border">
+            <Map track={track} />
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-gray-500" />
+                <Timer className="w-5 h-5 text-blue-500" />
                 <span className="text-sm font-medium">Durata</span>
               </div>
               <p className="text-2xl font-semibold mt-2">
-                {trackingData?.totalTime ? `${Math.round(trackingData.totalTime)} min` : 'In corso'}
+                {track.endTime ? formatDuration(trackingData?.totalTime || 0) : 'In corso'}
               </p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-2">
-                <Route className="w-5 h-5 text-[#FF9800]" />
+                <Route className="w-5 h-5 text-blue-500" />
                 <span className="text-sm font-medium">Distanza</span>
               </div>
-              <p className="text-2xl font-semibold mt-2">{trackingData?.totalDistance.toFixed(2) || '0.00'} km</p>
+              <p className="text-2xl font-semibold mt-2">
+                {trackingData ? `${trackingData.totalDistance.toFixed(2)} km` : '0.00 km'}
+              </p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-gray-500" />
-                <span className="text-sm font-medium">Ritrovamenti</span>
+                <ArrowUp className="w-5 h-5 text-green-500" />
+                <span className="text-sm font-medium">Dislivello +</span>
               </div>
-              <p className="text-2xl font-semibold mt-2">{track.findings.length}</p>
+              <p className="text-2xl font-semibold mt-2">{Math.round(trackingData?.elevationGain || 0)} m</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center gap-2">
+                <ArrowDown className="w-5 h-5 text-red-500" />
+                <span className="text-sm font-medium">Dislivello -</span>
+              </div>
+              <p className="text-2xl font-semibold mt-2">{Math.round(trackingData?.elevationLoss || 0)} m</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center gap-2">
+                <Mountain className="w-5 h-5 text-purple-500" />
+                <span className="text-sm font-medium">Altezza Media</span>
+              </div>
+              <p className="text-2xl font-semibold mt-2">{Math.round(trackingData?.averageHeight || 0)} m</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center gap-2">
+                <Route className="w-5 h-5 text-orange-500" />
+                <span className="text-sm font-medium">Velocità Media</span>
+              </div>
+              <p className="text-2xl font-semibold mt-2">{trackingData ? trackingData.averageSpeed.toFixed(1) : '0.00'} km/h</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center gap-2">
+                <Thermometer className="w-5 h-5 text-red-500" />
+                <span className="text-sm font-medium">Temperatura</span>
+              </div>
+              <p className="text-2xl font-semibold mt-2">{currentWeather?.temperature || 0}°C</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center gap-2">
+                <Droplets className="w-5 h-5 text-blue-500" />
+                <span className="text-sm font-medium">Umidità</span>
+              </div>
+              <p className="text-2xl font-semibold mt-2">{currentWeather?.humidity || 0}%</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center gap-2">
+                <Route className="w-5 h-5 text-[#FF9800]" />
+                <span className="text-sm font-medium">Calorie</span>
+              </div>
+              <p className="text-2xl font-semibold mt-2">{trackingData?.calories || 0} kcal</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center gap-2">
+                <Route className="w-5 h-5 text-[#FF9800]" />
+                <span className="text-sm font-medium">Passi</span>
+              </div>
+              <p className="text-2xl font-semibold mt-2">{trackingData?.steps || 0}</p>
             </div>
           </div>
 
-          {/* Tracking Data */}
-          {trackingData && (
+          {/* Current Weather */}
+          {currentWeather && (
             <div className="bg-white rounded-lg shadow mb-6">
-              <h3 className="p-4 border-b text-lg font-semibold">Dati di Tracking</h3>
-              <div className="grid grid-cols-2 gap-4 p-4">
-                <div className="flex items-center gap-2">
-                  <Route className="w-5 h-5 text-[#FF9800]" />
-                  <div>
-                    <p className="text-sm text-gray-600">Velocità media</p>
-                    <p className="text-lg font-semibold">{trackingData.avgSpeed.toFixed(1)} km/h</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Route className="w-5 h-5 text-[#FF9800]" />
-                  <div>
-                    <p className="text-sm text-gray-600">Velocità max</p>
-                    <p className="text-lg font-semibold">{trackingData.maxSpeed.toFixed(1)} km/h</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Navigation className="w-5 h-5 text-[#8eaa36]" />
-                  <div>
-                    <p className="text-sm text-gray-600">Dislivello positivo</p>
-                    <p className="text-lg font-semibold">{trackingData.elevationGain} m</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Navigation className="w-5 h-5 text-[#8B4513]" />
-                  <div>
-                    <p className="text-sm text-gray-600">Dislivello negativo</p>
-                    <p className="text-lg font-semibold">{trackingData.elevationLoss} m</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Thermometer className="w-5 h-5 text-red-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Temperatura</p>
-                    <p className="text-lg font-semibold">{trackingData.temperature}°C</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Droplet className="w-5 h-5 text-blue-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Umidità</p>
-                    <p className="text-lg font-semibold">{trackingData.humidity}%</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Info className="w-5 h-5 text-purple-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Calorie</p>
-                    <p className="text-lg font-semibold">{trackingData.calories} kcal</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Info className="w-5 h-5 text-purple-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Passi</p>
-                    <p className="text-lg font-semibold">{trackingData.steps}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Weather History */}
-          {historicalData && historicalData.length > 0 && (
-            <div className="bg-white rounded-lg shadow mb-6">
-              <h3 className="p-4 border-b text-lg font-semibold">Storico Meteo</h3>
+              <h3 className="p-4 border-b text-lg font-semibold">Meteo Attuale</h3>
               <div className="p-4">
-                <div className="grid grid-cols-7 gap-2">
-                  {historicalData.map((day: WeatherData, index: number) => (
-                    <div key={index} className="text-center">
-                      <p className="text-sm text-gray-600">{format(day.timestamp, 'dd/MM')}</p>
-                      <div className="my-2">
-                        {getWeatherIcon(day.condition)}
-                      </div>
-                      <p className="text-sm font-medium">{day.temperature}°C</p>
-                      <p className="text-xs text-gray-500">{day.humidity}%</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {getWeatherIcon(currentWeather.condition)}
+                    <div>
+                      <p className="text-2xl font-semibold">{currentWeather.temperature}°C</p>
+                      <p className="text-sm text-gray-600">Umidità: {currentWeather.humidity}%</p>
                     </div>
-                  ))}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">Condizioni</p>
+                    <p className="font-medium">{currentWeather.condition}</p>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
           {/* Findings List */}
-          <div className="bg-white rounded-lg shadow">
-            <h3 className="p-4 border-b text-lg font-semibold">Ritrovamenti</h3>
-            <div className="divide-y">
-              {track.findings.map((finding, index) => {
-                const styles = getFindingStyles(finding);
-                return (
-                  <div
-                    key={`finding-${track.id}-${finding.id}-${index}`}
-                    className={`p-4 ${styles.bg} ${styles.hover} transition-colors cursor-pointer`}
-                    onClick={() => setSelectedFinding(finding)}
-                  >
-                    <div className="flex items-center gap-2">
-                      {getFindingIcon(finding.type)}
-                      <span className={`font-medium ${styles.text}`}>{finding.name}</span>
+          {track.findings && track.findings.length > 0 && (
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-4 border-b flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Ritrovamenti</h3>
+                <span className="text-sm text-gray-500">{track.findings.length} totali</span>
+              </div>
+              <div className="divide-y">
+                {track.findings.map((finding, index) => {
+                  const styles = getFindingStyles(finding);
+                  return (
+                    <div
+                      key={`finding-${track.id}-${finding.id}-${index}`}
+                      className={`p-4 ${styles.bg} ${styles.hover} transition-colors cursor-pointer`}
+                      onClick={() => setSelectedFinding(finding)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0">
+                          {getFindingIcon(finding.type)}
+                        </div>
+                        <div>
+                          <span className={`font-medium ${styles.text}`}>{finding.name || finding.type}</span>
+                          {finding.description && (
+                            <p className="text-sm text-gray-600 mt-1">{finding.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      {finding.photoUrl && (
+                        <img 
+                          src={finding.photoUrl} 
+                          alt={finding.name || finding.type}
+                          className="mt-2 rounded-lg w-full max-h-48 object-cover"
+                        />
+                      )}
                     </div>
-                    {finding.description && (
-                      <p className="text-sm text-gray-600 mt-1">{finding.description}</p>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
