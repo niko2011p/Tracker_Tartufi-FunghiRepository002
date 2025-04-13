@@ -73,7 +73,7 @@
 }
 
 /* Permettiamo lo scroll nelle pagine che non sono la mappa principale */
-[data-page="storico"],
+[data-page="logger"],
 [data-page="meteo"],
 [data-page="settings"] {
   overflow-y: auto !important;

@@ -6,9 +6,12 @@ import { useTrackStore } from '../store/trackStore';
 import DataTrackingPanel from '../components/DataTrackingPanel';
 import CompassWidget from '../components/CompassWidget';
 import { Crosshair, Square, Navigation2, MapPin, Plus, Minus } from 'lucide-react';
-import StopTrackingDialog from '../components/StopTrackingDialog';
 import TagOptionsPopup from '../components/TagOptionsPopup';
 import FindingForm from '../components/FindingForm';
+import { useTrackHistoryStore, SavedTrack, TrackTag, calculateStats } from '../store/trackHistoryStore';
+import useButtonConfigStore from '../store/buttonConfigStore';
+import TagButton from '../components/TagButton';
+import StopButton from '../components/StopButton';
 
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -32,48 +35,26 @@ const style = document.createElement('style');
 style.innerHTML = pulseAnimation;
 document.head.appendChild(style);
 
-// Crea un'icona personalizzata per il marker GPS
-const customIcon = L.divIcon({
-  className: 'custom-gps-marker',
-  html: `
-    <div class="relative w-4 h-6">
-      <div class="absolute inset-0 bg-[#f5a149] rounded-full opacity-25 animate-ping"></div>
-      <div class="absolute inset-0 bg-[#f5a149] rounded-full opacity-25 animate-pulse" style="animation-delay: 0.5s"></div>
-      <div class="relative w-full h-full">
-        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#f5a149] rounded-full"></div>
-        <div class="absolute top-2 left-1/2 -translate-x-1/2 w-2 h-4 bg-[#f5a149] rounded-b-full"></div>
+const createFindingIcon = (type: string, isLoaded = false) => {
+  const size: [number, number] = [32, 32];
+  const color = type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#a0522d' : '#f5a149';
+  
+  return L.divIcon({
+    html: `
+      <div class="marker-container">
+        <div class="marker-pulse"></div>
+        <div class="marker-inner">
+          <div class="marker-dot"></div>
+          <div class="marker-ring"></div>
+        </div>
       </div>
-    </div>
-  `,
-  iconSize: [16, 24],
-  iconAnchor: [8, 24]
-});
-
-// Stile CSS per l'animazione del marker
-style.textContent = `
-  .custom-gps-marker {
-    margin-left: -8px;
-    margin-top: -24px;
-  }
-  .custom-gps-marker .animate-ping {
-    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-  }
-  .custom-gps-marker .animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-  @keyframes ping {
-    75%, 100% {
-      transform: scale(2);
-      opacity: 0;
-    }
-  }
-  @keyframes pulse {
-    50% {
-      opacity: .1;
-    }
-  }
-`;
-document.head.appendChild(style);
+    `,
+    className: `custom-icon ${isLoaded ? 'loaded' : ''}`,
+    iconSize: size,
+    iconAnchor: [size[0] / 2, size[1] / 2],
+    popupAnchor: [0, -size[1] / 2]
+  });
+};
 
 // Componente per aggiornare il centro della mappa con effetto volo
 const MapCenterUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
@@ -91,6 +72,9 @@ const MapCenterUpdater: React.FC<{ center: [number, number] }> = ({ center }) =>
 
 const NavigationPage: React.FC = () => {
   const { currentPosition, currentDirection, isRecording, startTrack, stopTrack, setShowFindingForm, showFindingForm } = useTrackStore();
+  const addTrack = useTrackHistoryStore((state) => state.addTrack);
+  const [startTime] = useState(new Date().toISOString());
+  const [currentTags, setCurrentTags] = useState<TrackTag[]>([]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([45.4642, 9.1900]);
   const [mapError, setMapError] = useState<string | null>(null);
   const [gpsSignal, setGpsSignal] = useState<'good' | 'medium' | 'weak'>('weak');
@@ -105,10 +89,74 @@ const NavigationPage: React.FC = () => {
   const [isFollowingGPS, setIsFollowingGPS] = useState(true);
   const mapRef = useRef<any>(null);
   const lastUpdateRef = useRef<number>(Date.now());
-  const [showStopDialog, setShowStopDialog] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
   const gpsMarkerRef = useRef<L.Marker | null>(null);
   const [locationName, setLocationName] = useState<string>('Caricamento...');
+  const { navigationButton, centerButton } = useButtonConfigStore();
+  const [isCentering, setIsCentering] = useState(false);
+
+  // Aggiungi gli stili per il marker
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .marker-container {
+        position: relative;
+        width: 32px;
+        height: 32px;
+      }
+      .marker-pulse {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-color: ${gpsSignal === 'good' ? '#8eaa36' : gpsSignal === 'medium' ? '#f5a149' : '#ff4444'};
+        border-radius: 50%;
+        opacity: 0.2;
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      .marker-inner {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .marker-dot {
+        width: 12px;
+        height: 12px;
+        background-color: ${gpsSignal === 'good' ? '#8eaa36' : gpsSignal === 'medium' ? '#f5a149' : '#ff4444'};
+        border-radius: 50%;
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.8);
+        animation: bounce 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      .marker-ring {
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        border: 2px solid ${gpsSignal === 'good' ? '#8eaa36' : gpsSignal === 'medium' ? '#f5a149' : '#ff4444'};
+        border-radius: 50%;
+        animation: ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.2; }
+        50% { transform: scale(1.5); opacity: 0.1; }
+        100% { transform: scale(1); opacity: 0.2; }
+      }
+      @keyframes bounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+      }
+      @keyframes ring {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, [gpsSignal]);
 
   // Inizializza il tracking all'avvio
   useEffect(() => {
@@ -199,7 +247,7 @@ const NavigationPage: React.FC = () => {
       } else {
         gpsMarkerRef.current = L.marker(
           [gpsData.latitude, gpsData.longitude],
-          { icon: customIcon }
+          { icon: createFindingIcon('Fungo') }
         ).addTo(mapRef.current);
       }
     }
@@ -207,8 +255,9 @@ const NavigationPage: React.FC = () => {
 
   const handleCenterMap = () => {
     if (mapRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
+      setIsCentering(true);
       mapRef.current.setView([gpsData.latitude, gpsData.longitude], mapRef.current.getZoom());
-      console.log('Centraggio mappa su:', gpsData.latitude, gpsData.longitude);
+      setTimeout(() => setIsCentering(false), 500);
     }
   };
 
@@ -219,23 +268,8 @@ const NavigationPage: React.FC = () => {
     }
   };
 
-  const handleStopClick = () => {
-    setShowStopDialog(true);
-  };
-
   const handleTagClick = () => {
     setShowTagOptions(true);
-  };
-
-  const handleConfirmStop = () => {
-    stopTrack();
-    setShowStopDialog(false);
-    // Navigate to Logger page
-    window.location.href = '/logger';
-  };
-
-  const handleCancelStop = () => {
-    setShowStopDialog(false);
   };
 
   const handleTagSelection = (type: 'finding' | 'poi') => {
@@ -243,8 +277,13 @@ const NavigationPage: React.FC = () => {
     if (type === 'finding') {
       setShowFindingForm(true);
     } else {
-      // Gestione POI
-      console.log('Aggiunta POI');
+      // Aggiungi un nuovo tag POI
+      const newTag: TrackTag = {
+        type: 'poi',
+        position: [gpsData.latitude, gpsData.longitude],
+        timestamp: new Date().toISOString(),
+      };
+      setCurrentTags([...currentTags, newTag]);
     }
   };
 
@@ -271,6 +310,34 @@ const NavigationPage: React.FC = () => {
     }
   }, [gpsData.latitude, gpsData.longitude]);
 
+  const getButtonShapeClass = (borderRadius: number | undefined) => {
+    const radius = borderRadius ?? 50;
+    if (radius === 50) return 'rounded-full';
+    if (radius === 0) return 'rounded-none';
+    return `rounded-[${radius}px]`;
+  };
+
+  const getPositionStyle = (position: { x: number; y: number }, positionType: 'percentage' | 'pixels') => {
+    if (positionType === 'percentage') {
+      return {
+        top: `${position.y}%`,
+        right: `${position.x}%`,
+        transform: 'translateY(-50%)'
+      };
+    }
+    return {
+      top: `${position.y}px`,
+      right: `${position.x}px`,
+      transform: 'translateY(-50%)'
+    };
+  };
+
+  const getShadowStyle = (shadow: { color: string; blur: number; spread: number }) => {
+    return {
+      boxShadow: `0 0 ${shadow.blur}px ${shadow.spread}px ${shadow.color}`
+    };
+  };
+
   if (mapError) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100">
@@ -282,25 +349,18 @@ const NavigationPage: React.FC = () => {
   }
 
   return (
-    <div style={{ 
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 1000
-    }}>
+    <div className="fixed inset-0" style={{ zIndex: isRecording ? 1000 : 1 }}>
       <MapContainer
         center={mapCenter}
         zoom={18}
-        style={{ 
+        style={{
+          height: '100%',
+          width: '100%',
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          width: '100vw',
-          height: '100vh',
           zIndex: 1
         }}
         ref={mapRef}
@@ -312,7 +372,7 @@ const NavigationPage: React.FC = () => {
         {gpsData.latitude !== 0 && gpsData.longitude !== 0 && (
           <Marker
             position={[gpsData.latitude, gpsData.longitude]}
-            icon={customIcon}
+            icon={createFindingIcon('Fungo')}
           >
             <Popup>
               <div className="p-2">
@@ -342,58 +402,68 @@ const NavigationPage: React.FC = () => {
       <CompassWidget direction={currentDirection} />
 
       {/* Controlli della mappa */}
-      <div className="absolute top-1/2 right-4 transform -translate-y-1/2 flex flex-col gap-6 z-[2000]">
+      <div className="absolute z-[2000]" style={getPositionStyle(navigationButton.position, navigationButton.positionType)}>
         <button
           onClick={toggleGPSFollow}
-          className={`p-3 rounded-full text-white hover:bg-opacity-80 transition-all shadow-lg ${
-            isFollowingGPS ? 'bg-[#f5a149]' : 'bg-gray-700'
-          }`}
-          title={isFollowingGPS ? 'GPS tracking attivo' : 'GPS tracking disattivo'}
+          className={`${isFollowingGPS ? navigationButton.color : 'bg-gray-400'} ${getButtonShapeClass(navigationButton.borderRadius)} flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 relative`}
+          style={{
+            width: navigationButton.size,
+            height: navigationButton.size,
+            ...getShadowStyle(navigationButton.shadow)
+          }}
         >
-          <Navigation2 
-            className={`w-6 h-6 ${isFollowingGPS ? '' : 'opacity-75'}`}
-            style={{ transform: 'rotate(45deg)' }}
+          <div className={`absolute inset-0 rounded-full ${isFollowingGPS ? 'bg-[#f5a149]/20' : 'bg-gray-400/20'} animate-ping`}></div>
+          <Navigation2
+            size={navigationButton.iconSize}
+            className={`${navigationButton.iconColor} transition-transform duration-300 ${isFollowingGPS ? 'animate-bounce' : ''}`}
+            strokeWidth={2.5}
           />
         </button>
+      </div>
+
+      <div className="absolute z-[2000]" style={getPositionStyle(centerButton.position, centerButton.positionType)}>
         <button
           onClick={handleCenterMap}
-          className="p-3 bg-[#94ae43] rounded-full text-white hover:bg-opacity-80 transition-all shadow-lg"
-          title="Centra sulla posizione GPS"
+          className={`${centerButton.color} ${getButtonShapeClass(centerButton.borderRadius)} flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95`}
+          style={{
+            width: centerButton.size,
+            height: centerButton.size,
+            ...getShadowStyle(centerButton.shadow)
+          }}
         >
-          <Crosshair className="w-6 h-6" />
+          <Crosshair
+            size={centerButton.iconSize}
+            className={`${centerButton.iconColor} transition-transform duration-300 ${isCentering ? 'animate-spin' : ''}`}
+            strokeWidth={2.5}
+          />
         </button>
       </div>
 
-      {/* Controlli di navigazione */}
-      <div className="absolute bottom-24 left-4 flex gap-2 z-[2000]">
-        <button
-          onClick={handleTagClick}
-          className="p-3 bg-blue-500 text-white rounded-full flex items-center justify-center hover:bg-blue-600 transition-all shadow-lg"
-          title="Aggiungi tag"
-        >
-          <MapPin className="w-6 h-6" />
-        </button>
-        <button
-          onClick={handleStopClick}
-          className="p-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg"
-          title="Ferma tracciamento"
-        >
-          <Square className="w-6 h-6" />
-        </button>
+      {/* Tag Button */}
+      <div className="absolute z-[2000]" style={{ left: '2%', bottom: '15%' }}>
+        <TagButton />
       </div>
 
-      {/* Dialoghi */}
-      {showStopDialog && (
-        <StopTrackingDialog
-          onConfirm={handleConfirmStop}
-          onCancel={handleCancelStop}
-        />
-      )}
+      {/* Stop Button */}
+      <div className="absolute z-[2000]" style={{ left: '2%', bottom: '25%' }}>
+        <StopButton />
+      </div>
 
       {showTagOptions && (
         <TagOptionsPopup
           onClose={() => setShowTagOptions(false)}
-          onSelect={handleTagSelection}
+          onFindingClick={() => {
+            setShowTagOptions(false);
+            setTimeout(() => {
+              setShowFindingForm(true);
+            }, 100);
+          }}
+          onPointOfInterestClick={() => {
+            setShowTagOptions(false);
+            setTimeout(() => {
+              useTrackStore.setState({ showPointOfInterestForm: true });
+            }, 100);
+          }}
         />
       )}
 
@@ -412,6 +482,7 @@ const NavigationPage: React.FC = () => {
         altitude={gpsData.altitude}
         gpsSignal={gpsSignal}
         direction={currentDirection}
+        accuracy={gpsData.accuracy}
       />
     </div>
   );

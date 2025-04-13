@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Signal, Thermometer, Mountain, Route, Timer, Droplets, Gauge } from 'lucide-react';
 
-interface DataTrackingPanelProps {
+export interface DataTrackingPanelProps {
   latitude: number;
   longitude: number;
   speed: number;
   altitude: number;
   gpsSignal: 'good' | 'medium' | 'weak';
+  direction: number;
   accuracy?: number;
 }
 
@@ -16,18 +17,21 @@ const DataTrackingPanel: React.FC<DataTrackingPanelProps> = ({
   speed,
   altitude,
   gpsSignal,
+  direction,
   accuracy = 0
 }) => {
   const [temperature, setTemperature] = useState<number | null>(null);
   const [humidity, setHumidity] = useState<number | null>(null);
   const [distance, setDistance] = useState<number>(0);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [smoothDirection, setSmoothDirection] = useState(direction);
   const startTimeRef = useRef<number>(Date.now());
   const lastPositionRef = useRef<[number, number] | null>(null);
+  const lastDirectionUpdateRef = useRef<number>(Date.now());
 
   // Funzione per calcolare la distanza tra due punti in metri
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371e3; // raggio della Terra in metri
+    const R = 6371e3;
     const φ1 = lat1 * Math.PI/180;
     const φ2 = lat2 * Math.PI/180;
     const Δφ = (lat2-lat1) * Math.PI/180;
@@ -56,7 +60,7 @@ const DataTrackingPanel: React.FC<DataTrackingPanelProps> = ({
 
     if (latitude !== 0 && longitude !== 0) {
       fetchWeatherData();
-      const interval = setInterval(fetchWeatherData, 300000); // 5 minuti
+      const interval = setInterval(fetchWeatherData, 300000);
       return () => clearInterval(interval);
     }
   }, [latitude, longitude]);
@@ -82,6 +86,31 @@ const DataTrackingPanel: React.FC<DataTrackingPanelProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Aggiorna la direzione con animazione fluida
+  useEffect(() => {
+    const updateDirection = () => {
+      const now = Date.now();
+      const timeDiff = now - lastDirectionUpdateRef.current;
+      const step = Math.min(1, timeDiff / 1000); // Transizione di 1 secondo
+
+      // Calcola la differenza più breve tra le direzioni (considerando il wrap-around a 360°)
+      let diff = direction - smoothDirection;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+
+      // Interpola linearmente verso la direzione target
+      setSmoothDirection(prev => {
+        const newDirection = prev + diff * step;
+        return newDirection < 0 ? newDirection + 360 : newDirection % 360;
+      });
+
+      lastDirectionUpdateRef.current = now;
+    };
+
+    const animationFrame = requestAnimationFrame(updateDirection);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [direction, smoothDirection]);
+
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -89,59 +118,123 @@ const DataTrackingPanel: React.FC<DataTrackingPanelProps> = ({
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const getSignalColor = (signal: 'good' | 'medium' | 'weak'): string => {
+    switch (signal) {
+      case 'good': return 'text-green-400';
+      case 'medium': return 'text-yellow-400';
+      case 'weak': return 'text-red-400';
+      default: return 'text-gray-400';
+    }
+  };
+
+  const formatAccuracy = (acc: number): string => {
+    if (acc === 0) return 'N/D';
+    if (acc < 10) return `${acc.toFixed(1)}m`;
+    return `${acc.toFixed(0)}m`;
+  };
+
   return (
-    <div className="absolute top-4 right-4 bg-black bg-opacity-40 backdrop-blur-md px-2 py-2 rounded-lg shadow-lg z-[2000] min-w-[98px]">
-      <div className="space-y-1.5">
-        <div className="flex items-center">
-          <Signal className={`w-3.5 h-3.5 ${
-            gpsSignal === 'good' ? 'text-green-400' :
-            gpsSignal === 'medium' ? 'text-yellow-400' :
-            'text-red-400'
-          }`} />
-          <span className="text-[10px] font-medium text-white ml-auto">
-            {accuracy > 0 ? `${accuracy.toFixed(0)}m` : 'N/D'}
+    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-2.5 rounded-xl shadow-lg z-[2000] min-w-[110px]">
+      <div className="space-y-2">
+        {/* Compass */}
+        <div className="relative w-full aspect-square mb-3 flex items-center justify-center">
+          <div 
+            className="w-full h-full rounded-full border-2 border-white/20 relative"
+            style={{ 
+              transform: `rotate(${-smoothDirection}deg)`,
+              transition: 'transform 0.1s linear'
+            }}
+          >
+            {/* Cardinal points */}
+            <div className="absolute inset-0 text-xs font-medium">
+              <span className="absolute top-1 left-1/2 -translate-x-1/2 text-white/80">N</span>
+              <span className="absolute right-1 top-1/2 -translate-y-1/2 text-white/60">E</span>
+              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-white/60">S</span>
+              <span className="absolute left-1 top-1/2 -translate-y-1/2 text-white/60">O</span>
+            </div>
+            {/* North pointer */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-1/2 origin-bottom">
+              <div className="w-full h-full bg-gradient-to-t from-transparent to-red-500" />
+            </div>
+            {/* Center dot */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/80" />
+          </div>
+        </div>
+
+        {/* GPS Signal */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Signal className={`w-4 h-4 ${getSignalColor(gpsSignal)}`} />
+            <span className="text-xs font-medium text-white/80">GPS</span>
+          </div>
+          <span className={`text-xs font-medium ${accuracy < 10 ? 'text-green-400' : accuracy < 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+            {formatAccuracy(accuracy)}
           </span>
         </div>
 
-        <div className="flex items-center">
-          <Thermometer className="w-3.5 h-3.5 text-orange-400" />
-          <span className="text-[10px] font-medium text-white ml-auto">
+        {/* Temperature */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Thermometer className="w-4 h-4 text-orange-400" />
+            <span className="text-xs font-medium text-white/80">Temp</span>
+          </div>
+          <span className="text-xs font-medium text-white">
             {temperature !== null ? `${temperature.toFixed(1)}°` : 'N/D'}
           </span>
         </div>
 
-        <div className="flex items-center">
-          <Droplets className="w-3.5 h-3.5 text-blue-400" />
-          <span className="text-[10px] font-medium text-white ml-auto">
-            {humidity !== null ? `${humidity.toFixed(0)}%` : 'N/D'}
+        {/* Humidity */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Droplets className="w-4 h-4 text-blue-400" />
+            <span className="text-xs font-medium text-white/80">Umidità</span>
+          </div>
+          <span className="text-xs font-medium text-white">
+            {humidity !== null ? `${humidity}%` : 'N/D'}
           </span>
         </div>
 
-        <div className="flex items-center">
-          <Mountain className="w-3.5 h-3.5 text-purple-400" />
-          <span className="text-[10px] font-medium text-white ml-auto">
+        {/* Altitude */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Mountain className="w-4 h-4 text-purple-400" />
+            <span className="text-xs font-medium text-white/80">Alt</span>
+          </div>
+          <span className="text-xs font-medium text-white">
             {altitude.toFixed(0)}m
           </span>
         </div>
 
-        <div className="flex items-center">
-          <Route className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[10px] font-medium text-white ml-auto">
-            {(distance / 1000).toFixed(1)}km
+        {/* Distance */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Route className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-medium text-white/80">Dist</span>
+          </div>
+          <span className="text-xs font-medium text-white">
+            {distance < 1000 ? `${distance.toFixed(0)}m` : `${(distance / 1000).toFixed(2)}km`}
           </span>
         </div>
 
-        <div className="flex items-center">
-          <Timer className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-[10px] font-medium text-white ml-auto">
+        {/* Time */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Timer className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-medium text-white/80">Tempo</span>
+          </div>
+          <span className="text-xs font-medium text-white ml-2">
             {formatTime(elapsedTime)}
           </span>
         </div>
 
-        <div className="flex items-center">
-          <Gauge className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="text-[10px] font-medium text-white ml-auto">
-            {(speed * 3.6).toFixed(0)}km/h
+        {/* Speed */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Gauge className="w-4 h-4 text-indigo-400" />
+            <span className="text-xs font-medium text-white/80">Vel</span>
+          </div>
+          <span className="text-xs font-medium text-white">
+            {speed === 0 ? '0 km/h' : `${(speed * 3.6).toFixed(1)} km/h`}
           </span>
         </div>
       </div>

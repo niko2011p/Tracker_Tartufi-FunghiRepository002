@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation, History, Cloud, Settings as SettingsIcon, Menu, X } from 'lucide-react';
 import Navi from './components/Navi';
 import TrackingControls from './components/TrackingControls';
 import FloatingMapButtons from './components/FloatingMapButtons';
-import StoricoTracce from './components/StoricoTracce';
 import Meteo from './components/Meteo';
-import Impostazioni from './components/Impostazioni';
-import FixedFooter from './components/FixedFooter';
 import MapLogo from './components/MapLogo';
 import NavigationPage from './pages/NavigationPage';
 import FindingForm from './components/FindingForm';
@@ -21,6 +18,7 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import Logger from './components/Logger';
 import Settings from './components/Settings';
+import MainLayout from './components/MainLayout';
 
 function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
   const location = useLocation();
@@ -65,28 +63,25 @@ function App() {
     <BrowserRouter>
       <ScrollToTop />
       <UserProvider>
-        <div className="min-h-screen bg-gray-50 flex flex-col pb-[60px]">
-          <main className="flex-1">
-            <Routes>
-              {/* Rotte pubbliche */}
-              <Route path="/login" element={<Login />} />
-              
-              {/* Rotte protette */}
-              <Route element={<PrivateRoute />}>
-                <Route path="/" element={<MainApp />} />
-                <Route path="/NavigationPage" element={<NavigationPage />} />
-                <Route path="/storico" element={<Logger />} />
-                <Route path="/meteo" element={<Meteo />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/profile" element={<Profile />} />
-              </Route>
-              
-              {/* Reindirizzamento per rotte non trovate */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
-          <FixedFooter />
-        </div>
+        <MainLayout>
+          <Routes>
+            {/* Rotte pubbliche */}
+            <Route path="/login" element={<Login />} />
+            
+            {/* Rotte protette */}
+            <Route element={<PrivateRoute />}>
+              <Route path="/" element={<MainApp />} />
+              <Route path="/NavigationPage" element={<NavigationPage />} />
+              <Route path="/logger" element={<Logger />} />
+              <Route path="/meteo" element={<Meteo />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+            
+            {/* Reindirizzamento per rotte non trovate */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </MainLayout>
       </UserProvider>
     </BrowserRouter>
   );

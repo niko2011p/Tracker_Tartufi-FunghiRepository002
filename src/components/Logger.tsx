@@ -132,7 +132,7 @@ const Logger: React.FC = () => {
   const [showFinalDeleteConfirm, setShowFinalDeleteConfirm] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [uniqueId] = useState(() => `storico-${Math.random().toString(36).substr(2, 9)}`);
+  const [uniqueId] = useState(() => `logger-${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
     window.scrollTo({
@@ -347,7 +347,7 @@ const Logger: React.FC = () => {
   renderCount++;
 
   return (
-    <div data-page="storico" className="min-h-screen bg-gray-50">
+    <div data-page="logger" className="min-h-screen bg-gray-50">
       <MapLogo />
       <div className="max-w-4xl mx-auto px-4 pt-32 pb-16">
         {selectedTrack && (

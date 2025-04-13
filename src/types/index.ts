@@ -60,3 +60,8 @@ export interface HourlyWeather {
   conditionCode?: number;
   chance_of_rain?: number;
 }
+
+export interface PointOfInterest {
+  description: string;
+  photos: File[];
+}

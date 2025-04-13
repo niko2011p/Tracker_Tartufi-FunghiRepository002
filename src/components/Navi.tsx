@@ -70,10 +70,10 @@ export default function Navi() {
       </button>
       <button 
         style={loggerStyle}
-        onClick={() => navigate('/storico')}
+        onClick={() => navigate('/logger')}
       >
         <FileText size={32} />
-        Logger
+        <span>Logger</span>
       </button>
     </div>
   );

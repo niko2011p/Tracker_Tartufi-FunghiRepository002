@@ -5,255 +5,120 @@ import { useTrackStore } from '../store/trackStore';
 interface PointOfInterestFormProps {
   onClose: () => void;
   onSubmit: (data: { description: string; photo: File | null }) => void;
+  position?: [number, number];
 }
 
-function PointOfInterestForm({ onClose, onSubmit }: PointOfInterestFormProps) {
+const PointOfInterestForm: React.FC<PointOfInterestFormProps> = ({ onClose, onSubmit, position }) => {
   const [description, setDescription] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const { addFinding } = useTrackStore();
+
+  console.log('PointOfInterestForm rendered with position:', position);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Submitting form with description:', description);
+    if (!description.trim()) {
+      alert('Inserisci una descrizione');
+      return;
+    }
+    onSubmit({ description, photo });
+  };
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setShowCamera(false);
     const file = event.target.files?.[0];
     if (file) {
       setPhoto(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onload = () => {
         setPhotoPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const { addFinding } = useTrackStore();
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    addFinding({
-      name: 'Punto di interesse',
-      description: description,
-      photoUrl: photoPreview || undefined,
-      type: 'poi'
-    });
-    onClose();
-  };
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Punto di interesse</h3>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onClose();
-            }} 
-            className="text-gray-500 hover:text-gray-700"
-            aria-label="Chiudi"
-            role="button"
-            tabIndex={0}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex flex-col space-y-2">
+        <label htmlFor="description" className="font-medium text-gray-700">
+          Descrizione
+        </label>
+        <textarea
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          rows={4}
+          placeholder="Inserisci una descrizione del punto di interesse..."
+        />
+      </div>
+
+      <div className="flex flex-col space-y-2">
+        <label className="font-medium text-gray-700">Foto</label>
+        <div className="flex gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+            className="hidden"
+            id="photo-upload"
+          />
+          <label
+            htmlFor="photo-upload"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer transition-colors"
           >
-            <X className="w-6 h-6" />
+            <Upload className="w-5 h-5" />
+            <span>Carica foto</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowCamera(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            <Camera className="w-5 h-5" />
+            <span>Scatta foto</span>
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Descrizione
-            </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#fd9a3c] focus:border-transparent"
-              rows={4}
-              required
+        {photoPreview && (
+          <div className="relative">
+            <img
+              src={photoPreview}
+              alt="Preview"
+              className="w-full h-48 object-cover rounded-lg"
             />
+            <button
+              type="button"
+              onClick={() => {
+                setPhoto(null);
+                setPhotoPreview(null);
+              }}
+              className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-md hover:bg-gray-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Foto (opzionale)
-            </label>
-            
-            <div className="flex space-x-2">
-              <input
-                id="photo-upload"
-                name="photo-upload"
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoChange}
-                className="hidden"
-              />
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhotoChange}
-                className="hidden"
-              />
-              
-              {!photoPreview ? (
-                <div className="flex w-full gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      document.getElementById('photo-upload')?.click();
-                    }}
-                    className="flex-1 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-[#fd9a3c] hover:bg-[#fd9a3c]/10 transition-colors"
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <Upload className="w-6 h-6 text-gray-400" />
-                    <span className="text-sm text-gray-500">Carica foto</span>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      setShowCamera(true);
-                    }}
-                    className="flex-1 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center gap-2 hover:border-[#fd9a3c] hover:bg-[#fd9a3c]/10 transition-colors"
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <Camera className="w-6 h-6 text-gray-400" />
-                    <span className="text-sm text-gray-500">Scatta foto</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <img 
-                    src={photoPreview} 
-                    alt="Anteprima foto" 
-                    className="w-full h-40 object-cover rounded-lg"
-                  />
-                  <div className="absolute top-2 right-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        document.getElementById('photo-upload')?.click();
-                      }}
-                      className="p-2 bg-[#8eaa36] text-white rounded-full hover:bg-[#7d9830] transition-colors duration-400"
-                      title="Carica nuova foto"
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <Upload className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setShowCamera(true);
-                      }}
-                      className="p-2 bg-[#fd9a3c] text-white rounded-full hover:bg-[#e88a2c] transition-colors duration-400"
-                      title="Scatta nuova foto"
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <Camera className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setPhotoPreview(null);
-                      }}
-                      className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                      title="Rimuovi foto"
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {showCamera && (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[10000]">
-              <div className="bg-white p-4 rounded-lg w-full max-w-md">
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="text-lg font-semibold">Scatta una foto</h4>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      setShowCamera(false);
-                    }}
-                    className="text-gray-500 hover:text-gray-700"
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-                <video
-                  id="camera-preview"
-                  autoPlay
-                  playsInline
-                  className="w-full aspect-video bg-gray-100 rounded-lg"
-                />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    const video = document.getElementById('camera-preview') as HTMLVideoElement;
-                    const canvas = document.createElement('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    canvas.getContext('2d')?.drawImage(video, 0, 0);
-                    canvas.toBlob((blob) => {
-                      if (blob) {
-                        const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
-                        setPhoto(file);
-                        setPhotoPreview(URL.createObjectURL(blob));
-                        setShowCamera(false);
-                        // Stop all video streams
-                        video.srcObject?.getTracks().forEach(track => track.stop());
-                      }
-                    }, 'image/jpeg');
-                  }}
-                  className="mt-4 w-full bg-[#fd9a3c] text-white py-2 px-4 rounded-md hover:bg-[#e88a2c] focus:outline-none focus:ring-2 focus:ring-[#fd9a3c] focus:ring-offset-2"
-                >
-                  Scatta
-                </button>
-              </div>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            onClick={(e) => {
-              // Non usiamo preventDefault qui perché vogliamo che il form venga inviato
-              e.stopPropagation();
-            }}
-            className="w-full bg-[#fd9a3c] text-white py-2 px-4 rounded-md hover:bg-[#e88a2c] focus:outline-none focus:ring-2 focus:ring-[#fd9a3c] focus:ring-offset-2"
-            role="button"
-            tabIndex={0}
-          >
-            Salva
-          </button>
-        </form>
+        )}
       </div>
-    </div>
+
+      <div className="flex justify-end gap-3 pt-4">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+        >
+          Annulla
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Salva
+        </button>
+      </div>
+    </form>
   );
-}
+};
 
 export default PointOfInterestForm;

@@ -1,128 +1,49 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Play, History } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useTrackStore } from '../store/trackStore';
-import './UnifiedButtons.css';
+import FindingMarker from './FindingMarker';
 
-// Stile per il contenitore principale con sfondo verde
-const mapContainerStyle = {
-  backgroundColor: '#8eaa36',
-  height: '100vh',
-  width: '100vw',
-  position: 'fixed' as const,
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  margin: 0,
-  padding: 0,
-  zIndex: 1,
-  display: 'flex',
-  flexDirection: 'column' as const,
-  justifyContent: 'center' as const,
-  alignItems: 'center' as const,
-};
+const Map: React.FC = () => {
+  const mapRef = useRef<L.Map | null>(null);
+  const { currentTrack, currentPosition } = useTrackStore();
 
-// Stile per il logo centrale
-const logoStyle = {
-  position: 'absolute' as const,
-  top: '10%',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  width: '200px',
-  height: 'auto',
-  zIndex: 11,
-};
+  useEffect(() => {
+    if (!mapRef.current) {
+      mapRef.current = L.map('map').setView([currentPosition.lat, currentPosition.lng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(mapRef.current);
+    }
 
-// Stile per i pulsanti principali
-const buttonContainerStyle = {
-  display: 'flex',
-  flexDirection: 'column' as const,
-  gap: '20px',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '20px',
-  zIndex: 12,
-};
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
-const buttonStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '15px 30px',
-  backgroundColor: 'white',
-  color: '#8eaa36',
-  borderRadius: '50px',
-  fontWeight: 'bold' as const,
-  fontSize: '18px',
-  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-  border: 'none',
-  cursor: 'pointer',
-  width: '220px',
-  transition: 'all 0.2s ease',
-};
-
-const buttonHoverStyle = {
-  backgroundColor: '#f5f5f5',
-  transform: 'translateY(-2px)',
-  boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
-};
-
-const iconStyle = {
-  marginRight: '10px',
-};
-
-export default function Map() {
-  const navigate = useNavigate();
-  const { startTrack } = useTrackStore();
-  const [hoverAvvio, setHoverAvvio] = useState(false);
-  const [hoverLogger, setHoverLogger] = useState(false);
-
-  const handleStartTrack = () => {
-    startTrack();
-  };
-
-  const handleNavigateToLogger = () => {
-    navigate('/storico');
-  };
+  useEffect(() => {
+    if (mapRef.current && currentPosition) {
+      mapRef.current.setView([currentPosition.lat, currentPosition.lng]);
+    }
+  }, [currentPosition]);
 
   return (
-    <div style={mapContainerStyle}>
-      {/* Logo in alto al centro */}
-      <img 
-        src="/icon/LogoFTL.svg" 
-        alt="Logo FTL" 
-        style={logoStyle} 
-      />
-      
-      {/* Contenitore dei pulsanti principali */}
-      <div style={buttonContainerStyle}>
-        <button 
-          onClick={handleStartTrack}
-          style={{
-            ...buttonStyle,
-            ...(hoverAvvio ? buttonHoverStyle : {}),
+    <div id="map" className="w-full h-full">
+      {currentTrack?.findings.map((finding, index) => (
+        <FindingMarker
+          key={index}
+          finding={finding}
+          onClick={() => {
+            // Qui puoi aggiungere la logica per mostrare i dettagli del ritrovamento
+            console.log('Finding clicked:', finding);
           }}
-          onMouseEnter={() => setHoverAvvio(true)}
-          onMouseLeave={() => setHoverAvvio(false)}
-        >
-          <Play style={iconStyle} size={24} />
-          Avvio Traccia
-        </button>
-        
-        <button 
-          onClick={handleNavigateToLogger}
-          style={{
-            ...buttonStyle,
-            ...(hoverLogger ? buttonHoverStyle : {}),
-          }}
-          onMouseEnter={() => setHoverLogger(true)}
-          onMouseLeave={() => setHoverLogger(false)}
-        >
-          <History style={iconStyle} size={24} />
-          Logger
-        </button>
-      </div>
+        />
+      ))}
     </div>
   );
-}
+};
+
+export default Map;

@@ -4,13 +4,17 @@ import * as turf from '@turf/turf';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
 
-interface TrackState {
+export interface TrackState {
   currentTrack: Track | null;
+  currentLocation: Location | null;
   tracks: Track[];
   isRecording: boolean;
   loadedFindings: Finding[] | null;
   currentDirection: number;
   showFindingForm: boolean;
+  showPointOfInterestForm: boolean;
+  showTagOptions: boolean;
+  showStopConfirm: boolean;
   nearbyFinding: Finding | null;
   isAlertPlaying: boolean;
   startTrack: () => void;
@@ -24,6 +28,8 @@ interface TrackState {
   loadFindings: (findings: Finding[]) => void;
   clearLoadedFindings: () => void;
   setShowFindingForm: (show: boolean) => void;
+  currentPosition: [number, number] | null;
+  resetForms: () => void;
 }
 
 async function getLocationName(lat: number, lon: number) {
@@ -55,11 +61,16 @@ export const useTrackStore = create<TrackState>()(
       nearbyFinding: null,
       isAlertPlaying: false,
       currentTrack: null,
+      currentLocation: null,
       tracks: [],
       isRecording: false,
       loadedFindings: null,
       currentDirection: 0,
       showFindingForm: false,
+      showPointOfInterestForm: false,
+      showTagOptions: false,
+      showStopConfirm: false,
+      currentPosition: null,
       
       startTrack: () => {
         // Crea una nuova traccia con timestamp corrente
@@ -125,8 +136,6 @@ export const useTrackStore = create<TrackState>()(
           tryGetPosition();
         }
       },
-      
-      
       
       stopTrack: () => {
         const { currentTrack, tracks } = get();
@@ -499,6 +508,17 @@ export const useTrackStore = create<TrackState>()(
       
       setShowFindingForm: (show: boolean) => {
         set({ showFindingForm: show });
+      },
+
+      setShowPointOfInterestForm: (show: boolean) => {
+        set({ showPointOfInterestForm: show });
+      },
+
+      resetForms: () => {
+        set({ 
+          showPointOfInterestForm: false,
+          showFindingForm: false 
+        });
       },
 
       exportTracks: () => {

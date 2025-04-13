@@ -1,0 +1,143 @@
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { useTrackHistoryStore } from '../store/trackHistoryStore';
+import { formatDistance, formatDuration } from '../utils/formatUtils';
+
+// Fix per le icone di Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+const Logger: React.FC = () => {
+  const tracks = useTrackHistoryStore((state) => state.tracks);
+  const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([45.4642, 9.1900]);
+
+  useEffect(() => {
+    // Carica le tracce dal localStorage all'avvio
+    const savedTracks = localStorage.getItem('savedTracks');
+    if (savedTracks) {
+      useTrackHistoryStore.setState({ tracks: JSON.parse(savedTracks) });
+    }
+  }, []);
+
+  const handleTrackSelect = (trackId: string) => {
+    setSelectedTrack(trackId);
+    const track = tracks.find((t) => t.id === trackId);
+    if (track && track.path.length > 0) {
+      setMapCenter(track.path[0]);
+    }
+  };
+
+  const renderTrackStats = (track: any) => (
+    <div className="bg-white p-4 rounded-lg shadow-md">
+      <h3 className="text-lg font-bold mb-2">{track.name}</h3>
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <span className="font-semibold">Distanza:</span>
+          <span className="ml-2">{formatDistance(track.stats.distanceKm)}</span>
+        </div>
+        <div>
+          <span className="font-semibold">Durata:</span>
+          <span className="ml-2">{formatDuration(track.stats.durationMin)}</span>
+        </div>
+        <div>
+          <span className="font-semibold">Velocità media:</span>
+          <span className="ml-2">{track.stats.speedAvgKmh.toFixed(1)} km/h</span>
+        </div>
+        <div>
+          <span className="font-semibold">Altitudine:</span>
+          <span className="ml-2">
+            {track.stats.altitudeMin.toFixed(0)} - {track.stats.altitudeMax.toFixed(0)} m
+          </span>
+        </div>
+        <div>
+          <span className="font-semibold">Temperatura media:</span>
+          <span className="ml-2">{track.stats.temperatureAvg.toFixed(1)}°C</span>
+        </div>
+        <div>
+          <span className="font-semibold">Umidità media:</span>
+          <span className="ml-2">{track.stats.humidityAvg.toFixed(0)}%</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="h-screen flex">
+      {/* Lista tracce */}
+      <div className="w-1/3 bg-gray-100 p-4 overflow-y-auto">
+        <h2 className="text-xl font-bold mb-4">Tracce Salvate</h2>
+        <div className="space-y-2">
+          {tracks.map((track) => (
+            <div
+              key={track.id}
+              className={`p-3 rounded-lg cursor-pointer ${
+                selectedTrack === track.id ? 'bg-blue-100' : 'bg-white'
+              }`}
+              onClick={() => handleTrackSelect(track.id)}
+            >
+              <h3 className="font-semibold">{track.name}</h3>
+              <p className="text-sm text-gray-600">
+                {new Date(track.startTime).toLocaleString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Mappa e statistiche */}
+      <div className="w-2/3 relative">
+        <MapContainer
+          center={mapCenter}
+          zoom={13}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          />
+          {selectedTrack && (
+            <>
+              <Polyline
+                positions={tracks.find((t) => t.id === selectedTrack)?.path || []}
+                color="#f5a149"
+                weight={3}
+                opacity={0.7}
+              />
+              {tracks
+                .find((t) => t.id === selectedTrack)
+                ?.tags.map((tag, index) => (
+                  <Marker key={index} position={tag.position}>
+                    <Popup>
+                      <div>
+                        <p className="font-semibold">
+                          {tag.type === 'finding' ? 'Ritrovamento' : 'POI'}
+                        </p>
+                        <p className="text-sm">
+                          {new Date(tag.timestamp).toLocaleString()}
+                        </p>
+                        {tag.notes && <p className="text-sm mt-1">{tag.notes}</p>}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+            </>
+          )}
+        </MapContainer>
+        {selectedTrack && (
+          <div className="absolute bottom-4 left-4 right-4">
+            {renderTrackStats(tracks.find((t) => t.id === selectedTrack)!)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Logger; 

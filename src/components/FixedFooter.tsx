@@ -1,9 +1,15 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Navigation, History, Cloud, Settings } from 'lucide-react';
+import { Navigation, History, Cloud, Settings, FileText } from 'lucide-react';
 
-const FixedFooter: React.FC = () => {
+interface FixedFooterProps {
+  show?: boolean;
+}
+
+const FixedFooter: React.FC<FixedFooterProps> = ({ show = true }) => {
   const location = useLocation();
+
+  if (!show) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white shadow-md py-2 px-4 z-[1000]">
@@ -17,11 +23,11 @@ const FixedFooter: React.FC = () => {
           <span className="text-sm mt-1 font-medium">Navi</span>
         </Link>
         <Link
-          to="/storico"
-          className={`flex flex-col items-center px-4 py-3 flex-1 text-center transition-colors ${location.pathname === '/storico' ? 'bg-green-50 text-[#8eaa36]' : 'text-gray-600 hover:bg-gray-100'}`}
+          to="/logger"
+          className={`flex flex-col items-center px-4 py-3 flex-1 text-center transition-colors ${location.pathname === '/logger' ? 'bg-green-50 text-[#8eaa36]' : 'text-gray-600 hover:bg-gray-100'}`}
           aria-label="Logger"
         >
-          <History className="w-8 h-8" />
+          <FileText size={32} />
           <span className="text-sm mt-1 font-medium">Logger</span>
         </Link>
         <Link

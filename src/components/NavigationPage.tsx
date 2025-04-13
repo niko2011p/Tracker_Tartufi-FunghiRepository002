@@ -582,19 +582,6 @@ const NavigationPage: React.FC = () => {
         
         {/* Control buttons */}
         <div className="fixed bottom-10 left-0 right-0 flex justify-between px-10 z-[10000]">
-          {/* Tasto Stop - posizionato in basso a sinistra */}
-          <button
-            onClick={() => setShowStopConfirm(true)}
-            className="unified-button stop"
-            style={{
-              backgroundColor: 'rgba(220, 38, 38, 0.9)', /* Rosso */
-              borderRadius: '12px', /* Quadrato con angoli arrotondati */
-            }}
-          >
-            <Square className="w-6 h-6" />
-            Stop
-          </button>
-          
           {/* Tasto Tag - spostato in basso a destra attaccato al bordo */}
           <button
             onClick={() => setShowTagOptions(true)}
@@ -621,51 +608,6 @@ const NavigationPage: React.FC = () => {
             onClose={() => setShowTagOptions(false)}
             onCenterMap={() => {}}
           />
-        )}
-        
-        {/* Popup di conferma per lo Stop */}
-        {showStopConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
-              <div className="flex items-center gap-3 mb-4">
-                <AlertCircle className="w-6 h-6 text-yellow-500" />
-                <h3 className="text-lg font-semibold">Conferma interruzione</h3>
-              </div>
-              
-              <p className="text-gray-600 mb-2">
-                Sei sicuro di voler interrompere la registrazione della traccia?
-              </p>
-              <p className="text-gray-600 mb-6">
-                La traccia verrà salvata automaticamente nello storico.
-              </p>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowStopConfirm(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Annulla
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('Interruzione traccia: salvataggio in corso...');
-                    stopTrack();
-                    setShowStopConfirm(false);
-                    
-                    // Aggiungiamo un breve ritardo per assicurarci che lo store venga aggiornato
-                    setTimeout(() => {
-                      console.log('Traccia salvata con successo, reindirizzamento...');
-                      // Reindirizza alla pagina principale o alla pagina dello storico
-                      window.location.href = '/';
-                    }, 500);
-                  }}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  Salva Log e Interrompi
-                </button>
-              </div>
-            </div>
-          </div>
         )}
       </div>
     </div>
