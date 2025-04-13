@@ -15,6 +15,8 @@ interface TrackingData {
   steps: number;
   temperature: number;
   humidity: number;
+  totalDistance: number;
+  totalTime: number;
 }
 
 interface TrackDetailsProps {
@@ -27,16 +29,60 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
   const { currentWeather, historicalData } = useWeatherStore();
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
 
+  const handleTakePhoto = async (findingId: string) => {
+    try {
+      // Verifica se il browser supporta l'API della fotocamera
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('La fotocamera non è supportata dal browser');
+      }
+
+      // Richiedi l'accesso alla fotocamera
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment' // Preferisci la fotocamera posteriore
+        } 
+      });
+
+      // Crea un elemento video per mostrare l'anteprima
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+
+      // Crea un elemento canvas per catturare la foto
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      // Quando il video è pronto, cattura la foto
+      video.onloadedmetadata = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Converti la foto in base64
+        const photoData = canvas.toDataURL('image/jpeg');
+
+        // Ferma lo stream della fotocamera
+        stream.getTracks().forEach(track => track.stop());
+
+        // TODO: Salva la foto nel ritrovamento
+        console.log('Foto scattata:', photoData);
+      };
+    } catch (error) {
+      console.error('Errore durante l\'accesso alla fotocamera:', error);
+      alert('Impossibile accedere alla fotocamera. Assicurati di aver concesso i permessi necessari.');
+    }
+  };
+
   useEffect(() => {
     // Calcola i dati di tracking basati sulla traccia
     if (track.coordinates && track.coordinates.length > 1) {
       const totalDistance = track.distance;
-      const duration = track.endTime 
+      const totalTime = track.endTime 
         ? (track.endTime.getTime() - track.startTime.getTime()) / 1000 / 60 // in minuti
         : 0;
       
       // Calcola velocità media e massima
-      const avgSpeed = duration > 0 ? (totalDistance / duration) * 60 : 0; // km/h
+      const avgSpeed = totalTime > 0 ? (totalDistance / totalTime) * 60 : 0; // km/h
       
       // Calcola dislivello
       let elevationGain = 0;
@@ -54,6 +100,8 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
       const steps = Math.round(totalDistance * 1300); // Stima approssimativa
 
       setTrackingData({
+        totalDistance,
+        totalTime,
         avgSpeed,
         maxSpeed: avgSpeed * 1.5, // Stima approssimativa
         elevationGain: Math.round(elevationGain),
@@ -123,7 +171,7 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
         <div className="p-4">
           {/* Map */}
           <div className="h-64 mb-6 rounded-lg overflow-hidden">
-            <Map track={track} />
+            <Map track={track} onTakePhoto={handleTakePhoto} />
           </div>
 
           {/* Stats Grid */}
@@ -134,9 +182,7 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
                 <span className="text-sm font-medium">Durata</span>
               </div>
               <p className="text-2xl font-semibold mt-2">
-                {track.endTime 
-                  ? `${Math.round((track.endTime.getTime() - track.startTime.getTime()) / 1000 / 60)} min`
-                  : 'In corso'}
+                {trackingData?.totalTime ? `${Math.round(trackingData.totalTime)} min` : 'In corso'}
               </p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow">
@@ -144,7 +190,7 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
                 <Route className="w-5 h-5 text-[#FF9800]" />
                 <span className="text-sm font-medium">Distanza</span>
               </div>
-              <p className="text-2xl font-semibold mt-2">{track.distance.toFixed(2)} km</p>
+              <p className="text-2xl font-semibold mt-2">{trackingData?.totalDistance.toFixed(2) || '0.00'} km</p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-2">
@@ -200,6 +246,20 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
                   <div>
                     <p className="text-sm text-gray-600">Umidità</p>
                     <p className="text-lg font-semibold">{trackingData.humidity}%</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Info className="w-5 h-5 text-purple-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Calorie</p>
+                    <p className="text-lg font-semibold">{trackingData.calories} kcal</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Info className="w-5 h-5 text-purple-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Passi</p>
+                    <p className="text-lg font-semibold">{trackingData.steps}</p>
                   </div>
                 </div>
               </div>
