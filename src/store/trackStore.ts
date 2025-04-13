@@ -400,16 +400,57 @@ export const useTrackStore = create<TrackState>()(
       },
       
       addFinding: (finding) => {
-        const { currentTrack } = get();
+        const { currentTrack, currentPosition } = get();
         if (!currentTrack) {
           console.error('Nessuna traccia attiva per aggiungere il tag');
           return;
         }
 
-        // Utilizziamo opzioni ottimizzate per ottenere la posizione più precisa possibile
+        // Se abbiamo una posizione corrente, usala direttamente
+        if (currentPosition) {
+          console.log(`Usando posizione corrente per il tag: [${currentPosition[0]}, ${currentPosition[1]}], tipo: ${finding.type}`);
+          
+          const newFinding: Finding = {
+            ...finding,
+            id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            trackId: currentTrack.id,
+            coordinates: currentPosition,
+            timestamp: new Date()
+          };
+          
+          try {
+            const updatedTrack = {
+              ...currentTrack,
+              findings: [...(currentTrack.findings || []), newFinding]
+            };
+            
+            set({
+              currentTrack: updatedTrack
+            }, true);
+            
+            // Riproduci un suono di conferma
+            try {
+              const audio = new Audio('/sound/alert.mp3');
+              audio.volume = 0.3;
+              audio.play().catch(e => console.error('Errore nella riproduzione audio:', e));
+            } catch (error) {
+              console.error('Errore nella riproduzione audio:', error);
+            }
+          } catch (error) {
+            console.error('Errore durante l\'aggiornamento dello stato:', error);
+          }
+          return;
+        }
+
+        // Se non abbiamo una posizione corrente, prova a ottenerla
+        if (!navigator.geolocation) {
+          console.error('Geolocalizzazione non supportata');
+          return;
+        }
+
         const geoOptions = {
           enableHighAccuracy: true,
-          timeout: 5000, // Aumentato il timeout
+          timeout: 10000, // Aumentato il timeout a 10 secondi
           maximumAge: 0
         };
         
@@ -433,20 +474,11 @@ export const useTrackStore = create<TrackState>()(
                 timestamp: new Date()
               };
               
-              // Aggiorna lo stato in modo sicuro
               try {
                 const updatedTrack = {
                   ...currentTrack,
                   findings: [...(currentTrack.findings || []), newFinding]
                 };
-                
-                console.log('Updating track state with new finding:', {
-                  findingId: newFinding.id,
-                  coordinates: newFinding.coordinates,
-                  currentFindingsCount: currentTrack.findings?.length || 0,
-                  updatedFindingsCount: updatedTrack.findings.length,
-                  trackId: currentTrack.id
-                });
                 
                 set({
                   currentTrack: updatedTrack
@@ -471,11 +503,11 @@ export const useTrackStore = create<TrackState>()(
                 const retryOptions = {
                   ...geoOptions,
                   enableHighAccuracy: retryCount < 1,
-                  timeout: geoOptions.timeout + (retryCount * 1000)
+                  timeout: geoOptions.timeout + (retryCount * 2000)
                 };
                 
                 console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
-                setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 500);
+                setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 1000);
               } else {
                 // Fallback all'ultima posizione conosciuta
                 if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
