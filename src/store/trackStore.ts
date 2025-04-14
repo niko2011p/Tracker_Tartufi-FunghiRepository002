@@ -251,16 +251,39 @@ export const useTrackStore = create<TrackState>()(
                 completedTrack.coordinates.length, 'coordinates and', 
                 completedTrack.findings.length, 'findings');
               
-              // Aggiorniamo lo stato con la nuova traccia completata
-              set({
-                tracks: [...(tracks || []), completedTrack],
-                currentTrack: null,
-                isRecording: false,
-                loadedFindings: null
-              });
-              
-              console.log('Track stopped and saved successfully. Total tracks:', (tracks || []).length + 1);
-              return completedTrack;
+              try {
+                // Aggiorniamo lo stato con la nuova traccia completata
+                set({
+                  tracks: [...(tracks || []), completedTrack],
+                  currentTrack: null,
+                  isRecording: false,
+                  loadedFindings: null
+                });
+                
+                console.log('Track stopped and saved successfully. Total tracks:', (tracks || []).length + 1);
+                return completedTrack;
+              } catch (storageError) {
+                console.warn('Errore di storage, pulizia delle tracce più vecchie...');
+                
+                // Se c'è un errore di storage, rimuovi le tracce più vecchie
+                const sortedTracks = [...(tracks || [])].sort((a, b) => 
+                  new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+                );
+                
+                // Mantieni solo le ultime 20 tracce
+                const recentTracks = sortedTracks.slice(0, 20);
+                
+                // Prova a salvare di nuovo
+                set({
+                  tracks: [...recentTracks, completedTrack],
+                  currentTrack: null,
+                  isRecording: false,
+                  loadedFindings: null
+                });
+                
+                console.log('Track saved after cleanup. Total tracks:', recentTracks.length + 1);
+                return completedTrack;
+              }
             } catch (error) {
               console.error('Errore durante il salvataggio della traccia:', error);
               
@@ -447,7 +470,7 @@ export const useTrackStore = create<TrackState>()(
 
         const geoOptions = {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 15000, // Aumentato il timeout a 15 secondi
           maximumAge: 0
         };
         
@@ -765,12 +788,58 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     {
       name: 'tracks-storage',
       skipHydration: false,
+      storage: {
+        getItem: async (name) => {
+          try {
+            const db = await openDB('tracks-db', 1, {
+              upgrade(db) {
+                if (!db.objectStoreNames.contains('tracks')) {
+                  db.createObjectStore('tracks');
+                }
+              }
+            });
+            
+            const tx = db.transaction('tracks', 'readonly');
+            const store = tx.objectStore('tracks');
+            const value = await store.get(name);
+            await tx.done;
+            return value ? JSON.stringify(value) : null;
+          } catch (error) {
+            console.warn('Error reading from IndexedDB:', error);
+            return null;
+          }
+        },
+        setItem: async (name, value) => {
+          try {
+            const db = await openDB('tracks-db', 1);
+            const tx = db.transaction('tracks', 'readwrite');
+            const store = tx.objectStore('tracks');
+            await store.put(JSON.parse(value), name);
+            await tx.done;
+          } catch (error) {
+            console.warn('Error writing to IndexedDB:', error);
+            throw error;
+          }
+        },
+        removeItem: async (name) => {
+          try {
+            const db = await openDB('tracks-db', 1);
+            const tx = db.transaction('tracks', 'readwrite');
+            const store = tx.objectStore('tracks');
+            await store.delete(name);
+            await tx.done;
+          } catch (error) {
+            console.warn('Error removing from IndexedDB:', error);
+          }
+        }
+      },
       partialize: (state) => {
-        const tracks = state.tracks.map(track => ({
+        // Assicurati che tracks sia un array valido
+        const tracks = (state.tracks || []).map(track => ({
           ...track,
           startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
           endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
-          findings: track.findings.map(finding => ({
+          findings: (track.findings || []).map(finding => ({
             ...finding,
             timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
           }))
@@ -787,7 +856,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             endTime: state.currentTrack.endTime instanceof Date ? 
               state.currentTrack.endTime.toISOString() : 
               state.currentTrack.endTime,
-            findings: state.currentTrack.findings.map(finding => ({
+            findings: (state.currentTrack.findings || []).map(finding => ({
               ...finding,
               timestamp: finding.timestamp instanceof Date ? 
                 finding.timestamp.toISOString() : 
@@ -799,11 +868,11 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
       },
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.tracks = state.tracks.map(track => ({
+          state.tracks = (state.tracks || []).map(track => ({
             ...track,
             startTime: new Date(track.startTime),
             endTime: track.endTime ? new Date(track.endTime) : undefined,
-            findings: track.findings.map(finding => ({
+            findings: (track.findings || []).map(finding => ({
               ...finding,
               timestamp: new Date(finding.timestamp)
             }))
@@ -814,7 +883,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               ...state.currentTrack,
               startTime: new Date(state.currentTrack.startTime),
               endTime: state.currentTrack.endTime ? new Date(state.currentTrack.endTime) : undefined,
-              findings: state.currentTrack.findings.map(finding => ({
+              findings: (state.currentTrack.findings || []).map(finding => ({
                 ...finding,
                 timestamp: new Date(finding.timestamp)
               }))
@@ -825,3 +894,18 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     }
   )
 );
+
+// Funzione helper per aprire IndexedDB
+function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabase) => void): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(name, version);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = () => {
+      if (upgradeCallback) {
+        upgradeCallback(request.result);
+      }
+    };
+  });
+}
