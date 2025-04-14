@@ -901,7 +901,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const store = tx.objectStore('tracks');
             const value = await store.get(name);
             await tx.done;
-            return value ? value.value : null;
+            return value ? JSON.stringify(value.value) : null;
           } catch (error) {
             console.warn('Error reading from IndexedDB:', error);
             return null;
@@ -913,7 +913,23 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const db = await initializeDB();
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
-            await store.put({ id: name, value: typeof value === 'string' ? JSON.parse(value) : value });
+            
+            // Assicurati che il valore sia serializzabile
+            const serializableValue = typeof value === 'string' ? 
+              JSON.parse(value) : 
+              JSON.parse(JSON.stringify(value));
+            
+            // Rimuovi eventuali funzioni o oggetti non serializzabili
+            const cleanValue = Object.fromEntries(
+              Object.entries(serializableValue).filter(([_, v]) => 
+                typeof v !== 'function' && 
+                !(v instanceof Date) && 
+                !(v instanceof Map) && 
+                !(v instanceof Set)
+              )
+            );
+            
+            await store.put({ id: name, value: cleanValue });
             await tx.done;
           } catch (error) {
             console.warn('Error writing to IndexedDB:', error);
@@ -934,20 +950,18 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
         }
       },
       partialize: (state) => {
-        // Assicurati che tracks sia un array valido
-        const tracks = (state.tracks || []).map(track => ({
-          ...track,
-          startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
-          endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
-          findings: (track.findings || []).map(finding => ({
-            ...finding,
-            timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
-          }))
-        }));
-
-        return {
+        // Assicurati che tutti i dati siano serializzabili
+        const serializableState = {
           ...state,
-          tracks,
+          tracks: (state.tracks || []).map(track => ({
+            ...track,
+            startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
+            endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
+            findings: (track.findings || []).map(finding => ({
+              ...finding,
+              timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
+            }))
+          })),
           currentTrack: state.currentTrack ? {
             ...state.currentTrack,
             startTime: state.currentTrack.startTime instanceof Date ? 
@@ -965,9 +979,22 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
           } : null,
           loadedFindings: null
         };
+
+        // Rimuovi eventuali funzioni o oggetti non serializzabili
+        Object.keys(serializableState).forEach(key => {
+          if (typeof serializableState[key] === 'function' || 
+              serializableState[key] instanceof Date || 
+              serializableState[key] instanceof Map || 
+              serializableState[key] instanceof Set) {
+            delete serializableState[key];
+          }
+        });
+
+        return serializableState;
       },
       onRehydrateStorage: () => (state) => {
         if (state) {
+          // Ricostruisci gli oggetti Date e altri tipi complessi
           state.tracks = (state.tracks || []).map(track => ({
             ...track,
             startTime: new Date(track.startTime),
