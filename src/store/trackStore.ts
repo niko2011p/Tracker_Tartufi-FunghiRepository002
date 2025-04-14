@@ -139,12 +139,39 @@ async function initializeDB() {
 // Funzione per riprodurre audio con fallback
 async function playAudio(soundUrl: string) {
   try {
-    const audio = new Audio(soundUrl);
-    audio.volume = 0.3;
-    await audio.play();
+    // Verifica se il browser supporta l'audio
+    if (typeof Audio !== 'undefined') {
+      const audio = new Audio(soundUrl);
+      audio.volume = 0.3;
+      
+      // Aggiungi gestione errori per il caricamento
+      audio.onerror = (error) => {
+        console.warn('Error loading audio:', error);
+        // Fallback a vibrazione
+        if (window.navigator.vibrate) {
+          window.navigator.vibrate(200);
+        }
+      };
+      
+      // Prova a riprodurre l'audio
+      try {
+        await audio.play();
+      } catch (playError) {
+        console.warn('Error playing audio:', playError);
+        // Fallback a vibrazione
+        if (window.navigator.vibrate) {
+          window.navigator.vibrate(200);
+        }
+      }
+    } else {
+      // Fallback a vibrazione se Audio non è supportato
+      if (window.navigator.vibrate) {
+        window.navigator.vibrate(200);
+      }
+    }
   } catch (error) {
-    console.warn('Error playing audio:', error);
-    // Fallback a vibrazione se disponibile
+    console.warn('Error in audio playback:', error);
+    // Fallback a vibrazione
     if (window.navigator.vibrate) {
       window.navigator.vibrate(200);
     }
@@ -193,7 +220,7 @@ async function getLocationName(lat: number, lon: number) {
       
       if (weatherResponse.ok) {
         const locations = await weatherResponse.json();
-        if (locations.length > 0) {
+        if (locations && locations.length > 0) {
           return {
             name: locations[0].name,
             region: locations[0].region,
@@ -601,23 +628,9 @@ export const useTrackStore = create<TrackState>()(
             });
             
             // Riproduci un suono di conferma
-            try {
-              const audio = new Audio('/sound/alert.mp3');
-              audio.volume = 0.3;
-              audio.play().catch(e => {
-                console.warn('Errore nella riproduzione audio:', e);
-                // Fallback a un suono di sistema
-                if (window.navigator.vibrate) {
-                  window.navigator.vibrate(200);
-                }
-              });
-            } catch (error) {
-              console.warn('Errore nella riproduzione audio:', error);
-              // Fallback a un suono di sistema
-              if (window.navigator.vibrate) {
-                window.navigator.vibrate(200);
-              }
-            }
+            playAudio('/sound/alert.mp3').catch(error => {
+              console.warn('Error playing confirmation sound:', error);
+            });
           } catch (error) {
             console.error('Errore durante l\'aggiornamento dello stato:', error);
           }
@@ -672,23 +685,9 @@ export const useTrackStore = create<TrackState>()(
                 });
                 
                 // Riproduci un suono di conferma
-                try {
-                  const audio = new Audio('/sound/alert.mp3');
-                  audio.volume = 0.3;
-                  audio.play().catch(e => {
-                    console.warn('Errore nella riproduzione audio:', e);
-                    // Fallback a un suono di sistema
-                    if (window.navigator.vibrate) {
-                      window.navigator.vibrate(200);
-                    }
-                  });
-                } catch (error) {
-                  console.warn('Errore nella riproduzione audio:', error);
-                  // Fallback a un suono di sistema
-                  if (window.navigator.vibrate) {
-                    window.navigator.vibrate(200);
-                  }
-                }
+                playAudio('/sound/alert.mp3').catch(error => {
+                  console.warn('Error playing confirmation sound:', error);
+                });
               } catch (error) {
                 console.error('Errore durante l\'aggiornamento dello stato:', error);
               }
