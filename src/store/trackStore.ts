@@ -999,51 +999,70 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               return JSON.stringify({ state: { tracks: [] } });
             }
             
+            console.log('Raw data from IndexedDB:', value);
+            
             // Verifica che i dati siano validi
             const parsedValue = JSON.parse(JSON.stringify(value.value));
+            console.log('Parsed value from IndexedDB:', parsedValue);
+            
             if (!parsedValue || !parsedValue.state || !parsedValue.state.tracks || !Array.isArray(parsedValue.state.tracks)) {
               console.warn('Invalid tracks data found, returning empty state');
               return JSON.stringify({ state: { tracks: [] } });
             }
             
-            // Assicurati che ogni traccia abbia un ID unico
-            const tracksWithIds = parsedValue.state.tracks.map(track => ({
-              ...track,
-              id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              findings: (track.findings || []).map(finding => ({
-                ...finding,
-                id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                // Gestione speciale per le foto
-                photoUrl: finding.photoUrl ? 
-                  (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
-                  null
-              }))
-            }));
+            console.log('Number of tracks found:', parsedValue.state.tracks.length);
             
-            return JSON.stringify({
+            // Assicurati che ogni traccia abbia un ID unico
+            const tracksWithIds = parsedValue.state.tracks.map(track => {
+              console.log('Processing track:', track.id);
+              return {
+                ...track,
+                id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                findings: (track.findings || []).map(finding => {
+                  console.log('Processing finding:', finding.id);
+                  return {
+                    ...finding,
+                    id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    // Gestione speciale per le foto
+                    photoUrl: finding.photoUrl ? 
+                      (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
+                      null
+                  };
+                })
+              };
+            });
+            
+            const result = JSON.stringify({
               state: {
                 ...parsedValue.state,
                 tracks: tracksWithIds
               }
             });
+            
+            console.log('Final data to be returned:', result);
+            return result;
           } catch (error) {
-            console.warn('Error reading from IndexedDB:', error);
+            console.error('Error reading from IndexedDB:', error);
             return JSON.stringify({ state: { tracks: [] } });
           }
         },
         setItem: async (name, value) => {
           try {
             console.log('Writing to IndexedDB:', name);
+            console.log('Value to be written:', value);
+            
             const db = await initializeDB();
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
             
             // Leggi i dati esistenti
             const existingValue = await store.get(name);
-            let existingTracks = [];
+            console.log('Existing value in IndexedDB:', existingValue);
             
+            let existingTracks = [];
             if (existingValue && existingValue.value && existingValue.value.state) {
               existingTracks = existingValue.value.state.tracks || [];
+              console.log('Number of existing tracks:', existingTracks.length);
             }
             
             // Assicurati che il valore sia serializzabile e abbia la struttura corretta
@@ -1052,47 +1071,59 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               serializableValue = typeof value === 'string' ? 
                 JSON.parse(value) : 
                 JSON.parse(JSON.stringify(value));
+              console.log('Serialized value:', serializableValue);
             } catch (parseError) {
-              console.warn('Error parsing value:', parseError);
+              console.error('Error parsing value:', parseError);
               serializableValue = { state: { tracks: [] } };
             }
             
             // Assicurati che la struttura sia corretta
             if (!serializableValue.state) {
+              console.warn('Invalid state structure, initializing empty state');
               serializableValue = { state: { tracks: [] } };
             }
             
             // Assicurati che le tracce siano sempre presenti e valide
-            const validTracks = (serializableValue.state.tracks || []).map(track => ({
-              ...track,
-              id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
-              endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
-              coordinates: track.coordinates || [],
-              findings: (track.findings || []).map(finding => ({
-                ...finding,
-                id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                coordinates: finding.coordinates || [],
-                timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
-                // Gestione speciale per le foto
-                photoUrl: finding.photoUrl ? 
-                  (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
-                  null
-              }))
-            }));
+            const validTracks = (serializableValue.state.tracks || []).map(track => {
+              console.log('Validating track:', track.id);
+              return {
+                ...track,
+                id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
+                endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
+                coordinates: track.coordinates || [],
+                findings: (track.findings || []).map(finding => {
+                  console.log('Validating finding:', finding.id);
+                  return {
+                    ...finding,
+                    id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    coordinates: finding.coordinates || [],
+                    timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
+                    // Gestione speciale per le foto
+                    photoUrl: finding.photoUrl ? 
+                      (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
+                      null
+                  };
+                })
+              };
+            });
+            
+            console.log('Number of valid tracks:', validTracks.length);
             
             // Unisci le tracce esistenti con quelle nuove, evitando duplicati
             const mergedTracks = [...existingTracks];
             validTracks.forEach(newTrack => {
               const existingIndex = mergedTracks.findIndex(t => t.id === newTrack.id);
               if (existingIndex >= 0) {
-                // Aggiorna la traccia esistente
+                console.log('Updating existing track:', newTrack.id);
                 mergedTracks[existingIndex] = newTrack;
               } else {
-                // Aggiungi la nuova traccia
+                console.log('Adding new track:', newTrack.id);
                 mergedTracks.push(newTrack);
               }
             });
+            
+            console.log('Total tracks after merge:', mergedTracks.length);
             
             // Se la quota è superata, rimuovi le tracce più vecchie
             if (mergedTracks.length > 20) {
@@ -1102,6 +1133,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               );
               mergedTracks.length = 0;
               mergedTracks.push(...sortedTracks.slice(0, 20));
+              console.log('Tracks after cleanup:', mergedTracks.length);
             }
             
             const cleanValue = {
@@ -1111,12 +1143,17 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               }
             };
             
+            console.log('Final value to be stored:', cleanValue);
+            
             await store.put({ id: name, value: cleanValue });
             await tx.done;
+            
+            console.log('Data successfully written to IndexedDB');
           } catch (error) {
-            console.warn('Error writing to IndexedDB:', error);
+            console.error('Error writing to IndexedDB:', error);
             // In caso di errore, prova a salvare solo le tracce più recenti
             if (error.name === 'QuotaExceededError') {
+              console.warn('Quota exceeded, attempting to save only recent tracks...');
               try {
                 const db = await initializeDB();
                 const tx = db.transaction('tracks', 'readwrite');
@@ -1130,11 +1167,15 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
                   existingTracks = existingValue.value.state.tracks || [];
                 }
                 
+                console.log('Number of existing tracks for quota cleanup:', existingTracks.length);
+                
                 // Mantieni solo le ultime 10 tracce
                 const sortedTracks = [...existingTracks].sort((a, b) => 
                   new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
                 );
                 const recentTracks = sortedTracks.slice(0, 10);
+                
+                console.log('Saving recent tracks:', recentTracks.length);
                 
                 await store.put({ 
                   id: name, 
@@ -1145,6 +1186,8 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
                   } 
                 });
                 await tx.done;
+                
+                console.log('Quota cleanup successful');
               } catch (retryError) {
                 console.error('Error during quota cleanup:', retryError);
               }
