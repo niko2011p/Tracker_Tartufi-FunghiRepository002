@@ -612,7 +612,9 @@ export const useTrackStore = create<TrackState>()(
             currentTrack: {
               ...currentTrack,
               coordinates: newCoordinates,
-              distance
+              distance,
+              // Assicurati che i ritrovamenti siano sempre presenti e aggiornati
+              findings: currentTrack.findings || []
             }
           });
           
@@ -661,6 +663,9 @@ export const useTrackStore = create<TrackState>()(
             playAudio('/sound/alert.mp3').catch(error => {
               console.warn('Error playing confirmation sound:', error);
             });
+
+            // Log per debug
+            console.log(`Tag aggiunto alla traccia: ${newFinding.id}, tipo: ${newFinding.type}, coordinate: [${newFinding.coordinates[0]}, ${newFinding.coordinates[1]}]`);
           } catch (error) {
             console.error('Errore durante l\'aggiornamento dello stato:', error);
           }
@@ -991,20 +996,20 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             
             if (!value) {
               console.log('No data found in IndexedDB, returning empty state');
-              return JSON.stringify({ tracks: [] });
+              return JSON.stringify({ state: { tracks: [] } });
             }
             
             // Verifica che i dati siano validi
             const parsedValue = JSON.parse(JSON.stringify(value.value));
-            if (!parsedValue.tracks || !Array.isArray(parsedValue.tracks)) {
+            if (!parsedValue.state || !parsedValue.state.tracks || !Array.isArray(parsedValue.state.tracks)) {
               console.warn('Invalid tracks data found, returning empty state');
-              return JSON.stringify({ tracks: [] });
+              return JSON.stringify({ state: { tracks: [] } });
             }
             
             return JSON.stringify(parsedValue);
           } catch (error) {
             console.warn('Error reading from IndexedDB:', error);
-            return JSON.stringify({ tracks: [] });
+            return JSON.stringify({ state: { tracks: [] } });
           }
         },
         setItem: async (name, value) => {
@@ -1020,37 +1025,34 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               JSON.parse(JSON.stringify(value));
             
             // Rimuovi eventuali funzioni o oggetti non serializzabili
-            const cleanValue = Object.fromEntries(
-              Object.entries(serializableValue).filter(([_, v]) => 
-                typeof v !== 'function' && 
-                !(v instanceof Date) && 
-                !(v instanceof Map) && 
-                !(v instanceof Set)
-              )
-            );
+            const cleanValue = {
+              state: {
+                ...serializableValue.state,
+                tracks: (serializableValue.state?.tracks || []).map(track => ({
+                  ...track,
+                  startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
+                  endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
+                  findings: (track.findings || []).map(finding => ({
+                    ...finding,
+                    timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
+                  }))
+                }))
+              }
+            };
             
             // Assicurati che le tracce siano sempre presenti e valide
-            if (!cleanValue.tracks || !Array.isArray(cleanValue.tracks)) {
-              cleanValue.tracks = [];
+            if (!cleanValue.state.tracks || !Array.isArray(cleanValue.state.tracks)) {
+              cleanValue.state.tracks = [];
             }
             
             // Leggi i dati esistenti prima di sovrascriverli
             const existingValue = await store.get(name);
             if (existingValue) {
               // Mantieni le tracce esistenti
-              const existingTracks = existingValue.value.tracks || [];
-              const newTracks = cleanValue.tracks || [];
-              cleanValue.tracks = [...existingTracks, ...newTracks];
+              const existingTracks = existingValue.value.state?.tracks || [];
+              const newTracks = cleanValue.state.tracks || [];
+              cleanValue.state.tracks = [...existingTracks, ...newTracks];
             }
-            
-            // Verifica che tutte le tracce abbiano i campi necessari
-            cleanValue.tracks = cleanValue.tracks.map(track => ({
-              ...track,
-              id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              startTime: track.startTime || new Date().toISOString(),
-              coordinates: track.coordinates || [],
-              findings: track.findings || []
-            }));
             
             await store.put({ id: name, value: cleanValue });
             await tx.done;
@@ -1066,23 +1068,19 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
       partialize: (state) => {
         // Assicurati che tutti i dati siano serializzabili
         const serializableState = {
-          ...state,
           tracks: (state.tracks || []).map(track => ({
             ...track,
-            id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
             endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
             coordinates: track.coordinates || [],
             findings: (track.findings || []).map(finding => ({
               ...finding,
-              id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
               coordinates: finding.coordinates || []
             }))
           })),
           currentTrack: state.currentTrack ? {
             ...state.currentTrack,
-            id: state.currentTrack.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             startTime: state.currentTrack.startTime instanceof Date ? 
               state.currentTrack.startTime.toISOString() : 
               state.currentTrack.startTime,
@@ -1092,7 +1090,6 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             coordinates: state.currentTrack.coordinates || [],
             findings: (state.currentTrack.findings || []).map(finding => ({
               ...finding,
-              id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               timestamp: finding.timestamp instanceof Date ? 
                 finding.timestamp.toISOString() : 
                 finding.timestamp,
@@ -1101,16 +1098,6 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
           } : null,
           loadedFindings: null
         };
-
-        // Rimuovi eventuali funzioni o oggetti non serializzabili
-        Object.keys(serializableState).forEach(key => {
-          if (typeof serializableState[key] === 'function' || 
-              serializableState[key] instanceof Date || 
-              serializableState[key] instanceof Map || 
-              serializableState[key] instanceof Set) {
-            delete serializableState[key];
-          }
-        });
 
         return serializableState;
       },
