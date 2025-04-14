@@ -55,6 +55,49 @@ async function getLocationName(lat: number, lon: number) {
   }
 }
 
+// Funzione helper per aprire IndexedDB
+function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabase) => void): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(name, version);
+    
+    request.onerror = () => {
+      console.error('Error opening IndexedDB:', request.error);
+      reject(request.error);
+    };
+    
+    request.onsuccess = () => {
+      console.log('IndexedDB opened successfully');
+      resolve(request.result);
+    };
+    
+    request.onupgradeneeded = (event) => {
+      console.log('IndexedDB upgrade needed');
+      const db = (event.target as IDBOpenDBRequest).result;
+      
+      // Crea l'object store se non esiste
+      if (!db.objectStoreNames.contains('tracks')) {
+        console.log('Creating tracks object store');
+        db.createObjectStore('tracks');
+      }
+      
+      // Esegui il callback di upgrade se fornito
+      if (upgradeCallback) {
+        try {
+          upgradeCallback(db);
+        } catch (error) {
+          console.error('Error in upgrade callback:', error);
+          // Non rigettiamo l'errore qui per evitare di bloccare l'inizializzazione
+        }
+      }
+    };
+    
+    request.onblocked = () => {
+      console.warn('IndexedDB blocked - another connection is open');
+      // Potremmo voler notificare l'utente qui
+    };
+  });
+}
+
 export const useTrackStore = create<TrackState>()(
   persist(
     (set, get) => ({
@@ -791,14 +834,8 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
       storage: {
         getItem: async (name) => {
           try {
-            const db = await openDB('tracks-db', 1, {
-              upgrade(db) {
-                if (!db.objectStoreNames.contains('tracks')) {
-                  db.createObjectStore('tracks');
-                }
-              }
-            });
-            
+            console.log('Reading from IndexedDB:', name);
+            const db = await openDB('tracks-db', 1);
             const tx = db.transaction('tracks', 'readonly');
             const store = tx.objectStore('tracks');
             const value = await store.get(name);
@@ -811,6 +848,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
         },
         setItem: async (name, value) => {
           try {
+            console.log('Writing to IndexedDB:', name);
             const db = await openDB('tracks-db', 1);
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
@@ -823,6 +861,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
         },
         removeItem: async (name) => {
           try {
+            console.log('Removing from IndexedDB:', name);
             const db = await openDB('tracks-db', 1);
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
@@ -894,18 +933,3 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     }
   )
 );
-
-// Funzione helper per aprire IndexedDB
-function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabase) => void): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(name, version);
-    
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = () => {
-      if (upgradeCallback) {
-        upgradeCallback(request.result);
-      }
-    };
-  });
-}
