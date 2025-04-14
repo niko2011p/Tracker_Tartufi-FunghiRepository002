@@ -1,10 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useTrackStore } from '../store/trackStore';
-import { useTrackHistoryStore } from '../store/trackHistoryStore';
-import { useButtonConfigStore } from '../store/buttonConfigStore';
 import { Track, Finding } from '../types';
 
 interface MapProps {
@@ -12,137 +8,165 @@ interface MapProps {
   onTakePhoto?: (findingId: string) => void;
 }
 
-// Fix per le icone di Leaflet
-const defaultIcon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const mushroomIcon = L.icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-  iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const truffleIcon = L.icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-brown.png',
-  iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-brown.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const MapContent: React.FC = () => {
-  const map = useMap();
-  const markerLayerRef = useRef<L.LayerGroup | null>(null);
-  const { currentTrack } = useTrackStore();
-  const { tracks } = useTrackHistoryStore();
-  const { buttonConfigs } = useButtonConfigStore();
+const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const trackLayerRef = useRef<L.Polyline | null>(null);
+  const markersRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
-    if (!map) return;
+    if (!mapContainerRef.current) return;
 
-    // Rimuovi il layer dei marker esistente se presente
-    if (markerLayerRef.current) {
-      map.removeLayer(markerLayerRef.current);
+    // Inizializza la mappa se non esiste
+    if (!mapRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        zoomControl: false,
+        attributionControl: false
+      });
+
+      // Aggiungi il layer base se non esiste
+      if (!map.getPane('tilePane')) {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+      }
+
+      mapRef.current = map;
+    }
+
+    const map = mapRef.current;
+
+    // Rimuovi i layer esistenti
+    if (markersRef.current) {
+      map.removeLayer(markersRef.current);
+    }
+    if (trackLayerRef.current) {
+      map.removeLayer(trackLayerRef.current);
     }
 
     // Crea un nuovo layer per i marker
-    const markerLayer = L.layerGroup();
-    markerLayerRef.current = markerLayer;
+    markersRef.current = L.layerGroup().addTo(map);
 
-    // Aggiungi i marker per la traccia corrente
-    if (currentTrack) {
-      currentTrack.findings.forEach(finding => {
-        if (finding.coordinates) {
-          const icon = finding.type === 'Fungo' ? mushroomIcon : truffleIcon;
-          const marker = L.marker(finding.coordinates, { icon });
-          
-          // Aggiungi il popup con le informazioni del finding
+    // Aggiungi i marker per i ritrovamenti
+    if (track?.findings) {
+      track.findings.forEach(finding => {
+        if (!finding.coordinates || finding.coordinates.length !== 2) {
+          console.warn('Coordinate non valide per il ritrovamento:', finding);
+          return;
+        }
+
+        try {
+          // Crea l'icona HTML
+          const iconUrl = `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+          console.log('Creazione marker per:', finding.name, 'con icona:', iconUrl);
+
+          const iconHtml = `
+            <div class="finding-marker" style="
+              width: 40px;
+              height: 40px;
+              position: relative;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            ">
+              <div class="finding-pulse" style="
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+                animation: pulse 2s infinite;
+              "></div>
+              <img 
+                src="${iconUrl}" 
+                style="
+                  width: 32px;
+                  height: 32px;
+                  position: relative;
+                  z-index: 1000;
+                  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                "
+                alt="${finding.type}"
+                onerror="console.error('Failed to load icon:', this.src)"
+              />
+            </div>
+          `;
+
+          // Crea l'icona personalizzata
+          const customIcon = L.divIcon({
+            html: iconHtml,
+            className: 'finding-icon',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            popupAnchor: [0, -20]
+          });
+
+          // Crea e aggiungi il marker
+          const marker = L.marker(finding.coordinates, {
+            icon: customIcon,
+            riseOnHover: true,
+            zIndexOffset: 1000
+          });
+
+          // Aggiungi il popup con i dettagli del ritrovamento
           marker.bindPopup(`
-            <div>
-              <strong>${finding.name}</strong><br/>
-              ${finding.description || 'Nessuna descrizione'}<br/>
-              ${new Date(finding.timestamp).toLocaleString()}
+            <div style="padding: 12px; min-width: 200px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: bold; color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};">${finding.name}</h3>
+              ${finding.description ? `<p style="margin: 0 0 8px 0; color: #666;">${finding.description}</p>` : ''}
+              ${finding.photoUrl ? `<img src="${finding.photoUrl}" style="max-width: 200px; margin-bottom: 8px; border-radius: 4px;" alt="${finding.name}">` : ''}
+              <p style="margin: 0; font-size: 0.8em; color: #666;">
+                ${new Date(finding.timestamp).toLocaleString('it-IT')}
+              </p>
             </div>
           `);
-          
-          markerLayer.addLayer(marker);
-          console.log('Marker aggiunto:', finding);
+
+          marker.addTo(markersRef.current);
+          console.log('Marker aggiunto per il ritrovamento:', finding.id);
+
+          // Forza l'aggiornamento del marker
+          marker.update();
+        } catch (error) {
+          console.error('Errore nella creazione del marker:', error);
         }
       });
     }
 
-    // Aggiungi i marker per le tracce storiche
-    tracks.forEach(track => {
-      track.findings.forEach(finding => {
-        if (finding.coordinates) {
-          const icon = finding.type === 'Fungo' ? mushroomIcon : truffleIcon;
-          const marker = L.marker(finding.coordinates, { icon });
-          
-          marker.bindPopup(`
-            <div>
-              <strong>${finding.name}</strong><br/>
-              ${finding.description || 'Nessuna descrizione'}<br/>
-              ${new Date(finding.timestamp).toLocaleString()}
-            </div>
-          `);
-          
-          markerLayer.addLayer(marker);
-        }
+    // Aggiungi il tracciato se esiste
+    if (track?.coordinates && track.coordinates.length > 0) {
+      trackLayerRef.current = L.polyline(track.coordinates, {
+        color: '#ff9500',
+        weight: 5,
+        opacity: 0.7,
+        lineJoin: 'round'
+      }).addTo(map);
+
+      // Centra la mappa sul tracciato
+      map.fitBounds(trackLayerRef.current.getBounds(), {
+        padding: [50, 50]
       });
-    });
+    }
 
-    // Aggiungi il layer dei marker alla mappa
-    markerLayer.addTo(map);
-
-    // Forza un aggiornamento della mappa
-    map.invalidateSize();
-
+    // Pulisci quando il componente viene smontato
     return () => {
-      if (markerLayerRef.current) {
-        map.removeLayer(markerLayerRef.current);
+      if (markersRef.current) {
+        map.removeLayer(markersRef.current);
+      }
+      if (trackLayerRef.current) {
+        map.removeLayer(trackLayerRef.current);
       }
     };
-  }, [map, currentTrack, tracks]);
-
-  return null;
-};
-
-const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
-  const [mapKey, setMapKey] = useState(0);
-
-  useEffect(() => {
-    // Forza un aggiornamento della mappa quando il componente viene montato
-    setMapKey(prev => prev + 1);
-  }, []);
+  }, [track]);
 
   return (
-    <div className="h-full w-full">
-      <MapContainer
-        key={mapKey}
-        center={[42.5719116, 12.723933]}
-        zoom={15}
-        style={{ height: '100%', width: '100%' }}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        <MapContent />
-      </MapContainer>
-    </div>
+    <div 
+      ref={mapContainerRef} 
+          style={{
+        width: '100%', 
+        height: '100%',
+        position: 'relative'
+      }} 
+    />
   );
 };
 

@@ -1,16 +1,26 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { clearTrackStore } from '../store/trackStore';
 
 const Profile: React.FC = () => {
   const { user, logout } = useUser();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    // Esegui il logout senza pulire il track store
-    logout();
-    // Naviga alla pagina di login
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      // Pulisci il track store
+      await clearTrackStore();
+      // Esegui il logout
+      logout();
+      // Naviga alla pagina di login
+      navigate('/login');
+    } catch (error) {
+      console.error('Errore durante il logout:', error);
+      // In caso di errore, procedi comunque con il logout
+      logout();
+      navigate('/login');
+    }
   };
 
   if (!user) {
