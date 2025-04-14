@@ -1001,26 +1001,12 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             
             // Verifica che i dati siano validi
             const parsedValue = JSON.parse(JSON.stringify(value.value));
-            if (!parsedValue.state || !parsedValue.state.tracks || !Array.isArray(parsedValue.state.tracks)) {
+            if (!parsedValue || !parsedValue.state || !parsedValue.state.tracks || !Array.isArray(parsedValue.state.tracks)) {
               console.warn('Invalid tracks data found, returning empty state');
               return JSON.stringify({ state: { tracks: [] } });
             }
             
-            // Assicurati che tutte le tracce abbiano i campi necessari
-            const validTracks = parsedValue.state.tracks.map(track => ({
-              ...track,
-              id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              startTime: track.startTime || new Date().toISOString(),
-              coordinates: track.coordinates || [],
-              findings: (track.findings || []).map(finding => ({
-                ...finding,
-                id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                coordinates: finding.coordinates || [],
-                timestamp: finding.timestamp || new Date().toISOString()
-              }))
-            }));
-            
-            return JSON.stringify({ state: { tracks: validTracks } });
+            return JSON.stringify(parsedValue);
           } catch (error) {
             console.warn('Error reading from IndexedDB:', error);
             return JSON.stringify({ state: { tracks: [] } });
@@ -1033,13 +1019,24 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
             
-            // Assicurati che il valore sia serializzabile
-            const serializableValue = typeof value === 'string' ? 
-              JSON.parse(value) : 
-              JSON.parse(JSON.stringify(value));
+            // Assicurati che il valore sia serializzabile e abbia la struttura corretta
+            let serializableValue;
+            try {
+              serializableValue = typeof value === 'string' ? 
+                JSON.parse(value) : 
+                JSON.parse(JSON.stringify(value));
+            } catch (parseError) {
+              console.warn('Error parsing value:', parseError);
+              serializableValue = { state: { tracks: [] } };
+            }
             
-            // Assicurati che tutte le tracce abbiano i campi necessari
-            const validTracks = (serializableValue.state?.tracks || []).map(track => ({
+            // Assicurati che la struttura sia corretta
+            if (!serializableValue.state) {
+              serializableValue = { state: { tracks: [] } };
+            }
+            
+            // Assicurati che le tracce siano sempre presenti e valide
+            const validTracks = (serializableValue.state.tracks || []).map(track => ({
               ...track,
               id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
@@ -1062,9 +1059,9 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             
             // Leggi i dati esistenti prima di sovrascriverli
             const existingValue = await store.get(name);
-            if (existingValue) {
+            if (existingValue && existingValue.value && existingValue.value.state) {
               // Mantieni le tracce esistenti
-              const existingTracks = existingValue.value.state?.tracks || [];
+              const existingTracks = existingValue.value.state.tracks || [];
               const newTracks = cleanValue.state.tracks || [];
               cleanValue.state.tracks = [...existingTracks, ...newTracks];
             }
