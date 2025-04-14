@@ -67,7 +67,31 @@ function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabas
     
     request.onsuccess = () => {
       console.log('IndexedDB opened successfully');
-      resolve(request.result);
+      const db = request.result;
+      
+      // Verifica se l'object store esiste
+      if (!db.objectStoreNames.contains('tracks')) {
+        console.log('Object store not found, closing and reopening with higher version');
+        db.close();
+        // Riapri il database con una versione più alta per forzare l'upgrade
+        const newRequest = indexedDB.open(name, version + 1);
+        newRequest.onerror = () => reject(newRequest.error);
+        newRequest.onsuccess = () => resolve(newRequest.result);
+        newRequest.onupgradeneeded = (event) => {
+          const newDb = (event.target as IDBOpenDBRequest).result;
+          console.log('Creating tracks object store during upgrade');
+          try {
+            const store = newDb.createObjectStore('tracks', { keyPath: 'id' });
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+            console.log('Object store and index created successfully');
+          } catch (error) {
+            console.error('Error creating object store:', error);
+            reject(error);
+          }
+        };
+      } else {
+        resolve(db);
+      }
     };
     
     request.onupgradeneeded = (event) => {
@@ -83,7 +107,7 @@ function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabas
           console.log('Object store and index created successfully');
         } catch (error) {
           console.error('Error creating object store:', error);
-          // Non rigettiamo l'errore qui per evitare di bloccare l'inizializzazione
+          reject(error);
         }
       }
       
@@ -93,14 +117,14 @@ function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabas
           upgradeCallback(db);
         } catch (error) {
           console.error('Error in upgrade callback:', error);
-          // Non rigettiamo l'errore qui per evitare di bloccare l'inizializzazione
+          reject(error);
         }
       }
     };
     
     request.onblocked = () => {
       console.warn('IndexedDB blocked - another connection is open');
-      // Potremmo voler notificare l'utente qui
+      reject(new Error('Database blocked by another connection'));
     };
   });
 }
