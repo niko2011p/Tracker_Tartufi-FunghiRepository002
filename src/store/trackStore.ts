@@ -948,7 +948,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     }),
     {
       name: 'tracks-storage',
-      skipHydration: true,
+      skipHydration: false,
       storage: {
         getItem: async (name) => {
           try {
@@ -959,7 +959,6 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const value = await store.get(name);
             await tx.done;
             
-            // Se non troviamo il valore, restituisci un array vuoto per le tracce
             if (!value) {
               console.log('No data found in IndexedDB, returning empty state');
               return JSON.stringify({ tracks: [] });
@@ -968,7 +967,6 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             return JSON.stringify(value.value);
           } catch (error) {
             console.warn('Error reading from IndexedDB:', error);
-            // In caso di errore, restituisci un array vuoto per le tracce
             return JSON.stringify({ tracks: [] });
           }
         },
@@ -999,16 +997,24 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               cleanValue.tracks = [];
             }
             
+            // Leggi i dati esistenti prima di sovrascriverli
+            const existingValue = await store.get(name);
+            if (existingValue) {
+              // Mantieni le tracce esistenti
+              const existingTracks = existingValue.value.tracks || [];
+              const newTracks = cleanValue.tracks || [];
+              cleanValue.tracks = [...existingTracks, ...newTracks];
+            }
+            
             await store.put({ id: name, value: cleanValue });
             await tx.done;
           } catch (error) {
             console.warn('Error writing to IndexedDB:', error);
-            // Non lanciare l'errore per evitare la perdita di dati
           }
         },
         removeItem: async (name) => {
-          // Non implementiamo la rimozione per evitare la perdita di dati
-          console.warn('Attempt to remove data from IndexedDB blocked to prevent data loss');
+          // Disabilitiamo completamente la rimozione dei dati
+          console.warn('Data removal blocked to prevent data loss');
         }
       },
       partialize: (state) => {

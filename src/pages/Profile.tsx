@@ -8,7 +8,7 @@ const Profile: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      // Non pulire più il track store
+      // Esegui il logout senza pulire i dati
       logout();
       navigate('/login');
     } catch (error) {

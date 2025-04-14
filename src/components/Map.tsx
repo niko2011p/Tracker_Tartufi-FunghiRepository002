@@ -158,6 +158,108 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
     };
   }, [track]);
 
+  // Aggiorna i marker quando cambiano i ritrovamenti
+  useEffect(() => {
+    if (!mapRef.current || !track) return;
+
+    // Rimuovi tutti i marker esistenti
+    if (markersRef.current) {
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+    }
+
+    // Aggiungi i marker per i ritrovamenti
+    if (track.findings && track.findings.length > 0) {
+      console.log('Adding markers for findings:', track.findings);
+      track.findings.forEach(finding => {
+        if (finding.coordinates && finding.coordinates.length === 2) {
+          try {
+            // Crea l'icona HTML
+            const iconUrl = `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+            console.log('Creazione marker per:', finding.name, 'con icona:', iconUrl);
+
+            const iconHtml = `
+              <div class="finding-marker" style="
+                width: 40px;
+                height: 40px;
+                position: relative;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+              ">
+                <div class="finding-pulse" style="
+                  position: absolute;
+                  width: 100%;
+                  height: 100%;
+                  border-radius: 50%;
+                  background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+                  animation: pulse 2s infinite;
+                "></div>
+                <img 
+                  src="${iconUrl}" 
+                  style="
+                    width: 32px;
+                    height: 32px;
+                    position: relative;
+                    z-index: 1000;
+                    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                  "
+                  alt="${finding.type}"
+                  onerror="console.error('Failed to load icon:', this.src)"
+                />
+              </div>
+            `;
+
+            // Crea l'icona personalizzata
+            const customIcon = L.divIcon({
+              html: iconHtml,
+              className: 'finding-icon',
+              iconSize: [40, 40],
+              iconAnchor: [20, 20],
+              popupAnchor: [0, -20]
+            });
+
+            // Crea e aggiungi il marker
+            const marker = L.marker(finding.coordinates, {
+              icon: customIcon,
+              riseOnHover: true,
+              zIndexOffset: 1000
+            });
+
+            // Aggiungi il popup con i dettagli del ritrovamento
+            marker.bindPopup(`
+              <div style="padding: 12px; min-width: 200px;">
+                <h3 style="margin: 0 0 8px 0; font-weight: bold; color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};">${finding.name}</h3>
+                ${finding.description ? `<p style="margin: 0 0 8px 0; color: #666;">${finding.description}</p>` : ''}
+                ${finding.photoUrl ? `<img src="${finding.photoUrl}" style="max-width: 200px; margin-bottom: 8px; border-radius: 4px;" alt="${finding.name}">` : ''}
+                <p style="margin: 0; font-size: 0.8em; color: #666;">
+                  ${new Date(finding.timestamp).toLocaleString('it-IT')}
+                </p>
+              </div>
+            `);
+
+            marker.addTo(mapRef.current);
+            markersRef.current.push(marker);
+            console.log('Marker aggiunto per il ritrovamento:', finding.id);
+
+            // Forza l'aggiornamento del marker
+            marker.update();
+          } catch (error) {
+            console.error('Errore nella creazione del marker:', error);
+          }
+        } else {
+          console.warn('Coordinate non valide per il ritrovamento:', finding);
+        }
+      });
+    }
+
+    // Aggiorna il centro della mappa se ci sono ritrovamenti
+    if (markersRef.current.length > 0) {
+      const bounds = L.latLngBounds(markersRef.current.map(m => m.getLatLng()));
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [track?.findings]);
+
   return (
     <div 
       ref={mapContainerRef} 
