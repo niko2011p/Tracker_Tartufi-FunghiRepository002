@@ -7,7 +7,9 @@ const Profile: React.FC = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    // Esegui il logout senza pulire il track store
     logout();
+    // Naviga alla pagina di login
     navigate('/login');
   };
 

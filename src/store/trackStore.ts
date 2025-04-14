@@ -891,7 +891,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     }),
     {
       name: 'tracks-storage',
-      skipHydration: false,
+      skipHydration: true,
       storage: {
         getItem: async (name) => {
           try {
@@ -1021,3 +1021,17 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     }
   )
 );
+
+// Aggiungi una funzione per pulire i dati al logout
+export const clearTrackStore = async () => {
+  try {
+    const db = await initializeDB();
+    const tx = db.transaction('tracks', 'readwrite');
+    const store = tx.objectStore('tracks');
+    await store.clear();
+    await tx.done;
+    console.log('Track store cleared successfully');
+  } catch (error) {
+    console.error('Error clearing track store:', error);
+  }
+};
