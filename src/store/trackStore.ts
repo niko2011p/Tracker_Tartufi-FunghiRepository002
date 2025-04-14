@@ -948,7 +948,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     }),
     {
       name: 'tracks-storage',
-      skipHydration: false,
+      skipHydration: true,
       storage: {
         getItem: async (name) => {
           try {
@@ -964,7 +964,14 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               return JSON.stringify({ tracks: [] });
             }
             
-            return JSON.stringify(value.value);
+            // Verifica che i dati siano validi
+            const parsedValue = JSON.parse(JSON.stringify(value.value));
+            if (!parsedValue.tracks || !Array.isArray(parsedValue.tracks)) {
+              console.warn('Invalid tracks data found, returning empty state');
+              return JSON.stringify({ tracks: [] });
+            }
+            
+            return JSON.stringify(parsedValue);
           } catch (error) {
             console.warn('Error reading from IndexedDB:', error);
             return JSON.stringify({ tracks: [] });
@@ -992,8 +999,8 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               )
             );
             
-            // Assicurati che le tracce siano sempre presenti
-            if (!cleanValue.tracks) {
+            // Assicurati che le tracce siano sempre presenti e valide
+            if (!cleanValue.tracks || !Array.isArray(cleanValue.tracks)) {
               cleanValue.tracks = [];
             }
             
@@ -1005,6 +1012,15 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               const newTracks = cleanValue.tracks || [];
               cleanValue.tracks = [...existingTracks, ...newTracks];
             }
+            
+            // Verifica che tutte le tracce abbiano i campi necessari
+            cleanValue.tracks = cleanValue.tracks.map(track => ({
+              ...track,
+              id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              startTime: track.startTime || new Date().toISOString(),
+              coordinates: track.coordinates || [],
+              findings: track.findings || []
+            }));
             
             await store.put({ id: name, value: cleanValue });
             await tx.done;
@@ -1023,26 +1039,34 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
           ...state,
           tracks: (state.tracks || []).map(track => ({
             ...track,
+            id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
             endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
+            coordinates: track.coordinates || [],
             findings: (track.findings || []).map(finding => ({
               ...finding,
-              timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
+              id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
+              coordinates: finding.coordinates || []
             }))
           })),
           currentTrack: state.currentTrack ? {
             ...state.currentTrack,
+            id: state.currentTrack.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             startTime: state.currentTrack.startTime instanceof Date ? 
               state.currentTrack.startTime.toISOString() : 
               state.currentTrack.startTime,
             endTime: state.currentTrack.endTime instanceof Date ? 
               state.currentTrack.endTime.toISOString() : 
               state.currentTrack.endTime,
+            coordinates: state.currentTrack.coordinates || [],
             findings: (state.currentTrack.findings || []).map(finding => ({
               ...finding,
+              id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               timestamp: finding.timestamp instanceof Date ? 
                 finding.timestamp.toISOString() : 
-                finding.timestamp
+                finding.timestamp,
+              coordinates: finding.coordinates || []
             }))
           } : null,
           loadedFindings: null
@@ -1067,9 +1091,11 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             ...track,
             startTime: new Date(track.startTime),
             endTime: track.endTime ? new Date(track.endTime) : undefined,
+            coordinates: track.coordinates || [],
             findings: (track.findings || []).map(finding => ({
               ...finding,
-              timestamp: new Date(finding.timestamp)
+              timestamp: new Date(finding.timestamp),
+              coordinates: finding.coordinates || []
             }))
           }));
 
@@ -1078,9 +1104,11 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               ...state.currentTrack,
               startTime: new Date(state.currentTrack.startTime),
               endTime: state.currentTrack.endTime ? new Date(state.currentTrack.endTime) : undefined,
+              coordinates: state.currentTrack.coordinates || [],
               findings: (state.currentTrack.findings || []).map(finding => ({
                 ...finding,
-                timestamp: new Date(finding.timestamp)
+                timestamp: new Date(finding.timestamp),
+                coordinates: finding.coordinates || []
               }))
             };
           }
