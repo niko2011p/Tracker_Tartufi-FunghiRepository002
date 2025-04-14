@@ -77,9 +77,14 @@ function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabas
       // Crea l'object store se non esiste
       if (!db.objectStoreNames.contains('tracks')) {
         console.log('Creating tracks object store');
-        const store = db.createObjectStore('tracks', { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-        console.log('Object store and index created successfully');
+        try {
+          const store = db.createObjectStore('tracks', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+          console.log('Object store and index created successfully');
+        } catch (error) {
+          console.error('Error creating object store:', error);
+          // Non rigettiamo l'errore qui per evitare di bloccare l'inizializzazione
+        }
       }
       
       // Esegui il callback di upgrade se fornito
@@ -98,6 +103,19 @@ function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabas
       // Potremmo voler notificare l'utente qui
     };
   });
+}
+
+// Funzione per inizializzare il database
+async function initializeDB() {
+  try {
+    console.log('Initializing IndexedDB...');
+    const db = await openDB('tracks-db', 1);
+    console.log('IndexedDB initialized successfully');
+    return db;
+  } catch (error) {
+    console.error('Error initializing IndexedDB:', error);
+    throw error;
+  }
 }
 
 export const useTrackStore = create<TrackState>()(
@@ -837,7 +855,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
         getItem: async (name) => {
           try {
             console.log('Reading from IndexedDB:', name);
-            const db = await openDB('tracks-db', 1);
+            const db = await initializeDB();
             const tx = db.transaction('tracks', 'readonly');
             const store = tx.objectStore('tracks');
             const value = await store.get(name);
@@ -851,7 +869,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
         setItem: async (name, value) => {
           try {
             console.log('Writing to IndexedDB:', name);
-            const db = await openDB('tracks-db', 1);
+            const db = await initializeDB();
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
             await store.put({ id: name, value: JSON.parse(value) });
@@ -864,7 +882,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
         removeItem: async (name) => {
           try {
             console.log('Removing from IndexedDB:', name);
-            const db = await openDB('tracks-db', 1);
+            const db = await initializeDB();
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
             await store.delete(name);
