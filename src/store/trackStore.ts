@@ -1012,7 +1012,11 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               findings: (track.findings || []).map(finding => ({
                 ...finding,
-                id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                // Gestione speciale per le foto
+                photoUrl: finding.photoUrl ? 
+                  (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
+                  null
               }))
             }));
             
@@ -1070,6 +1074,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
                 id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 coordinates: finding.coordinates || [],
                 timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
+                // Gestione speciale per le foto
                 photoUrl: finding.photoUrl ? 
                   (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
                   null
@@ -1089,6 +1094,16 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               }
             });
             
+            // Se la quota è superata, rimuovi le tracce più vecchie
+            if (mergedTracks.length > 20) {
+              console.warn('Storage quota exceeded, cleaning up old tracks...');
+              const sortedTracks = [...mergedTracks].sort((a, b) => 
+                new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+              );
+              mergedTracks.length = 0;
+              mergedTracks.push(...sortedTracks.slice(0, 20));
+            }
+            
             const cleanValue = {
               state: {
                 ...serializableValue.state,
@@ -1096,34 +1111,44 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               }
             };
             
-            try {
-              await store.put({ id: name, value: cleanValue });
-              await tx.done;
-            } catch (quotaError) {
-              console.warn('Storage quota exceeded, cleaning up old tracks...');
-              
-              // Se la quota è superata, rimuovi le tracce più vecchie
-              const sortedTracks = [...mergedTracks].sort((a, b) => 
-                new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-              );
-              
-              // Mantieni solo le ultime 20 tracce
-              const recentTracks = sortedTracks.slice(0, 20);
-              
-              // Prova a salvare di nuovo con meno tracce
-              await store.put({ 
-                id: name, 
-                value: { 
-                  state: { 
-                    ...cleanValue.state, 
-                    tracks: recentTracks 
-                  } 
-                } 
-              });
-              await tx.done;
-            }
+            await store.put({ id: name, value: cleanValue });
+            await tx.done;
           } catch (error) {
             console.warn('Error writing to IndexedDB:', error);
+            // In caso di errore, prova a salvare solo le tracce più recenti
+            if (error.name === 'QuotaExceededError') {
+              try {
+                const db = await initializeDB();
+                const tx = db.transaction('tracks', 'readwrite');
+                const store = tx.objectStore('tracks');
+                
+                // Leggi i dati esistenti
+                const existingValue = await store.get(name);
+                let existingTracks = [];
+                
+                if (existingValue && existingValue.value && existingValue.value.state) {
+                  existingTracks = existingValue.value.state.tracks || [];
+                }
+                
+                // Mantieni solo le ultime 10 tracce
+                const sortedTracks = [...existingTracks].sort((a, b) => 
+                  new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+                );
+                const recentTracks = sortedTracks.slice(0, 10);
+                
+                await store.put({ 
+                  id: name, 
+                  value: { 
+                    state: { 
+                      tracks: recentTracks 
+                    } 
+                  } 
+                });
+                await tx.done;
+              } catch (retryError) {
+                console.error('Error during quota cleanup:', retryError);
+              }
+            }
           }
         },
         removeItem: async (name) => {
