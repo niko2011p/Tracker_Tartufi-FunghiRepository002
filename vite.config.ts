@@ -13,6 +13,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    minify: 'terser',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -26,4 +27,7 @@ export default defineConfig({
     port: 3000,
   },
   base: '/Tracker_Tartufi-FunghiRepository002/',
+  esbuild: {
+    logOverride: { 'this-is-undefined-in-esm': 'silent' }
+  }
 });
