@@ -1046,7 +1046,11 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
                 ...finding,
                 id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 coordinates: finding.coordinates || [],
-                timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
+                timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
+                // Gestione speciale per le foto
+                photoUrl: finding.photoUrl ? 
+                  (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
+                  null
               }))
             }));
             
@@ -1066,8 +1070,33 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               cleanValue.state.tracks = [...existingTracks, ...newTracks];
             }
             
-            await store.put({ id: name, value: cleanValue });
-            await tx.done;
+            // Gestione della quota di storage
+            try {
+              await store.put({ id: name, value: cleanValue });
+              await tx.done;
+            } catch (quotaError) {
+              console.warn('Storage quota exceeded, cleaning up old tracks...');
+              
+              // Se la quota è superata, rimuovi le tracce più vecchie
+              const sortedTracks = [...cleanValue.state.tracks].sort((a, b) => 
+                new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+              );
+              
+              // Mantieni solo le ultime 20 tracce
+              const recentTracks = sortedTracks.slice(0, 20);
+              
+              // Prova a salvare di nuovo con meno tracce
+              await store.put({ 
+                id: name, 
+                value: { 
+                  state: { 
+                    ...cleanValue.state, 
+                    tracks: recentTracks 
+                  } 
+                } 
+              });
+              await tx.done;
+            }
           } catch (error) {
             console.warn('Error writing to IndexedDB:', error);
           }
@@ -1090,7 +1119,11 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               ...finding,
               id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               coordinates: finding.coordinates || [],
-              timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
+              timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
+              // Gestione speciale per le foto
+              photoUrl: finding.photoUrl ? 
+                (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
+                null
             }))
           })),
           currentTrack: state.currentTrack ? {
@@ -1109,7 +1142,11 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               coordinates: finding.coordinates || [],
               timestamp: finding.timestamp instanceof Date ? 
                 finding.timestamp.toISOString() : 
-                finding.timestamp
+                finding.timestamp,
+              // Gestione speciale per le foto
+              photoUrl: finding.photoUrl ? 
+                (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
+                null
             }))
           } : null,
           loadedFindings: null
