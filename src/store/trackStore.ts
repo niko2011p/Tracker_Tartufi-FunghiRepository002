@@ -58,73 +58,90 @@ async function getLocationName(lat: number, lon: number) {
 // Funzione helper per aprire IndexedDB
 function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabase) => void): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(name, version);
-    
-    request.onerror = () => {
-      console.error('Error opening IndexedDB:', request.error);
-      reject(request.error);
-    };
-    
-    request.onsuccess = () => {
-      console.log('IndexedDB opened successfully');
-      const db = request.result;
+    // Prima, verifichiamo la versione attuale del database
+    const checkRequest = indexedDB.open(name);
+    checkRequest.onsuccess = () => {
+      const db = checkRequest.result;
+      const currentVersion = db.version;
+      db.close();
       
-      // Verifica se l'object store esiste
-      if (!db.objectStoreNames.contains('tracks')) {
-        console.log('Object store not found, closing and reopening with higher version');
-        db.close();
-        // Riapri il database con una versione più alta per forzare l'upgrade
-        const newRequest = indexedDB.open(name, version + 1);
-        newRequest.onerror = () => reject(newRequest.error);
-        newRequest.onsuccess = () => resolve(newRequest.result);
-        newRequest.onupgradeneeded = (event) => {
-          const newDb = (event.target as IDBOpenDBRequest).result;
-          console.log('Creating tracks object store during upgrade');
+      // Usiamo la versione più alta tra quella richiesta e quella attuale
+      const targetVersion = Math.max(version, currentVersion);
+      console.log(`Opening IndexedDB with version ${targetVersion} (current: ${currentVersion}, requested: ${version})`);
+      
+      const request = indexedDB.open(name, targetVersion);
+      
+      request.onerror = () => {
+        console.error('Error opening IndexedDB:', request.error);
+        reject(request.error);
+      };
+      
+      request.onsuccess = () => {
+        console.log('IndexedDB opened successfully');
+        const db = request.result;
+        
+        // Verifica se l'object store esiste
+        if (!db.objectStoreNames.contains('tracks')) {
+          console.log('Object store not found, closing and reopening with higher version');
+          db.close();
+          // Riapri il database con una versione più alta per forzare l'upgrade
+          const newRequest = indexedDB.open(name, targetVersion + 1);
+          newRequest.onerror = () => reject(newRequest.error);
+          newRequest.onsuccess = () => resolve(newRequest.result);
+          newRequest.onupgradeneeded = (event) => {
+            const newDb = (event.target as IDBOpenDBRequest).result;
+            console.log('Creating tracks object store during upgrade');
+            try {
+              const store = newDb.createObjectStore('tracks', { keyPath: 'id' });
+              store.createIndex('timestamp', 'timestamp', { unique: false });
+              console.log('Object store and index created successfully');
+            } catch (error) {
+              console.error('Error creating object store:', error);
+              reject(error);
+            }
+          };
+        } else {
+          resolve(db);
+        }
+      };
+      
+      request.onupgradeneeded = (event) => {
+        console.log('IndexedDB upgrade needed');
+        const db = (event.target as IDBOpenDBRequest).result;
+        
+        // Crea l'object store se non esiste
+        if (!db.objectStoreNames.contains('tracks')) {
+          console.log('Creating tracks object store');
           try {
-            const store = newDb.createObjectStore('tracks', { keyPath: 'id' });
+            const store = db.createObjectStore('tracks', { keyPath: 'id' });
             store.createIndex('timestamp', 'timestamp', { unique: false });
             console.log('Object store and index created successfully');
           } catch (error) {
             console.error('Error creating object store:', error);
             reject(error);
           }
-        };
-      } else {
-        resolve(db);
-      }
+        }
+        
+        // Esegui il callback di upgrade se fornito
+        if (upgradeCallback) {
+          try {
+            upgradeCallback(db);
+          } catch (error) {
+            console.error('Error in upgrade callback:', error);
+            reject(error);
+          }
+        }
+      };
+      
+      request.onblocked = () => {
+        console.warn('IndexedDB blocked - another connection is open');
+        reject(new Error('Database blocked by another connection'));
+      };
     };
     
-    request.onupgradeneeded = (event) => {
-      console.log('IndexedDB upgrade needed');
-      const db = (event.target as IDBOpenDBRequest).result;
-      
-      // Crea l'object store se non esiste
-      if (!db.objectStoreNames.contains('tracks')) {
-        console.log('Creating tracks object store');
-        try {
-          const store = db.createObjectStore('tracks', { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-          console.log('Object store and index created successfully');
-        } catch (error) {
-          console.error('Error creating object store:', error);
-          reject(error);
-        }
-      }
-      
-      // Esegui il callback di upgrade se fornito
-      if (upgradeCallback) {
-        try {
-          upgradeCallback(db);
-        } catch (error) {
-          console.error('Error in upgrade callback:', error);
-          reject(error);
-        }
-      }
-    };
-    
-    request.onblocked = () => {
-      console.warn('IndexedDB blocked - another connection is open');
-      reject(new Error('Database blocked by another connection'));
+    checkRequest.onerror = () => {
+      console.error('Error checking current version:', checkRequest.error);
+      reject(checkRequest.error);
     };
   });
 }
