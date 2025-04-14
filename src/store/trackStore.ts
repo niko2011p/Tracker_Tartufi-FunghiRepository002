@@ -32,29 +32,6 @@ export interface TrackState {
   resetForms: () => void;
 }
 
-async function getLocationName(lat: number, lon: number) {
-  try {
-    const response = await fetch(
-      `https://api.weatherapi.com/v1/search.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}`
-    );
-    
-    if (!response.ok) throw new Error('Error retrieving location');
-    const locations = await response.json();
-    
-    if (locations.length > 0) {
-      return {
-        name: locations[0].name,
-        region: locations[0].region,
-        coordinates: [lat, lon] as [number, number]
-      };
-    }
-    return null;
-  } catch (err) {
-    console.error('Error getting location name:', err);
-    return null;
-  }
-}
-
 // Funzione helper per aprire IndexedDB
 function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabase) => void): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -156,6 +133,87 @@ async function initializeDB() {
   } catch (error) {
     console.error('Error initializing IndexedDB:', error);
     throw error;
+  }
+}
+
+// Funzione per riprodurre audio con fallback
+async function playAudio(soundUrl: string) {
+  try {
+    const audio = new Audio(soundUrl);
+    audio.volume = 0.3;
+    await audio.play();
+  } catch (error) {
+    console.warn('Error playing audio:', error);
+    // Fallback a vibrazione se disponibile
+    if (window.navigator.vibrate) {
+      window.navigator.vibrate(200);
+    }
+  }
+}
+
+// Funzione per ottenere il nome della località con gestione errori
+async function getLocationName(lat: number, lon: number) {
+  try {
+    // Prima prova con OpenStreetMap
+    try {
+      const osmResponse = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'Accept-Language': 'it',
+            'User-Agent': 'TrackerApp/1.0'
+          }
+        }
+      );
+      
+      if (osmResponse.ok) {
+        const data = await osmResponse.json();
+        if (data.display_name) {
+          return {
+            name: data.display_name,
+            region: data.address?.state || data.address?.county || '',
+            coordinates: [lat, lon] as [number, number]
+          };
+        }
+      }
+    } catch (osmError) {
+      console.warn('Error getting location from OpenStreetMap:', osmError);
+    }
+    
+    // Fallback a WeatherAPI
+    try {
+      const weatherResponse = await fetch(
+        `https://api.weatherapi.com/v1/search.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}`,
+        {
+          headers: {
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      if (weatherResponse.ok) {
+        const locations = await weatherResponse.json();
+        if (locations.length > 0) {
+          return {
+            name: locations[0].name,
+            region: locations[0].region,
+            coordinates: [lat, lon] as [number, number]
+          };
+        }
+      }
+    } catch (weatherError) {
+      console.warn('Error getting location from WeatherAPI:', weatherError);
+    }
+    
+    // Se entrambi i servizi falliscono, restituisci un nome generico
+    return {
+      name: `Posizione (${lat.toFixed(6)}, ${lon.toFixed(6)})`,
+      region: '',
+      coordinates: [lat, lon] as [number, number]
+    };
+  } catch (error) {
+    console.error('Error getting location name:', error);
+    return null;
   }
 }
 
@@ -1021,17 +1079,3 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     }
   )
 );
-
-// Aggiungi una funzione per pulire i dati al logout
-export const clearTrackStore = async () => {
-  try {
-    const db = await initializeDB();
-    const tx = db.transaction('tracks', 'readwrite');
-    const store = tx.objectStore('tracks');
-    await store.clear();
-    await tx.done;
-    console.log('Track store cleared successfully');
-  } catch (error) {
-    console.error('Error clearing track store:', error);
-  }
-};
