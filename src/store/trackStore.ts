@@ -1005,8 +1005,15 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const parsedValue = JSON.parse(JSON.stringify(value.value));
             console.log('Parsed value from IndexedDB:', parsedValue);
             
-            if (!parsedValue || !parsedValue.state || !parsedValue.state.tracks || !Array.isArray(parsedValue.state.tracks)) {
-              console.warn('Invalid tracks data found, returning empty state');
+            // Assicurati che la struttura sia corretta
+            if (!parsedValue || !parsedValue.state) {
+              console.warn('Invalid state structure, returning empty state');
+              return JSON.stringify({ state: { tracks: [] } });
+            }
+            
+            // Assicurati che tracks sia un array
+            if (!Array.isArray(parsedValue.state.tracks)) {
+              console.warn('Tracks is not an array, returning empty state');
               return JSON.stringify({ state: { tracks: [] } });
             }
             
@@ -1018,7 +1025,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               return {
                 ...track,
                 id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                findings: (track.findings || []).map(finding => {
+                findings: Array.isArray(track.findings) ? track.findings.map(finding => {
                   console.log('Processing finding:', finding.id);
                   return {
                     ...finding,
@@ -1028,7 +1035,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
                       (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
                       null
                   };
-                })
+                }) : []
               };
             });
             
@@ -1061,7 +1068,9 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             
             let existingTracks = [];
             if (existingValue && existingValue.value && existingValue.value.state) {
-              existingTracks = existingValue.value.state.tracks || [];
+              existingTracks = Array.isArray(existingValue.value.state.tracks) ? 
+                existingValue.value.state.tracks : 
+                [];
               console.log('Number of existing tracks:', existingTracks.length);
             }
             
@@ -1078,33 +1087,39 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             }
             
             // Assicurati che la struttura sia corretta
-            if (!serializableValue.state) {
+            if (!serializableValue || !serializableValue.state) {
               console.warn('Invalid state structure, initializing empty state');
               serializableValue = { state: { tracks: [] } };
             }
             
+            // Assicurati che tracks sia un array
+            if (!Array.isArray(serializableValue.state.tracks)) {
+              console.warn('Tracks is not an array, initializing empty array');
+              serializableValue.state.tracks = [];
+            }
+            
             // Assicurati che le tracce siano sempre presenti e valide
-            const validTracks = (serializableValue.state.tracks || []).map(track => {
+            const validTracks = serializableValue.state.tracks.map(track => {
               console.log('Validating track:', track.id);
               return {
                 ...track,
                 id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
                 endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
-                coordinates: track.coordinates || [],
-                findings: (track.findings || []).map(finding => {
+                coordinates: Array.isArray(track.coordinates) ? track.coordinates : [],
+                findings: Array.isArray(track.findings) ? track.findings.map(finding => {
                   console.log('Validating finding:', finding.id);
                   return {
                     ...finding,
                     id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    coordinates: finding.coordinates || [],
+                    coordinates: Array.isArray(finding.coordinates) ? finding.coordinates : [],
                     timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
                     // Gestione speciale per le foto
                     photoUrl: finding.photoUrl ? 
                       (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
                       null
                   };
-                })
+                }) : []
               };
             });
             
@@ -1164,7 +1179,9 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
                 let existingTracks = [];
                 
                 if (existingValue && existingValue.value && existingValue.value.state) {
-                  existingTracks = existingValue.value.state.tracks || [];
+                  existingTracks = Array.isArray(existingValue.value.state.tracks) ? 
+                    existingValue.value.state.tracks : 
+                    [];
                 }
                 
                 console.log('Number of existing tracks for quota cleanup:', existingTracks.length);

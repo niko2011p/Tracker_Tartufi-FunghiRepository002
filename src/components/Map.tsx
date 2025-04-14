@@ -166,65 +166,75 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
     console.log('Number of findings:', track.findings.length);
 
     // Rimuovi i marker esistenti
-    markersRef.current.forEach(marker => {
-      console.log('Removing existing marker:', marker.options.title);
-      marker.remove();
-    });
+    if (markersRef.current && Array.isArray(markersRef.current)) {
+      markersRef.current.forEach(marker => {
+        if (marker && typeof marker.remove === 'function') {
+          console.log('Removing existing marker:', marker.options.title);
+          marker.remove();
+        }
+      });
+    }
     markersRef.current = [];
 
     // Aggiungi i marker per i ritrovamenti
-    track.findings.forEach(finding => {
-      console.log('Processing finding:', finding.id);
-      console.log('Finding coordinates:', finding.coordinates);
-      
-      if (!finding.coordinates || finding.coordinates.length !== 2) {
-        console.warn('Invalid coordinates for finding:', finding.id);
-        return;
-      }
+    if (Array.isArray(track.findings)) {
+      track.findings.forEach(finding => {
+        console.log('Processing finding:', finding.id);
+        console.log('Finding coordinates:', finding.coordinates);
+        
+        if (!finding.coordinates || !Array.isArray(finding.coordinates) || finding.coordinates.length !== 2) {
+          console.warn('Invalid coordinates for finding:', finding.id);
+          return;
+        }
 
-      try {
-        const marker = L.marker(finding.coordinates, {
-          icon: L.divIcon({
-            className: 'custom-div-icon',
-            html: `<div class="marker-pin ${finding.type.toLowerCase()}"></div>`,
-            iconSize: [30, 42],
-            iconAnchor: [15, 42]
-          }),
-          title: finding.name
-        });
+        try {
+          const marker = L.marker(finding.coordinates, {
+            icon: L.divIcon({
+              className: 'custom-div-icon',
+              html: `<div class="marker-pin ${finding.type.toLowerCase()}"></div>`,
+              iconSize: [30, 42],
+              iconAnchor: [15, 42]
+            }),
+            title: finding.name
+          });
 
-        console.log('Created marker for finding:', finding.id);
+          console.log('Created marker for finding:', finding.id);
 
-        // Aggiungi il popup
-        const popupContent = `
-          <div class="popup-content">
-            <h3>${finding.name}</h3>
-            <p>${finding.description || ''}</p>
-            ${finding.photoUrl ? `<img src="${finding.photoUrl}" alt="${finding.name}" style="max-width: 200px; max-height: 200px;">` : ''}
-          </div>
-        `;
+          // Aggiungi il popup
+          const popupContent = `
+            <div class="popup-content">
+              <h3>${finding.name}</h3>
+              <p>${finding.description || ''}</p>
+              ${finding.photoUrl ? `<img src="${finding.photoUrl}" alt="${finding.name}" style="max-width: 200px; max-height: 200px;">` : ''}
+            </div>
+          `;
 
-        marker.bindPopup(popupContent, {
-          maxWidth: 300,
-          minWidth: 200,
-          closeButton: true,
-          autoClose: false,
-          closeOnClick: false
-        });
+          marker.bindPopup(popupContent, {
+            maxWidth: 300,
+            minWidth: 200,
+            closeButton: true,
+            autoClose: false,
+            closeOnClick: false
+          });
 
-        console.log('Added popup to marker:', finding.id);
+          console.log('Added popup to marker:', finding.id);
 
-        // Aggiungi il marker alla mappa
-        marker.addTo(mapRef.current);
-        markersRef.current.push(marker);
+          // Aggiungi il marker alla mappa
+          marker.addTo(mapRef.current);
+          if (Array.isArray(markersRef.current)) {
+            markersRef.current.push(marker);
+          } else {
+            markersRef.current = [marker];
+          }
 
-        console.log('Marker added to map:', finding.id);
-      } catch (error) {
-        console.error('Error creating marker for finding:', finding.id, error);
-      }
-    });
+          console.log('Marker added to map:', finding.id);
+        } catch (error) {
+          console.error('Error creating marker for finding:', finding.id, error);
+        }
+      });
+    }
 
-    console.log('Total markers added:', markersRef.current.length);
+    console.log('Total markers added:', Array.isArray(markersRef.current) ? markersRef.current.length : 0);
   }, [track]);
 
   return (
