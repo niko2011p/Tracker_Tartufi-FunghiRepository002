@@ -901,7 +901,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const store = tx.objectStore('tracks');
             const value = await store.get(name);
             await tx.done;
-            return value ? JSON.stringify(value) : null;
+            return value ? value.value : null;
           } catch (error) {
             console.warn('Error reading from IndexedDB:', error);
             return null;
@@ -913,7 +913,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const db = await initializeDB();
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
-            await store.put({ id: name, value: JSON.parse(value) });
+            await store.put({ id: name, value: typeof value === 'string' ? JSON.parse(value) : value });
             await tx.done;
           } catch (error) {
             console.warn('Error writing to IndexedDB:', error);
