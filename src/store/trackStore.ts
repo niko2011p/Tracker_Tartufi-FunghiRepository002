@@ -420,6 +420,36 @@ export const useTrackStore = create<TrackState>()(
                 }
                 return finding;
               });
+
+              // Aggiungi il tag di inizio traccia se non esiste già
+              if (currentTrack.coordinates.length > 0) {
+                const startFinding = {
+                  id: `finding_start_${currentTrack.id}`,
+                  trackId: currentTrack.id,
+                  name: 'Inizio Traccia',
+                  description: `Inizio traccia alle ${format(currentTrack.startTime, 'HH:mm')}`,
+                  type: 'Start',
+                  coordinates: currentTrack.coordinates[0],
+                  timestamp: currentTrack.startTime,
+                  photoUrl: null
+                };
+                validatedFindings.unshift(startFinding);
+              }
+
+              // Aggiungi il tag di fine traccia
+              if (currentTrack.coordinates.length > 0) {
+                const endFinding = {
+                  id: `finding_end_${currentTrack.id}`,
+                  trackId: currentTrack.id,
+                  name: 'Fine Traccia',
+                  description: `Fine traccia alle ${format(endTime, 'HH:mm')}`,
+                  type: 'End',
+                  coordinates: currentTrack.coordinates[currentTrack.coordinates.length - 1],
+                  timestamp: endTime,
+                  photoUrl: null
+                };
+                validatedFindings.push(endFinding);
+              }
               
               const completedTrack: Track = {
                 ...currentTrack,
