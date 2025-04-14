@@ -77,7 +77,9 @@ function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabas
       // Crea l'object store se non esiste
       if (!db.objectStoreNames.contains('tracks')) {
         console.log('Creating tracks object store');
-        db.createObjectStore('tracks');
+        const store = db.createObjectStore('tracks', { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+        console.log('Object store and index created successfully');
       }
       
       // Esegui il callback di upgrade se fornito
@@ -852,7 +854,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const db = await openDB('tracks-db', 1);
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
-            await store.put(JSON.parse(value), name);
+            await store.put({ id: name, value: JSON.parse(value) });
             await tx.done;
           } catch (error) {
             console.warn('Error writing to IndexedDB:', error);
