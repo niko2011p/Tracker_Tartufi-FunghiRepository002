@@ -258,7 +258,7 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
       const bounds = L.latLngBounds(markersRef.current.map(m => m.getLatLng()));
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [track?.findings]);
+  }, [track]);
 
   return (
     <div 

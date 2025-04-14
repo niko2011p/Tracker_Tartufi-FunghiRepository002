@@ -1006,7 +1006,22 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               return JSON.stringify({ state: { tracks: [] } });
             }
             
-            return JSON.stringify(parsedValue);
+            // Assicurati che ogni traccia abbia un ID unico
+            const tracksWithIds = parsedValue.state.tracks.map(track => ({
+              ...track,
+              id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              findings: (track.findings || []).map(finding => ({
+                ...finding,
+                id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+              }))
+            }));
+            
+            return JSON.stringify({
+              state: {
+                ...parsedValue.state,
+                tracks: tracksWithIds
+              }
+            });
           } catch (error) {
             console.warn('Error reading from IndexedDB:', error);
             return JSON.stringify({ state: { tracks: [] } });
@@ -1018,6 +1033,14 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
             const db = await initializeDB();
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
+            
+            // Leggi i dati esistenti
+            const existingValue = await store.get(name);
+            let existingTracks = [];
+            
+            if (existingValue && existingValue.value && existingValue.value.state) {
+              existingTracks = existingValue.value.state.tracks || [];
+            }
             
             // Assicurati che il valore sia serializzabile e abbia la struttura corretta
             let serializableValue;
@@ -1047,30 +1070,32 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
                 id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 coordinates: finding.coordinates || [],
                 timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
-                // Gestione speciale per le foto
                 photoUrl: finding.photoUrl ? 
                   (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
                   null
               }))
             }));
             
+            // Unisci le tracce esistenti con quelle nuove, evitando duplicati
+            const mergedTracks = [...existingTracks];
+            validTracks.forEach(newTrack => {
+              const existingIndex = mergedTracks.findIndex(t => t.id === newTrack.id);
+              if (existingIndex >= 0) {
+                // Aggiorna la traccia esistente
+                mergedTracks[existingIndex] = newTrack;
+              } else {
+                // Aggiungi la nuova traccia
+                mergedTracks.push(newTrack);
+              }
+            });
+            
             const cleanValue = {
               state: {
                 ...serializableValue.state,
-                tracks: validTracks
+                tracks: mergedTracks
               }
             };
             
-            // Leggi i dati esistenti prima di sovrascriverli
-            const existingValue = await store.get(name);
-            if (existingValue && existingValue.value && existingValue.value.state) {
-              // Mantieni le tracce esistenti
-              const existingTracks = existingValue.value.state.tracks || [];
-              const newTracks = cleanValue.state.tracks || [];
-              cleanValue.state.tracks = [...existingTracks, ...newTracks];
-            }
-            
-            // Gestione della quota di storage
             try {
               await store.put({ id: name, value: cleanValue });
               await tx.done;
@@ -1078,7 +1103,7 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               console.warn('Storage quota exceeded, cleaning up old tracks...');
               
               // Se la quota è superata, rimuovi le tracce più vecchie
-              const sortedTracks = [...cleanValue.state.tracks].sort((a, b) => 
+              const sortedTracks = [...mergedTracks].sort((a, b) => 
                 new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
               );
               
