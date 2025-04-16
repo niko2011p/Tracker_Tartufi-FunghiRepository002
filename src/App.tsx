@@ -19,6 +19,7 @@ import Profile from './pages/Profile';
 import Logger from './components/Logger';
 import Settings from './components/Settings';
 import MainLayout from './components/MainLayout';
+import TrackDetail from './pages/TrackDetail';
 
 function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
   const location = useLocation();
@@ -76,6 +77,7 @@ function App() {
               <Route path="/meteo" element={<Meteo />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/track/:id" element={<TrackDetail />} />
             </Route>
             
             {/* Reindirizzamento per rotte non trovate */}

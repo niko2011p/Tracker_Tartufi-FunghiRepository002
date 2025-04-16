@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useTrackHistoryStore } from '../store/trackHistoryStore';
 import { formatDistance, formatDuration } from '../utils/formatUtils';
+import { useNavigate } from 'react-router-dom';
 
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -17,6 +18,7 @@ const Logger: React.FC = () => {
   const tracks = useTrackHistoryStore((state) => state.tracks);
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([45.4642, 9.1900]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Carica le tracce dal localStorage all'avvio
@@ -86,6 +88,15 @@ const Logger: React.FC = () => {
               <p className="text-sm text-gray-600">
                 {new Date(track.startTime).toLocaleString()}
               </p>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/track/${track.id}`);
+                }}
+                className="px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors"
+              >
+                Visualizza dettagli
+              </button>
             </div>
           ))}
         </div>
