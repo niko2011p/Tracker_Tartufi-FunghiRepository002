@@ -407,64 +407,20 @@ export const useTrackStore = create<TrackState>()(
       addFinding: async (finding) => {
         const { currentTrack } = get();
         if (currentTrack && navigator.geolocation) {
-          // Utilizziamo opzioni ottimizzate per ottenere la posizione più precisa possibile
-          const geoOptions = {
-            enableHighAccuracy: true,
-            timeout: 10000, // Aumentato il timeout a 10 secondi
-            maximumAge: 0 // Forza l'acquisizione di una nuova posizione
-          };
-          
-          console.log(`Acquisizione posizione GPS per tag di tipo: ${finding.type}...`);
-          
-          // Utilizziamo getCurrentPosition con retry per garantire l'acquisizione della posizione
-          const tryGetPosition = (retryCount = 0, maxRetries = 3) => {
-            return new Promise<[number, number]>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(
-                (position) => {
-                  const coordinates: [number, number] = [
-                    position.coords.latitude,
-                    position.coords.longitude
-                  ];
-                  
-                  console.log(`Aggiunta tag alle coordinate GPS precise: [${coordinates[0]}, ${coordinates[1]}], tipo: ${finding.type}, accuratezza: ${position.coords.accuracy}m`);
-                  resolve(coordinates);
-                },
-                (error) => {
-                  console.warn(`Errore nell'acquisizione della posizione per il tag (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
-                  
-                  if (retryCount < maxRetries) {
-                    // Riprova con opzioni meno restrittive
-                    const retryOptions = {
-                      ...geoOptions,
-                      enableHighAccuracy: retryCount < 1, // Disabilita high accuracy dopo il primo retry
-                      timeout: geoOptions.timeout + (retryCount * 5000) // Aumenta il timeout ad ogni retry
-                    };
-                    
-                    console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
-                    setTimeout(() => {
-                      tryGetPosition(retryCount + 1, maxRetries)
-                        .then(resolve)
-                        .catch(reject);
-                    }, 1000);
-                  } else {
-                    // Fallback: usa l'ultima posizione conosciuta dal track
-                    if (currentTrack.coordinates.length > 0) {
-                      const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-                      console.log(`Fallback: aggiunta tag all'ultima posizione conosciuta: [${lastPosition[0]}, ${lastPosition[1]}], tipo: ${finding.type}`);
-                      resolve(lastPosition);
-                    } else {
-                      reject(new Error('Impossibile ottenere la posizione'));
-                    }
-                  }
-                },
-                geoOptions
-              );
-            });
-          };
-          
           try {
-            const coordinates = await tryGetPosition();
-            
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+              });
+            });
+
+            const coordinates: [number, number] = [
+              Number(position.coords.latitude.toFixed(6)),
+              Number(position.coords.longitude.toFixed(6))
+            ];
+
             const newFinding: Finding = {
               ...finding,
               id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -472,27 +428,31 @@ export const useTrackStore = create<TrackState>()(
               coordinates,
               timestamp: new Date()
             };
-            
-            // Aggiorna immediatamente lo stato con il nuovo ritrovamento
-            set({
-              currentTrack: {
-                ...currentTrack,
-                findings: [...currentTrack.findings, newFinding]
-              }
-            });
-            
-            console.log(`Tag aggiunto e visualizzato sulla mappa: ${finding.type} alle coordinate [${coordinates[0]}, ${coordinates[1]}]`);
-            
-            // Riproduci un suono di conferma
+
+            // Aggiorna la traccia corrente con il nuovo ritrovamento
+            set(state => ({
+              currentTrack: state.currentTrack ? {
+                ...state.currentTrack,
+                findings: [...state.currentTrack.findings, newFinding]
+              } : null
+            }));
+
+            // Prova a salvare le tracce
             try {
-              const audio = new Audio('/sound/alert.mp3');
-              audio.volume = 0.3;
-              await audio.play();
+              get().saveTracks();
             } catch (error) {
-              console.error('Errore nella riproduzione audio:', error);
+              console.error('Errore nel salvataggio delle tracce:', error);
+              // Se c'è un errore di quota, continua comunque con il ritrovamento
+              // ma mostra un avviso all'utente
+              if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+                console.warn('Quota localStorage superata, il ritrovamento è stato aggiunto ma non salvato');
+                alert('Attenzione: lo spazio di archiviazione è pieno. Il ritrovamento è stato aggiunto ma potrebbe non essere salvato permanentemente.');
+              }
             }
+
+            return newFinding;
           } catch (error) {
-            console.error('Errore nell\'aggiunta del ritrovamento:', error);
+            console.error('Errore nell\'acquisizione della posizione:', error);
             throw error;
           }
         }
@@ -682,7 +642,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             id: track.id,
             name: track.name,
             coordinates: track.coordinates.map(coord => [
-              Number(coord[0].toFixed(6)), // Riduci la precisione delle coordinate
+              Number(coord[0].toFixed(6)),
               Number(coord[1].toFixed(6))
             ]),
             findings: track.findings.map(finding => ({
@@ -703,21 +663,55 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           }));
 
           const compressed = LZString.compress(JSON.stringify(optimizedTracks));
-          localStorage.setItem('savedTracks', compressed);
-        } catch (error) {
-          console.error('Errore nel salvataggio delle tracce:', error);
-          // Se c'è un errore di quota, prova a salvare solo le ultime 10 tracce
-          if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-            try {
-              const { tracks } = get();
-              const last10Tracks = tracks.slice(-10);
-              const compressed = LZString.compress(JSON.stringify(last10Tracks));
-              localStorage.setItem('savedTracks', compressed);
-              console.warn('Salvate solo le ultime 10 tracce a causa della quota superata');
-            } catch (e) {
-              console.error('Errore nel salvataggio delle ultime 10 tracce:', e);
+          
+          try {
+            localStorage.setItem('savedTracks', compressed);
+          } catch (error) {
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+              // Se la quota è superata, prova a pulire lo storage
+              console.warn('Quota localStorage superata, tentativo di pulizia...');
+              
+              // 1. Prova a salvare solo le ultime 10 tracce
+              try {
+                const last10Tracks = tracks.slice(-10);
+                const compressed = LZString.compress(JSON.stringify(last10Tracks));
+                localStorage.setItem('savedTracks', compressed);
+                console.warn('Salvate solo le ultime 10 tracce');
+              } catch (e) {
+                // 2. Se ancora non funziona, prova a salvare solo la traccia corrente
+                try {
+                  const currentTrack = get().currentTrack;
+                  if (currentTrack) {
+                    const compressed = LZString.compress(JSON.stringify([currentTrack]));
+                    localStorage.setItem('savedTracks', compressed);
+                    console.warn('Salvata solo la traccia corrente');
+                  }
+                } catch (e2) {
+                  // 3. Se tutto fallisce, salva solo i dati essenziali
+                  try {
+                    const essentialData = {
+                      currentTrack: get().currentTrack ? {
+                        id: get().currentTrack.id,
+                        startTime: get().currentTrack.startTime,
+                        coordinates: get().currentTrack.coordinates.slice(-100),
+                        findings: get().currentTrack.findings
+                      } : null
+                    };
+                    localStorage.setItem('savedTracks', JSON.stringify(essentialData));
+                    console.warn('Salvati solo i dati essenziali');
+                  } catch (e3) {
+                    console.error('Impossibile salvare i dati, storage completamente pieno');
+                    // Notifica l'utente che i dati non possono essere salvati
+                    alert('Attenzione: lo spazio di archiviazione è pieno. Alcuni dati potrebbero non essere salvati.');
+                  }
+                }
+              }
+            } else {
+              throw error;
             }
           }
+        } catch (error) {
+          console.error('Errore nel salvataggio delle tracce:', error);
         }
       },
 
@@ -763,6 +757,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
       name: 'tracks-storage',
       skipHydration: false,
       partialize: (state) => {
+        // Ottimizza i dati prima del salvataggio
         const tracks = state.tracks.map(track => ({
           ...track,
           startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
