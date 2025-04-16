@@ -322,7 +322,40 @@ export const useTrackStore = create<TrackState>()(
       },
 
       deleteAllTracks: () => {
-        set({ tracks: [] });
+        try {
+          // 1. Pulisci tutti i chunk di storage
+          const chunkCount = parseInt(localStorage.getItem('savedTracks_count') || '0');
+          
+          // Rimuovi tutti i chunk principali
+          for (let i = 0; i < chunkCount; i++) {
+            localStorage.removeItem(`savedTracks_${i}`);
+            
+            // Rimuovi anche eventuali sub-chunk
+            let subIndex = 0;
+            while (localStorage.getItem(`savedTracks_${i}_${subIndex}`)) {
+              localStorage.removeItem(`savedTracks_${i}_${subIndex}`);
+              subIndex++;
+            }
+          }
+          
+          // 2. Rimuovi il contatore dei chunk
+          localStorage.removeItem('savedTracks_count');
+          
+          // 3. Rimuovi tutti i dati dello store
+          localStorage.removeItem('tracks-storage');
+          
+          // 4. Resetta lo stato
+          set({ 
+            tracks: [],
+            currentTrack: null,
+            loadedFindings: null
+          });
+          
+          console.log('Tutte le tracce sono state eliminate con successo');
+        } catch (error) {
+          console.error('Errore durante l\'eliminazione delle tracce:', error);
+          alert('Si è verificato un errore durante l\'eliminazione delle tracce. Riprova più tardi.');
+        }
       },
       
       updateCurrentPosition: (position: [number, number]) => {
@@ -442,8 +475,6 @@ export const useTrackStore = create<TrackState>()(
               get().saveTracks();
             } catch (error) {
               console.error('Errore nel salvataggio delle tracce:', error);
-              // Se c'è un errore di quota, continua comunque con il ritrovamento
-              // ma mostra un avviso all'utente
               if (error instanceof DOMException && error.name === 'QuotaExceededError') {
                 console.warn('Quota localStorage superata, il ritrovamento è stato aggiunto ma non salvato');
                 alert('Attenzione: lo spazio di archiviazione è pieno. Il ritrovamento è stato aggiunto ma potrebbe non essere salvato permanentemente.');
@@ -620,14 +651,38 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
 
       loadTracks: () => {
         try {
-          const compressed = localStorage.getItem('savedTracks');
-          if (compressed) {
-            const decompressed = LZString.decompress(compressed);
-            if (decompressed) {
-              const tracks = JSON.parse(decompressed);
-              set({ tracks });
+          const chunkCount = parseInt(localStorage.getItem('savedTracks_count') || '0');
+          const loadedTracks = [];
+
+          for (let i = 0; i < chunkCount; i++) {
+            const compressed = localStorage.getItem(`savedTracks_${i}`);
+            if (compressed) {
+              const decompressed = LZString.decompress(compressed);
+              if (decompressed) {
+                const chunk = JSON.parse(decompressed);
+                loadedTracks.push(...chunk);
+              }
+            } else {
+              // Prova a caricare i sub-chunk
+              let subIndex = 0;
+              let hasMoreSubChunks = true;
+              while (hasMoreSubChunks) {
+                const subCompressed = localStorage.getItem(`savedTracks_${i}_${subIndex}`);
+                if (subCompressed) {
+                  const decompressed = LZString.decompress(subCompressed);
+                  if (decompressed) {
+                    const subChunk = JSON.parse(decompressed);
+                    loadedTracks.push(...subChunk);
+                  }
+                  subIndex++;
+                } else {
+                  hasMoreSubChunks = false;
+                }
+              }
             }
           }
+
+          set({ tracks: loadedTracks });
         } catch (error) {
           console.error('Errore nel caricamento delle tracce:', error);
         }
@@ -638,14 +693,15 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           const { tracks } = get();
           
           // Ottimizza i dati prima del salvataggio
-          const optimizedTracks = tracks.map(track => ({
-            id: track.id,
-            name: track.name,
-            coordinates: track.coordinates.map(coord => [
+          const optimizedTracks = tracks.map(track => {
+            // Ottimizza le coordinate mantenendo la precisione necessaria
+            const optimizedCoordinates = track.coordinates.map(coord => [
               Number(coord[0].toFixed(6)),
               Number(coord[1].toFixed(6))
-            ]),
-            findings: track.findings.map(finding => ({
+            ]);
+
+            // Ottimizza i ritrovamenti
+            const optimizedFindings = track.findings.map(finding => ({
               id: finding.id,
               name: finding.name,
               type: finding.type,
@@ -656,62 +712,59 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
               timestamp: finding.timestamp,
               photoUrl: finding.photoUrl,
               description: finding.description
-            })),
-            startTime: track.startTime,
-            endTime: track.endTime,
-            distance: Number(track.distance.toFixed(2))
-          }));
+            }));
 
-          const compressed = LZString.compress(JSON.stringify(optimizedTracks));
-          
-          try {
-            localStorage.setItem('savedTracks', compressed);
-          } catch (error) {
-            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-              // Se la quota è superata, prova a pulire lo storage
-              console.warn('Quota localStorage superata, tentativo di pulizia...');
-              
-              // 1. Prova a salvare solo le ultime 10 tracce
-              try {
-                const last10Tracks = tracks.slice(-10);
-                const compressed = LZString.compress(JSON.stringify(last10Tracks));
-                localStorage.setItem('savedTracks', compressed);
-                console.warn('Salvate solo le ultime 10 tracce');
-              } catch (e) {
-                // 2. Se ancora non funziona, prova a salvare solo la traccia corrente
-                try {
-                  const currentTrack = get().currentTrack;
-                  if (currentTrack) {
-                    const compressed = LZString.compress(JSON.stringify([currentTrack]));
-                    localStorage.setItem('savedTracks', compressed);
-                    console.warn('Salvata solo la traccia corrente');
-                  }
-                } catch (e2) {
-                  // 3. Se tutto fallisce, salva solo i dati essenziali
-                  try {
-                    const essentialData = {
-                      currentTrack: get().currentTrack ? {
-                        id: get().currentTrack.id,
-                        startTime: get().currentTrack.startTime,
-                        coordinates: get().currentTrack.coordinates.slice(-100),
-                        findings: get().currentTrack.findings
-                      } : null
-                    };
-                    localStorage.setItem('savedTracks', JSON.stringify(essentialData));
-                    console.warn('Salvati solo i dati essenziali');
-                  } catch (e3) {
-                    console.error('Impossibile salvare i dati, storage completamente pieno');
-                    // Notifica l'utente che i dati non possono essere salvati
-                    alert('Attenzione: lo spazio di archiviazione è pieno. Alcuni dati potrebbero non essere salvati.');
-                  }
-                }
-              }
-            } else {
-              throw error;
-            }
+            return {
+              id: track.id,
+              name: track.name,
+              coordinates: optimizedCoordinates,
+              findings: optimizedFindings,
+              startTime: track.startTime,
+              endTime: track.endTime,
+              distance: Number(track.distance.toFixed(2))
+            };
+          });
+
+          // Dividi i dati in chunk più piccoli se necessario
+          const CHUNK_SIZE = 100; // Numero di tracce per chunk
+          const chunks = [];
+          for (let i = 0; i < optimizedTracks.length; i += CHUNK_SIZE) {
+            chunks.push(optimizedTracks.slice(i, i + CHUNK_SIZE));
           }
+
+          // Salva ogni chunk separatamente
+          chunks.forEach((chunk, index) => {
+            try {
+              const compressed = LZString.compress(JSON.stringify(chunk));
+              localStorage.setItem(`savedTracks_${index}`, compressed);
+            } catch (error) {
+              if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+                // Se un chunk è troppo grande, prova a dividerlo ulteriormente
+                const subChunks = [];
+                for (let j = 0; j < chunk.length; j += 10) {
+                  subChunks.push(chunk.slice(j, j + 10));
+                }
+                
+                subChunks.forEach((subChunk, subIndex) => {
+                  try {
+                    const compressed = LZString.compress(JSON.stringify(subChunk));
+                    localStorage.setItem(`savedTracks_${index}_${subIndex}`, compressed);
+                  } catch (e) {
+                    console.error(`Errore nel salvataggio del sub-chunk ${index}_${subIndex}:`, e);
+                  }
+                });
+              }
+            }
+          });
+
+          // Salva il numero totale di chunk
+          localStorage.setItem('savedTracks_count', chunks.length.toString());
+          
         } catch (error) {
           console.error('Errore nel salvataggio delle tracce:', error);
+          if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+            alert('Attenzione: lo spazio di archiviazione è pieno. I dati verranno salvati in modo ottimizzato.');
+          }
         }
       },
 
