@@ -4,6 +4,7 @@ import * as turf from '@turf/turf';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
 import LZString from 'lz-string';
+import { openDB } from 'idb';
 
 export interface TrackState {
   currentTrack: Track | null;
@@ -121,6 +122,64 @@ async function getLocationName(lat: number, lon: number) {
   }
 }
 
+const saveToLocalStorage = (key: string, data: any) => {
+  try {
+    const serializedData = JSON.stringify(data);
+    localStorage.setItem(key, serializedData);
+  } catch (error) {
+    console.error('Errore nel salvataggio dei dati:', error);
+    // Se c'è un errore di quota, prova a salvare in IndexedDB
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+      console.log('Quota localStorage esaurita, salvo in IndexedDB');
+      saveToIndexedDB(key, data);
+    }
+  }
+};
+
+const loadFromLocalStorage = (key: string): any => {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error('Errore nel caricamento dei dati:', error);
+    return null;
+  }
+};
+
+const saveToIndexedDB = async (key: string, data: any) => {
+  try {
+    const db = await openDB('tracksDB', 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('tracks')) {
+          db.createObjectStore('tracks');
+        }
+      },
+    });
+
+    const tx = db.transaction('tracks', 'readwrite');
+    const store = tx.objectStore('tracks');
+    await store.put(data, key);
+    await tx.done;
+    console.log('Dati salvati con successo in IndexedDB');
+  } catch (error) {
+    console.error('Errore nel salvataggio in IndexedDB:', error);
+  }
+};
+
+const loadFromIndexedDB = async (key: string): Promise<any> => {
+  try {
+    const db = await openDB('tracksDB', 1);
+    const tx = db.transaction('tracks', 'readonly');
+    const store = tx.objectStore('tracks');
+    const data = await store.get(key);
+    await tx.done;
+    return data;
+  } catch (error) {
+    console.error('Errore nel caricamento da IndexedDB:', error);
+    return null;
+  }
+};
+
 export const useTrackStore = create<TrackState>()(
   persist(
     (set, get) => ({
@@ -203,7 +262,7 @@ export const useTrackStore = create<TrackState>()(
         }
       },
       
-      stopTrack: () => {
+      stopTrack: async () => {
         const { currentTrack, tracks } = get();
         if (currentTrack) {
           console.log('Stopping track:', currentTrack.id);
@@ -341,6 +400,11 @@ export const useTrackStore = create<TrackState>()(
               });
               
               console.log('Track stopped and saved successfully. Total tracks:', updatedTracks.length);
+              
+              // Salva sia in localStorage che in IndexedDB
+              saveToLocalStorage('tracks', updatedTracks);
+              await saveToIndexedDB('tracks', updatedTracks);
+              
               return completedTrack;
             } catch (error) {
               console.error('Errore durante il salvataggio della traccia:', error);
@@ -366,6 +430,11 @@ export const useTrackStore = create<TrackState>()(
               });
               
               console.log('Track saved with basic data due to error. Total tracks:', updatedTracks.length);
+              
+              // Salva sia in localStorage che in IndexedDB
+              saveToLocalStorage('tracks', updatedTracks);
+              await saveToIndexedDB('tracks', updatedTracks);
+              
               return basicCompletedTrack;
             }
           };
@@ -530,6 +599,10 @@ export const useTrackStore = create<TrackState>()(
                 alert('Attenzione: lo spazio di archiviazione è pieno. Il ritrovamento è stato aggiunto ma potrebbe non essere salvato permanentemente.');
               }
             }
+
+            // Salva sia in localStorage che in IndexedDB
+            saveToLocalStorage('currentTrack', state.currentTrack);
+            await saveToIndexedDB('currentTrack', state.currentTrack);
 
             return newFinding;
           } catch (error) {
