@@ -726,7 +726,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           });
 
           // Dividi i dati in chunk più piccoli se necessario
-          const CHUNK_SIZE = 100; // Numero di tracce per chunk
+          const CHUNK_SIZE = 50; // Riduci la dimensione del chunk
           const chunks = [];
           for (let i = 0; i < optimizedTracks.length; i += CHUNK_SIZE) {
             chunks.push(optimizedTracks.slice(i, i + CHUNK_SIZE));
@@ -741,8 +741,8 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
               if (error instanceof DOMException && error.name === 'QuotaExceededError') {
                 // Se un chunk è troppo grande, prova a dividerlo ulteriormente
                 const subChunks = [];
-                for (let j = 0; j < chunk.length; j += 10) {
-                  subChunks.push(chunk.slice(j, j + 10));
+                for (let j = 0; j < chunk.length; j += 5) { // Riduci ulteriormente la dimensione
+                  subChunks.push(chunk.slice(j, j + 5));
                 }
                 
                 subChunks.forEach((subChunk, subIndex) => {
@@ -751,6 +751,26 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
                     localStorage.setItem(`savedTracks_${index}_${subIndex}`, compressed);
                   } catch (e) {
                     console.error(`Errore nel salvataggio del sub-chunk ${index}_${subIndex}:`, e);
+                    // Se anche questo fallisce, prova a salvare solo i dati essenziali
+                    const essentialData = subChunk.map(track => ({
+                      id: track.id,
+                      name: track.name,
+                      coordinates: track.coordinates,
+                      findings: track.findings.map(f => ({
+                        id: f.id,
+                        name: f.name,
+                        coordinates: f.coordinates
+                      })),
+                      startTime: track.startTime,
+                      endTime: track.endTime
+                    }));
+                    try {
+                      const compressed = LZString.compress(JSON.stringify(essentialData));
+                      localStorage.setItem(`savedTracks_${index}_${subIndex}_essential`, compressed);
+                    } catch (finalError) {
+                      console.error('Errore nel salvataggio dei dati essenziali:', finalError);
+                      alert('Attenzione: lo spazio di archiviazione è pieno. Alcuni dati potrebbero non essere stati salvati.');
+                    }
                   }
                 });
               }
