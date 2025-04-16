@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { useTrackStore } from '../store/trackStore';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showTrackDialog, setShowTrackDialog] = useState(false);
+  const [hasActiveTrack, setHasActiveTrack] = useState(false);
   
   const { login } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const { checkTrackOnLogin } = useTrackStore();
   
   // Ottieni il percorso da cui l'utente è stato reindirizzato
   const from = location.state?.from?.pathname || '/';
@@ -22,14 +26,30 @@ const Login: React.FC = () => {
     
     try {
       await login(email, password);
-      // Reindirizza l'utente alla pagina da cui è stato reindirizzato o alla home
-      navigate(from, { replace: true });
+      // Verifica se c'è una traccia attiva
+      const hasTrack = await checkTrackOnLogin();
+      setHasActiveTrack(hasTrack);
+      if (hasTrack) {
+        setShowTrackDialog(true);
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError('Credenziali non valide. Riprova.');
       console.error('Errore di login:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleTrackChoice = (continueTrack: boolean) => {
+    if (!continueTrack) {
+      // Se l'utente non vuole continuare la traccia, la salviamo e la chiudiamo
+      const { stopTrack } = useTrackStore.getState();
+      stopTrack();
+    }
+    setShowTrackDialog(false);
+    navigate('/');
   };
 
   return (
@@ -107,6 +127,31 @@ const Login: React.FC = () => {
           </div>
         </form>
       </div>
+
+      {showTrackDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">Traccia attiva rilevata</h2>
+            <p className="mb-6">
+              È stata rilevata una traccia attiva. Vuoi continuare la traccia esistente o avviarne una nuova?
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => handleTrackChoice(true)}
+                className="flex-1 px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors"
+              >
+                Continua traccia
+              </button>
+              <button
+                onClick={() => handleTrackChoice(false)}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Nuova traccia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

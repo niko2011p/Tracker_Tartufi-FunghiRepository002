@@ -33,6 +33,8 @@ export interface TrackState {
   resetForms: () => void;
   loadTracks: () => void;
   saveTracks: () => void;
+  checkTrackOnLogin: () => Promise<boolean>;
+  autoSaveTrack: () => void;
 }
 
 async function getLocationName(lat: number, lon: number) {
@@ -402,102 +404,97 @@ export const useTrackStore = create<TrackState>()(
         }
       },
       
-      addFinding: (finding) => {
+      addFinding: async (finding) => {
         const { currentTrack } = get();
         if (currentTrack && navigator.geolocation) {
           // Utilizziamo opzioni ottimizzate per ottenere la posizione più precisa possibile
           const geoOptions = {
             enableHighAccuracy: true,
-            timeout: 1000, // Ridotto per ottenere una risposta più rapida
+            timeout: 10000, // Aumentato il timeout a 10 secondi
             maximumAge: 0 // Forza l'acquisizione di una nuova posizione
           };
           
-          // Mostra un messaggio di log per indicare che stiamo acquisendo la posizione
           console.log(`Acquisizione posizione GPS per tag di tipo: ${finding.type}...`);
           
           // Utilizziamo getCurrentPosition con retry per garantire l'acquisizione della posizione
           const tryGetPosition = (retryCount = 0, maxRetries = 3) => {
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const coordinates: [number, number] = [
-                  position.coords.latitude,
-                  position.coords.longitude
-                ];
-                
-                console.log(`Aggiunta tag alle coordinate GPS precise: [${coordinates[0]}, ${coordinates[1]}], tipo: ${finding.type}, accuratezza: ${position.coords.accuracy}m`);
-                
-                const newFinding: Finding = {
-                  ...finding,
-                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  trackId: currentTrack.id,
-                  coordinates,
-                  timestamp: new Date()
-                };
-                
-                // Aggiorna immediatamente lo stato con il nuovo ritrovamento
-                // per garantire che il tag appaia subito sulla mappa
-                set({
-                  currentTrack: {
-                    ...currentTrack,
-                    findings: [...currentTrack.findings, newFinding]
-                  }
-                });
-                
-                // Log per confermare l'aggiunta del tag sulla mappa
-                console.log(`Tag aggiunto e visualizzato sulla mappa: ${finding.type} alle coordinate [${coordinates[0]}, ${coordinates[1]}]`);
-                
-                // Riproduci un suono di conferma per indicare che il tag è stato aggiunto
-                try {
-                  const audio = new Audio('/sound/alert.mp3');
-                  audio.volume = 0.3; // Aumentato leggermente il volume
-                  audio.play().catch(e => console.error('Errore nella riproduzione audio:', e));
-                } catch (error) {
-                  console.error('Errore nella riproduzione audio:', error);
-                }
-              },
-              (error) => {
-                console.warn(`Errore nell'acquisizione della posizione per il tag (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
-                
-                if (retryCount < maxRetries) {
-                  // Riprova con opzioni meno restrittive
-                  const retryOptions = {
-                    ...geoOptions,
-                    enableHighAccuracy: retryCount < 1, // Disabilita high accuracy dopo il primo retry
-                    timeout: geoOptions.timeout + (retryCount * 1000)
-                  };
+            return new Promise<[number, number]>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  const coordinates: [number, number] = [
+                    position.coords.latitude,
+                    position.coords.longitude
+                  ];
                   
-                  console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
-                  setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 500);
-                } else {
-                  // Fallback: usa l'ultima posizione conosciuta dal track
-                  if (currentTrack.coordinates.length > 0) {
-                    const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-                    
-                    console.log(`Fallback: aggiunta tag all'ultima posizione conosciuta: [${lastPosition[0]}, ${lastPosition[1]}], tipo: ${finding.type}`);
-                    
-                    const newFinding: Finding = {
-                      ...finding,
-                      id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                      trackId: currentTrack.id,
-                      coordinates: lastPosition,
-                      timestamp: new Date()
+                  console.log(`Aggiunta tag alle coordinate GPS precise: [${coordinates[0]}, ${coordinates[1]}], tipo: ${finding.type}, accuratezza: ${position.coords.accuracy}m`);
+                  resolve(coordinates);
+                },
+                (error) => {
+                  console.warn(`Errore nell'acquisizione della posizione per il tag (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
+                  
+                  if (retryCount < maxRetries) {
+                    // Riprova con opzioni meno restrittive
+                    const retryOptions = {
+                      ...geoOptions,
+                      enableHighAccuracy: retryCount < 1, // Disabilita high accuracy dopo il primo retry
+                      timeout: geoOptions.timeout + (retryCount * 5000) // Aumenta il timeout ad ogni retry
                     };
                     
-                    set({
-                      currentTrack: {
-                        ...currentTrack,
-                        findings: [...currentTrack.findings, newFinding]
-                      }
-                    });
+                    console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
+                    setTimeout(() => {
+                      tryGetPosition(retryCount + 1, maxRetries)
+                        .then(resolve)
+                        .catch(reject);
+                    }, 1000);
+                  } else {
+                    // Fallback: usa l'ultima posizione conosciuta dal track
+                    if (currentTrack.coordinates.length > 0) {
+                      const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
+                      console.log(`Fallback: aggiunta tag all'ultima posizione conosciuta: [${lastPosition[0]}, ${lastPosition[1]}], tipo: ${finding.type}`);
+                      resolve(lastPosition);
+                    } else {
+                      reject(new Error('Impossibile ottenere la posizione'));
+                    }
                   }
-                }
-              },
-              geoOptions
-            );
+                },
+                geoOptions
+              );
+            });
           };
           
-          // Avvia il primo tentativo di acquisizione della posizione
-          tryGetPosition();
+          try {
+            const coordinates = await tryGetPosition();
+            
+            const newFinding: Finding = {
+              ...finding,
+              id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              trackId: currentTrack.id,
+              coordinates,
+              timestamp: new Date()
+            };
+            
+            // Aggiorna immediatamente lo stato con il nuovo ritrovamento
+            set({
+              currentTrack: {
+                ...currentTrack,
+                findings: [...currentTrack.findings, newFinding]
+              }
+            });
+            
+            console.log(`Tag aggiunto e visualizzato sulla mappa: ${finding.type} alle coordinate [${coordinates[0]}, ${coordinates[1]}]`);
+            
+            // Riproduci un suono di conferma
+            try {
+              const audio = new Audio('/sound/alert.mp3');
+              audio.volume = 0.3;
+              await audio.play();
+            } catch (error) {
+              console.error('Errore nella riproduzione audio:', error);
+            }
+          } catch (error) {
+            console.error('Errore nell\'aggiunta del ritrovamento:', error);
+            throw error;
+          }
         }
       },
 
@@ -679,10 +676,86 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
       saveTracks: () => {
         try {
           const { tracks } = get();
-          const compressed = LZString.compress(JSON.stringify(tracks));
+          
+          // Ottimizza i dati prima del salvataggio
+          const optimizedTracks = tracks.map(track => ({
+            id: track.id,
+            name: track.name,
+            coordinates: track.coordinates.map(coord => [
+              Number(coord[0].toFixed(6)), // Riduci la precisione delle coordinate
+              Number(coord[1].toFixed(6))
+            ]),
+            findings: track.findings.map(finding => ({
+              id: finding.id,
+              name: finding.name,
+              type: finding.type,
+              coordinates: [
+                Number(finding.coordinates[0].toFixed(6)),
+                Number(finding.coordinates[1].toFixed(6))
+              ],
+              timestamp: finding.timestamp,
+              photoUrl: finding.photoUrl,
+              description: finding.description
+            })),
+            startTime: track.startTime,
+            endTime: track.endTime,
+            distance: Number(track.distance.toFixed(2))
+          }));
+
+          const compressed = LZString.compress(JSON.stringify(optimizedTracks));
           localStorage.setItem('savedTracks', compressed);
         } catch (error) {
           console.error('Errore nel salvataggio delle tracce:', error);
+          // Se c'è un errore di quota, prova a salvare solo le ultime 10 tracce
+          if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+            try {
+              const { tracks } = get();
+              const last10Tracks = tracks.slice(-10);
+              const compressed = LZString.compress(JSON.stringify(last10Tracks));
+              localStorage.setItem('savedTracks', compressed);
+              console.warn('Salvate solo le ultime 10 tracce a causa della quota superata');
+            } catch (e) {
+              console.error('Errore nel salvataggio delle ultime 10 tracce:', e);
+            }
+          }
+        }
+      },
+
+      checkTrackOnLogin: async () => {
+        const { currentTrack, tracks } = get();
+        
+        // Se c'è una traccia in corso, verifichiamo se è valida
+        if (currentTrack) {
+          // Verifica se la traccia è più vecchia di 24 ore
+          const now = new Date();
+          const trackAge = now.getTime() - currentTrack.startTime.getTime();
+          const isTrackTooOld = trackAge > 24 * 60 * 60 * 1000; // 24 ore in millisecondi
+          
+          if (isTrackTooOld) {
+            // Se la traccia è troppo vecchia, la salviamo e la chiudiamo
+            await get().stopTrack();
+            return false;
+          }
+          
+          // Se la traccia è valida, la ripristiniamo
+          set({ isRecording: true });
+          return true;
+        }
+        
+        return false;
+      },
+
+      autoSaveTrack: async () => {
+        const { currentTrack, isRecording } = get();
+        
+        if (currentTrack && isRecording) {
+          console.log('Salvataggio automatico della traccia in corso...');
+          try {
+            await get().stopTrack();
+            console.log('Traccia salvata automaticamente');
+          } catch (error) {
+            console.error('Errore nel salvataggio automatico della traccia:', error);
+          }
         }
       }
     }),

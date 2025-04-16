@@ -389,7 +389,7 @@ interface Finding extends TrackFinding {
 }
 
 const NavigationPage: React.FC = () => {
-  const { currentTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection: storeDirection, loadedFindings, updateCurrentPosition, gpsStatus } = useTrackStore();
+  const { currentTrack, stopTrack, setShowFindingForm, showFindingForm, currentDirection: storeDirection, loadedFindings, updateCurrentPosition, gpsStatus, autoSaveTrack } = useTrackStore();
   const location = useLocation();
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
@@ -486,6 +486,13 @@ const NavigationPage: React.FC = () => {
       behavior: 'instant'
     });
   }, [location.pathname]);
+  
+  useEffect(() => {
+    // Salva la traccia quando si esce dalla pagina
+    return () => {
+      autoSaveTrack();
+    };
+  }, []);
   
   return (
     <div data-page="navigation" className="min-h-screen bg-gray-50">
