@@ -780,7 +780,14 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             return new Promise((resolve) => {
               request.onsuccess = () => {
                 const tracks = request.result;
-                resolve(JSON.stringify({ state: { tracks } }));
+                const state = {
+                  state: {
+                    tracks,
+                    currentTrack: null,
+                    loadedFindings: null
+                  }
+                };
+                resolve(JSON.stringify(state));
               };
               request.onerror = () => resolve(null);
             });
@@ -791,7 +798,8 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         },
         setItem: async (name, value) => {
           try {
-            const { tracks } = JSON.parse(value).state;
+            const state = JSON.parse(value);
+            const { tracks } = state.state;
             const db = await initDB();
             const transaction = db.transaction(STORE_NAME, 'readwrite');
             const store = transaction.objectStore(STORE_NAME);

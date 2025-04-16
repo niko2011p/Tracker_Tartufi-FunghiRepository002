@@ -369,11 +369,22 @@ function FindingForm({ onClose, position }: FindingFormProps) {
             </div>
 
             {photoUrl && (
-              <div className="relative">
+              <div className="relative w-full">
                 <img
                   src={photoUrl}
                   alt="Preview"
-                  className="w-full h-48 object-cover rounded-lg"
+                  className="w-full h-auto max-h-[300px] object-contain rounded-lg"
+                  onLoad={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    const aspectRatio = img.naturalWidth / img.naturalHeight;
+                    if (aspectRatio > 1) {
+                      // Immagine orizzontale
+                      img.classList.add('w-full', 'h-auto');
+                    } else {
+                      // Immagine verticale
+                      img.classList.add('h-[300px]', 'w-auto', 'mx-auto');
+                    }
+                  }}
                 />
                 <button
                   type="button"
