@@ -37,6 +37,67 @@ export interface TrackState {
   autoSaveTrack: () => void;
 }
 
+// Aggiungi queste costanti all'inizio del file
+const DB_NAME = 'trackerDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'tracks';
+
+// Funzione per inizializzare IndexedDB
+const initDB = () => {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+  });
+};
+
+// Funzione per salvare una traccia in IndexedDB
+const saveTrackToDB = async (track: Track) => {
+  const db = await initDB();
+  return new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    const request = store.put(track);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+// Funzione per caricare tutte le tracce da IndexedDB
+const loadTracksFromDB = async () => {
+  const db = await initDB();
+  return new Promise<Track[]>((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+    
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+// Funzione per eliminare una traccia da IndexedDB
+const deleteTrackFromDB = async (id: string) => {
+  const db = await initDB();
+  return new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
 async function getLocationName(lat: number, lon: number) {
   try {
     const response = await fetch(
@@ -315,43 +376,32 @@ export const useTrackStore = create<TrackState>()(
         return null;
       },
 
-      deleteTrack: (id: string) => {
-        set(state => ({
-          tracks: state.tracks.filter(track => track.id !== id)
-        }));
+      deleteTrack: async (id: string) => {
+        try {
+          await deleteTrackFromDB(id);
+          set(state => ({
+            tracks: state.tracks.filter(track => track.id !== id)
+          }));
+          console.log('Traccia eliminata con successo da IndexedDB');
+        } catch (error) {
+          console.error('Errore nell\'eliminazione della traccia:', error);
+        }
       },
 
-      deleteAllTracks: () => {
+      deleteAllTracks: async () => {
         try {
-          // 1. Pulisci tutti i chunk di storage
-          const chunkCount = parseInt(localStorage.getItem('savedTracks_count') || '0');
+          const db = await initDB();
+          const transaction = db.transaction(STORE_NAME, 'readwrite');
+          const store = transaction.objectStore(STORE_NAME);
+          const request = store.clear();
           
-          // Rimuovi tutti i chunk principali
-          for (let i = 0; i < chunkCount; i++) {
-            localStorage.removeItem(`savedTracks_${i}`);
-            
-            // Rimuovi anche eventuali sub-chunk
-            let subIndex = 0;
-            while (localStorage.getItem(`savedTracks_${i}_${subIndex}`)) {
-              localStorage.removeItem(`savedTracks_${i}_${subIndex}`);
-              subIndex++;
-            }
-          }
-          
-          // 2. Rimuovi il contatore dei chunk
-          localStorage.removeItem('savedTracks_count');
-          
-          // 3. Rimuovi tutti i dati dello store
-          localStorage.removeItem('tracks-storage');
-          
-          // 4. Resetta lo stato
-          set({ 
-            tracks: [],
-            currentTrack: null,
-            loadedFindings: null
+          await new Promise<void>((resolve, reject) => {
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
           });
           
-          console.log('Tutte le tracce sono state eliminate con successo');
+          set({ tracks: [] });
+          console.log('Tutte le tracce sono state eliminate con successo da IndexedDB');
         } catch (error) {
           console.error('Errore durante l\'eliminazione delle tracce:', error);
           alert('Si è verificato un errore durante l\'eliminazione delle tracce. Riprova più tardi.');
@@ -649,142 +699,29 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         }
       },
 
-      loadTracks: () => {
+      loadTracks: async () => {
         try {
-          const chunkCount = parseInt(localStorage.getItem('savedTracks_count') || '0');
-          const loadedTracks = [];
-
-          for (let i = 0; i < chunkCount; i++) {
-            const compressed = localStorage.getItem(`savedTracks_${i}`);
-            if (compressed) {
-              const decompressed = LZString.decompress(compressed);
-              if (decompressed) {
-                const chunk = JSON.parse(decompressed);
-                loadedTracks.push(...chunk);
-              }
-            } else {
-              // Prova a caricare i sub-chunk
-              let subIndex = 0;
-              let hasMoreSubChunks = true;
-              while (hasMoreSubChunks) {
-                const subCompressed = localStorage.getItem(`savedTracks_${i}_${subIndex}`);
-                if (subCompressed) {
-                  const decompressed = LZString.decompress(subCompressed);
-                  if (decompressed) {
-                    const subChunk = JSON.parse(decompressed);
-                    loadedTracks.push(...subChunk);
-                  }
-                  subIndex++;
-                } else {
-                  hasMoreSubChunks = false;
-                }
-              }
-            }
-          }
-
-          set({ tracks: loadedTracks });
+          const tracks = await loadTracksFromDB();
+          set({ tracks });
+          console.log('Tracce caricate con successo da IndexedDB');
         } catch (error) {
           console.error('Errore nel caricamento delle tracce:', error);
         }
       },
 
-      saveTracks: () => {
+      saveTracks: async () => {
         try {
           const { tracks } = get();
           
-          // Ottimizza i dati prima del salvataggio
-          const optimizedTracks = tracks.map(track => {
-            // Ottimizza le coordinate mantenendo la precisione necessaria
-            const optimizedCoordinates = track.coordinates.map(coord => [
-              Number(coord[0].toFixed(6)),
-              Number(coord[1].toFixed(6))
-            ]);
-
-            // Ottimizza i ritrovamenti
-            const optimizedFindings = track.findings.map(finding => ({
-              id: finding.id,
-              name: finding.name,
-              type: finding.type,
-              coordinates: [
-                Number(finding.coordinates[0].toFixed(6)),
-                Number(finding.coordinates[1].toFixed(6))
-              ],
-              timestamp: finding.timestamp,
-              photoUrl: finding.photoUrl,
-              description: finding.description
-            }));
-
-            return {
-              id: track.id,
-              name: track.name,
-              coordinates: optimizedCoordinates,
-              findings: optimizedFindings,
-              startTime: track.startTime,
-              endTime: track.endTime,
-              distance: Number(track.distance.toFixed(2))
-            };
-          });
-
-          // Dividi i dati in chunk più piccoli se necessario
-          const CHUNK_SIZE = 50; // Riduci la dimensione del chunk
-          const chunks = [];
-          for (let i = 0; i < optimizedTracks.length; i += CHUNK_SIZE) {
-            chunks.push(optimizedTracks.slice(i, i + CHUNK_SIZE));
+          // Salva ogni traccia in IndexedDB
+          for (const track of tracks) {
+            await saveTrackToDB(track);
           }
-
-          // Salva ogni chunk separatamente
-          chunks.forEach((chunk, index) => {
-            try {
-              const compressed = LZString.compress(JSON.stringify(chunk));
-              localStorage.setItem(`savedTracks_${index}`, compressed);
-            } catch (error) {
-              if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-                // Se un chunk è troppo grande, prova a dividerlo ulteriormente
-                const subChunks = [];
-                for (let j = 0; j < chunk.length; j += 5) { // Riduci ulteriormente la dimensione
-                  subChunks.push(chunk.slice(j, j + 5));
-                }
-                
-                subChunks.forEach((subChunk, subIndex) => {
-                  try {
-                    const compressed = LZString.compress(JSON.stringify(subChunk));
-                    localStorage.setItem(`savedTracks_${index}_${subIndex}`, compressed);
-                  } catch (e) {
-                    console.error(`Errore nel salvataggio del sub-chunk ${index}_${subIndex}:`, e);
-                    // Se anche questo fallisce, prova a salvare solo i dati essenziali
-                    const essentialData = subChunk.map(track => ({
-                      id: track.id,
-                      name: track.name,
-                      coordinates: track.coordinates,
-                      findings: track.findings.map(f => ({
-                        id: f.id,
-                        name: f.name,
-                        coordinates: f.coordinates
-                      })),
-                      startTime: track.startTime,
-                      endTime: track.endTime
-                    }));
-                    try {
-                      const compressed = LZString.compress(JSON.stringify(essentialData));
-                      localStorage.setItem(`savedTracks_${index}_${subIndex}_essential`, compressed);
-                    } catch (finalError) {
-                      console.error('Errore nel salvataggio dei dati essenziali:', finalError);
-                      alert('Attenzione: lo spazio di archiviazione è pieno. Alcuni dati potrebbero non essere stati salvati.');
-                    }
-                  }
-                });
-              }
-            }
-          });
-
-          // Salva il numero totale di chunk
-          localStorage.setItem('savedTracks_count', chunks.length.toString());
           
+          console.log('Tracce salvate con successo in IndexedDB');
         } catch (error) {
           console.error('Errore nel salvataggio delle tracce:', error);
-          if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-            alert('Attenzione: lo spazio di archiviazione è pieno. I dati verranno salvati in modo ottimizzato.');
-          }
+          alert('Errore nel salvataggio delle tracce. Riprova più tardi.');
         }
       },
 
