@@ -71,16 +71,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Funzione di logout
   const logout = () => {
-    try {
-      // Rimuovi solo l'utente dalla session storage
-      sessionStorage.removeItem('user');
-      setUser(null);
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // In caso di errore, procedi comunque con il logout
-      sessionStorage.removeItem('user');
-      setUser(null);
-    }
+    sessionStorage.removeItem('user');
+    setUser(null);
   };
 
   const value = {

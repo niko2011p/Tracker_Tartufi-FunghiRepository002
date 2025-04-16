@@ -32,214 +32,25 @@ export interface TrackState {
   resetForms: () => void;
 }
 
-// Funzione helper per aprire IndexedDB
-function openDB(name: string, version: number, upgradeCallback?: (db: IDBDatabase) => void): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    // Prima, verifichiamo la versione attuale del database
-    const checkRequest = indexedDB.open(name);
-    checkRequest.onsuccess = () => {
-      const db = checkRequest.result;
-      const currentVersion = db.version;
-      db.close();
-      
-      // Usiamo la versione più alta tra quella richiesta e quella attuale
-      const targetVersion = Math.max(version, currentVersion);
-      console.log(`Opening IndexedDB with version ${targetVersion} (current: ${currentVersion}, requested: ${version})`);
-      
-      const request = indexedDB.open(name, targetVersion);
-      
-      request.onerror = () => {
-        console.error('Error opening IndexedDB:', request.error);
-        reject(request.error);
-      };
-      
-      request.onsuccess = () => {
-        console.log('IndexedDB opened successfully');
-        const db = request.result;
-        
-        // Verifica se l'object store esiste
-        if (!db.objectStoreNames.contains('tracks')) {
-          console.log('Object store not found, closing and reopening with higher version');
-          db.close();
-          // Riapri il database con una versione più alta per forzare l'upgrade
-          const newRequest = indexedDB.open(name, targetVersion + 1);
-          newRequest.onerror = () => reject(newRequest.error);
-          newRequest.onsuccess = () => resolve(newRequest.result);
-          newRequest.onupgradeneeded = (event) => {
-            const newDb = (event.target as IDBOpenDBRequest).result;
-            console.log('Creating tracks object store during upgrade');
-            try {
-              const store = newDb.createObjectStore('tracks', { keyPath: 'id' });
-              store.createIndex('timestamp', 'timestamp', { unique: false });
-              console.log('Object store and index created successfully');
-            } catch (error) {
-              console.error('Error creating object store:', error);
-              reject(error);
-            }
-          };
-        } else {
-          resolve(db);
-        }
-      };
-      
-      request.onupgradeneeded = (event) => {
-        console.log('IndexedDB upgrade needed');
-        const db = (event.target as IDBOpenDBRequest).result;
-        
-        // Crea l'object store se non esiste
-        if (!db.objectStoreNames.contains('tracks')) {
-          console.log('Creating tracks object store');
-          try {
-            const store = db.createObjectStore('tracks', { keyPath: 'id' });
-            store.createIndex('timestamp', 'timestamp', { unique: false });
-            console.log('Object store and index created successfully');
-          } catch (error) {
-            console.error('Error creating object store:', error);
-            reject(error);
-          }
-        }
-        
-        // Esegui il callback di upgrade se fornito
-        if (upgradeCallback) {
-          try {
-            upgradeCallback(db);
-          } catch (error) {
-            console.error('Error in upgrade callback:', error);
-            reject(error);
-          }
-        }
-      };
-      
-      request.onblocked = () => {
-        console.warn('IndexedDB blocked - another connection is open');
-        reject(new Error('Database blocked by another connection'));
-      };
-    };
-    
-    checkRequest.onerror = () => {
-      console.error('Error checking current version:', checkRequest.error);
-      reject(checkRequest.error);
-    };
-  });
-}
-
-// Funzione per inizializzare il database
-async function initializeDB() {
-  try {
-    console.log('Initializing IndexedDB...');
-    const db = await openDB('tracks-db', 1);
-    console.log('IndexedDB initialized successfully');
-    return db;
-  } catch (error) {
-    console.error('Error initializing IndexedDB:', error);
-    throw error;
-  }
-}
-
-// Funzione per riprodurre audio con fallback
-async function playAudio(soundUrl: string) {
-  try {
-    // Verifica se il browser supporta l'audio
-    if (typeof Audio !== 'undefined') {
-      const audio = new Audio(soundUrl);
-      audio.volume = 0.3;
-      
-      // Aggiungi gestione errori per il caricamento
-      audio.onerror = (error) => {
-        console.warn('Error loading audio:', error);
-        // Fallback a vibrazione
-        if (window.navigator.vibrate) {
-          window.navigator.vibrate(200);
-        }
-      };
-      
-      // Prova a riprodurre l'audio
-      try {
-        await audio.play();
-      } catch (playError) {
-        console.warn('Error playing audio:', playError);
-        // Fallback a vibrazione
-        if (window.navigator.vibrate) {
-          window.navigator.vibrate(200);
-        }
-      }
-    } else {
-      // Fallback a vibrazione se Audio non è supportato
-      if (window.navigator.vibrate) {
-        window.navigator.vibrate(200);
-      }
-    }
-  } catch (error) {
-    console.warn('Error in audio playback:', error);
-    // Fallback a vibrazione
-    if (window.navigator.vibrate) {
-      window.navigator.vibrate(200);
-    }
-  }
-}
-
-// Funzione per ottenere il nome della località con gestione errori
 async function getLocationName(lat: number, lon: number) {
   try {
-    // Prima prova con OpenStreetMap
-    try {
-      const osmResponse = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
-        {
-          headers: {
-            'Accept-Language': 'it',
-            'User-Agent': 'TrackerApp/1.0'
-          }
-        }
-      );
-      
-      if (osmResponse.ok) {
-        const data = await osmResponse.json();
-        if (data.display_name) {
-          return {
-            name: data.display_name,
-            region: data.address?.state || data.address?.county || '',
-            coordinates: [lat, lon] as [number, number]
-          };
-        }
-      }
-    } catch (osmError) {
-      console.warn('Error getting location from OpenStreetMap:', osmError);
-    }
+    const response = await fetch(
+      `https://api.weatherapi.com/v1/search.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}`
+    );
     
-    // Fallback a WeatherAPI
-    try {
-      const weatherResponse = await fetch(
-        `https://api.weatherapi.com/v1/search.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}`,
-        {
-          headers: {
-            'Accept': 'application/json'
-          }
-        }
-      );
-      
-      if (weatherResponse.ok) {
-        const locations = await weatherResponse.json();
-        if (locations && locations.length > 0) {
-          return {
-            name: locations[0].name,
-            region: locations[0].region,
-            coordinates: [lat, lon] as [number, number]
-          };
-        }
-      }
-    } catch (weatherError) {
-      console.warn('Error getting location from WeatherAPI:', weatherError);
-    }
+    if (!response.ok) throw new Error('Error retrieving location');
+    const locations = await response.json();
     
-    // Se entrambi i servizi falliscono, restituisci un nome generico
-    return {
-      name: `Posizione (${lat.toFixed(6)}, ${lon.toFixed(6)})`,
-      region: '',
-      coordinates: [lat, lon] as [number, number]
-    };
-  } catch (error) {
-    console.error('Error getting location name:', error);
+    if (locations.length > 0) {
+      return {
+        name: locations[0].name,
+        region: locations[0].region,
+        coordinates: [lat, lon] as [number, number]
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error('Error getting location name:', err);
     return null;
   }
 }
@@ -340,6 +151,7 @@ export const useTrackStore = create<TrackState>()(
           const avgSpeed = durationHours > 0 ? currentTrack.distance / durationHours : 0;
           
           // Calcola l'altitudine media dai dati GPS raccolti
+          // Se non abbiamo dati di altitudine, utilizziamo un valore di fallback
           let totalAltitude = 0;
           let altitudePoints = 0;
           
@@ -400,17 +212,20 @@ export const useTrackStore = create<TrackState>()(
               const sevenDaysAgo = new Date();
               sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
               
-              const recentTracks = (tracks || []).filter(track => {
-                if (!track || !track.startTime) return false;
-                const startTime = track.startTime instanceof Date ? 
-                  track.startTime : new Date(track.startTime);
-                return startTime >= sevenDaysAgo;
-              }).slice(0, 20);
+              const recentTracks = tracks
+                .filter(track => {
+                  // Assicuriamoci che startTime sia una data
+                  const startTime = track.startTime instanceof Date ? 
+                    track.startTime : new Date(track.startTime);
+                  return startTime >= sevenDaysAgo;
+                })
+                .slice(0, 20); // Limita a 20 tracce per evitare problemi di performance
               
               // Verifica che tutti i ritrovamenti abbiano coordinate valide
-              const validatedFindings = (currentTrack.findings || []).map(finding => {
-                if (!finding || !finding.coordinates || finding.coordinates.some(isNaN)) {
-                  console.warn(`Coordinate non valide per il ritrovamento ${finding?.id}, utilizzo ultima posizione conosciuta`);
+              const validatedFindings = currentTrack.findings.map(finding => {
+                // Se le coordinate non sono valide, utilizza l'ultima posizione conosciuta
+                if (!finding.coordinates || finding.coordinates.some(isNaN)) {
+                  console.warn(`Coordinate non valide per il ritrovamento ${finding.id}, utilizzo ultima posizione conosciuta`);
                   return {
                     ...finding,
                     coordinates: currentTrack.coordinates.length > 0 ? 
@@ -420,36 +235,6 @@ export const useTrackStore = create<TrackState>()(
                 }
                 return finding;
               });
-
-              // Aggiungi il tag di inizio traccia se non esiste già
-              if (currentTrack.coordinates.length > 0) {
-                const startFinding = {
-                  id: `finding_start_${currentTrack.id}`,
-                  trackId: currentTrack.id,
-                  name: 'Inizio Traccia',
-                  description: `Inizio traccia alle ${format(currentTrack.startTime, 'HH:mm')}`,
-                  type: 'Start',
-                  coordinates: currentTrack.coordinates[0],
-                  timestamp: currentTrack.startTime,
-                  photoUrl: null
-                };
-                validatedFindings.unshift(startFinding);
-              }
-
-              // Aggiungi il tag di fine traccia
-              if (currentTrack.coordinates.length > 0) {
-                const endFinding = {
-                  id: `finding_end_${currentTrack.id}`,
-                  trackId: currentTrack.id,
-                  name: 'Fine Traccia',
-                  description: `Fine traccia alle ${format(endTime, 'HH:mm')}`,
-                  type: 'End',
-                  coordinates: currentTrack.coordinates[currentTrack.coordinates.length - 1],
-                  timestamp: endTime,
-                  photoUrl: null
-                };
-                validatedFindings.push(endFinding);
-              }
               
               const completedTrack: Track = {
                 ...currentTrack,
@@ -459,6 +244,7 @@ export const useTrackStore = create<TrackState>()(
                 avgSpeed,
                 avgAltitude,
                 totalDistance: currentTrack.distance,
+                // Aggiungi metadati per lo storico
                 historyData: {
                   recentTracks: recentTracks.map(t => t.id),
                   lastUpdated: new Date().toISOString()
@@ -469,40 +255,27 @@ export const useTrackStore = create<TrackState>()(
               console.log('Saving completed track:', completedTrack.id, 'with', 
                 completedTrack.coordinates.length, 'coordinates and', 
                 completedTrack.findings.length, 'findings');
+              console.log('Track data:', {
+                distance: completedTrack.distance.toFixed(2) + ' km',
+                duration: (completedTrack.duration / 60000).toFixed(0) + ' min',
+                avgSpeed: completedTrack.avgSpeed.toFixed(1) + ' km/h',
+                avgAltitude: completedTrack.avgAltitude + ' m',
+                findings: completedTrack.findings.length
+              });
               
-              try {
-                // Aggiorniamo lo stato con la nuova traccia completata
-                set({
-                  tracks: [...(tracks || []), completedTrack],
-                  currentTrack: null,
-                  isRecording: false,
-                  loadedFindings: null
-                });
-                
-                console.log('Track stopped and saved successfully. Total tracks:', (tracks || []).length + 1);
-                return completedTrack;
-              } catch (storageError) {
-                console.warn('Errore di storage, pulizia delle tracce più vecchie...');
-                
-                // Se c'è un errore di storage, rimuovi le tracce più vecchie
-                const sortedTracks = [...(tracks || [])].sort((a, b) => 
-                  new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-                );
-                
-                // Mantieni solo le ultime 20 tracce
-                const recentTracks = sortedTracks.slice(0, 20);
-                
-                // Prova a salvare di nuovo
-                set({
-                  tracks: [...recentTracks, completedTrack],
-                  currentTrack: null,
-                  isRecording: false,
-                  loadedFindings: null
-                });
-                
-                console.log('Track saved after cleanup. Total tracks:', recentTracks.length + 1);
-                return completedTrack;
-              }
+              // Aggiorniamo lo stato con la nuova traccia completata
+              // Assicuriamoci che la traccia venga aggiunta all'array tracks
+              const updatedTracks = [...tracks, completedTrack];
+              
+              set({
+                tracks: updatedTracks,
+                currentTrack: null,
+                isRecording: false,
+                loadedFindings: null
+              });
+              
+              console.log('Track stopped and saved successfully. Total tracks:', updatedTracks.length);
+              return completedTrack;
             } catch (error) {
               console.error('Errore durante il salvataggio della traccia:', error);
               
@@ -516,14 +289,17 @@ export const useTrackStore = create<TrackState>()(
                 totalDistance: currentTrack.distance
               };
               
+              // Assicuriamoci che la traccia venga aggiunta all'array tracks anche in caso di errore
+              const updatedTracks = [...tracks, basicCompletedTrack];
+              
               set({
-                tracks: [...(tracks || []), basicCompletedTrack],
+                tracks: updatedTracks,
                 currentTrack: null,
                 isRecording: false,
                 loadedFindings: null
               });
               
-              console.log('Track saved with basic data due to error. Total tracks:', (tracks || []).length + 1);
+              console.log('Track saved with basic data due to error. Total tracks:', updatedTracks.length);
               return basicCompletedTrack;
             }
           };
@@ -612,9 +388,7 @@ export const useTrackStore = create<TrackState>()(
             currentTrack: {
               ...currentTrack,
               coordinates: newCoordinates,
-              distance,
-              // Assicurati che i ritrovamenti siano sempre presenti e aggiornati
-              findings: currentTrack.findings || []
+              distance
             }
           });
           
@@ -626,161 +400,102 @@ export const useTrackStore = create<TrackState>()(
       },
       
       addFinding: (finding) => {
-        const { currentTrack, currentPosition } = get();
-        if (!currentTrack) {
-          console.error('Nessuna traccia attiva per aggiungere il tag');
-          return;
-        }
-
-        // Se abbiamo una posizione corrente, usala direttamente
-        if (currentPosition) {
-          console.log(`Usando posizione corrente per il tag: [${currentPosition[0]}, ${currentPosition[1]}], tipo: ${finding.type}`);
-          
-          const newFinding: Finding = {
-            ...finding,
-            id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            trackId: currentTrack.id,
-            coordinates: currentPosition,
-            timestamp: new Date()
+        const { currentTrack } = get();
+        if (currentTrack && navigator.geolocation) {
+          // Utilizziamo opzioni ottimizzate per ottenere la posizione più precisa possibile
+          const geoOptions = {
+            enableHighAccuracy: true,
+            timeout: 1000, // Ridotto per ottenere una risposta più rapida
+            maximumAge: 0 // Forza l'acquisizione di una nuova posizione
           };
           
-          try {
-            // Crea una copia sicura del track corrente
-            const currentTrackCopy = {
-              ...currentTrack,
-              findings: [...(currentTrack.findings || [])]
-            };
-            
-            // Aggiungi il nuovo finding
-            currentTrackCopy.findings.push(newFinding);
-            
-            // Aggiorna lo stato
-            set({
-              currentTrack: currentTrackCopy
-            });
-            
-            // Riproduci un suono di conferma
-            playAudio('/sound/alert.mp3').catch(error => {
-              console.warn('Error playing confirmation sound:', error);
-            });
-
-            // Log per debug
-            console.log(`Tag aggiunto alla traccia: ${newFinding.id}, tipo: ${newFinding.type}, coordinate: [${newFinding.coordinates[0]}, ${newFinding.coordinates[1]}]`);
-          } catch (error) {
-            console.error('Errore durante l\'aggiornamento dello stato:', error);
-          }
-          return;
-        }
-
-        // Se non abbiamo una posizione corrente, prova a ottenerla
-        if (!navigator.geolocation) {
-          console.error('Geolocalizzazione non supportata');
-          return;
-        }
-
-        const geoOptions = {
-          enableHighAccuracy: true,
-          timeout: 15000, // Aumentato il timeout a 15 secondi
-          maximumAge: 0
-        };
-        
-        console.log(`Acquisizione posizione GPS per tag di tipo: ${finding.type}...`);
-        
-        const tryGetPosition = (retryCount = 0, maxRetries = 3) => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const coordinates: [number, number] = [
-                position.coords.latitude,
-                position.coords.longitude
-              ];
-              
-              console.log(`Aggiunta tag alle coordinate GPS precise: [${coordinates[0]}, ${coordinates[1]}], tipo: ${finding.type}, accuratezza: ${position.coords.accuracy}m`);
-              
-              const newFinding: Finding = {
-                ...finding,
-                id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                trackId: currentTrack.id,
-                coordinates,
-                timestamp: new Date()
-              };
-              
-              try {
-                // Crea una copia sicura del track corrente
-                const currentTrackCopy = {
-                  ...currentTrack,
-                  findings: [...(currentTrack.findings || [])]
+          // Mostra un messaggio di log per indicare che stiamo acquisendo la posizione
+          console.log(`Acquisizione posizione GPS per tag di tipo: ${finding.type}...`);
+          
+          // Utilizziamo getCurrentPosition con retry per garantire l'acquisizione della posizione
+          const tryGetPosition = (retryCount = 0, maxRetries = 3) => {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const coordinates: [number, number] = [
+                  position.coords.latitude,
+                  position.coords.longitude
+                ];
+                
+                console.log(`Aggiunta tag alle coordinate GPS precise: [${coordinates[0]}, ${coordinates[1]}], tipo: ${finding.type}, accuratezza: ${position.coords.accuracy}m`);
+                
+                const newFinding: Finding = {
+                  ...finding,
+                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  trackId: currentTrack.id,
+                  coordinates,
+                  timestamp: new Date()
                 };
                 
-                // Aggiungi il nuovo finding
-                currentTrackCopy.findings.push(newFinding);
-                
-                // Aggiorna lo stato
+                // Aggiorna immediatamente lo stato con il nuovo ritrovamento
+                // per garantire che il tag appaia subito sulla mappa
                 set({
-                  currentTrack: currentTrackCopy
+                  currentTrack: {
+                    ...currentTrack,
+                    findings: [...currentTrack.findings, newFinding]
+                  }
                 });
                 
-                // Riproduci un suono di conferma
-                playAudio('/sound/alert.mp3').catch(error => {
-                  console.warn('Error playing confirmation sound:', error);
-                });
-              } catch (error) {
-                console.error('Errore durante l\'aggiornamento dello stato:', error);
-              }
-            },
-            (error) => {
-              console.warn(`Errore nell'acquisizione della posizione per il tag (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
-              
-              if (retryCount < maxRetries) {
-                const retryOptions = {
-                  ...geoOptions,
-                  enableHighAccuracy: retryCount < 1,
-                  timeout: geoOptions.timeout + (retryCount * 2000)
-                };
+                // Log per confermare l'aggiunta del tag sulla mappa
+                console.log(`Tag aggiunto e visualizzato sulla mappa: ${finding.type} alle coordinate [${coordinates[0]}, ${coordinates[1]}]`);
                 
-                console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
-                setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 1000);
-              } else {
-                // Fallback all'ultima posizione conosciuta
-                if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
-                  const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
-                  
-                  console.log(`Fallback: aggiunta tag all'ultima posizione conosciuta: [${lastPosition[0]}, ${lastPosition[1]}], tipo: ${finding.type}`);
-                  
-                  const newFinding: Finding = {
-                    ...finding,
-                    id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    trackId: currentTrack.id,
-                    coordinates: lastPosition,
-                    timestamp: new Date()
+                // Riproduci un suono di conferma per indicare che il tag è stato aggiunto
+                try {
+                  const audio = new Audio('/sound/alert.mp3');
+                  audio.volume = 0.3; // Aumentato leggermente il volume
+                  audio.play().catch(e => console.error('Errore nella riproduzione audio:', e));
+                } catch (error) {
+                  console.error('Errore nella riproduzione audio:', error);
+                }
+              },
+              (error) => {
+                console.warn(`Errore nell'acquisizione della posizione per il tag (tentativo ${retryCount + 1}/${maxRetries}):`, error.message);
+                
+                if (retryCount < maxRetries) {
+                  // Riprova con opzioni meno restrittive
+                  const retryOptions = {
+                    ...geoOptions,
+                    enableHighAccuracy: retryCount < 1, // Disabilita high accuracy dopo il primo retry
+                    timeout: geoOptions.timeout + (retryCount * 1000)
                   };
                   
-                  try {
-                    // Crea una copia sicura del track corrente
-                    const currentTrackCopy = {
-                      ...currentTrack,
-                      findings: [...(currentTrack.findings || [])]
+                  console.log(`Ritentativo acquisizione posizione GPS (${retryCount + 1}/${maxRetries})...`);
+                  setTimeout(() => tryGetPosition(retryCount + 1, maxRetries), 500);
+                } else {
+                  // Fallback: usa l'ultima posizione conosciuta dal track
+                  if (currentTrack.coordinates.length > 0) {
+                    const lastPosition = currentTrack.coordinates[currentTrack.coordinates.length - 1];
+                    
+                    console.log(`Fallback: aggiunta tag all'ultima posizione conosciuta: [${lastPosition[0]}, ${lastPosition[1]}], tipo: ${finding.type}`);
+                    
+                    const newFinding: Finding = {
+                      ...finding,
+                      id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                      trackId: currentTrack.id,
+                      coordinates: lastPosition,
+                      timestamp: new Date()
                     };
                     
-                    // Aggiungi il nuovo finding
-                    currentTrackCopy.findings.push(newFinding);
-                    
-                    // Aggiorna lo stato
                     set({
-                      currentTrack: currentTrackCopy
+                      currentTrack: {
+                        ...currentTrack,
+                        findings: [...currentTrack.findings, newFinding]
+                      }
                     });
-                  } catch (error) {
-                    console.error('Errore durante l\'aggiornamento dello stato con fallback:', error);
                   }
-                } else {
-                  console.error('Impossibile aggiungere il tag: nessuna posizione disponibile');
                 }
-              }
-            },
-            geoOptions
-          );
-        };
-        
-        tryGetPosition();
+              },
+              geoOptions
+            );
+          };
+          
+          // Avvia il primo tentativo di acquisizione della posizione
+          tryGetPosition();
+        }
       },
 
       loadFindings: (findings: Finding[]) => {
@@ -808,31 +523,15 @@ export const useTrackStore = create<TrackState>()(
 
       exportTracks: () => {
         const { tracks } = get();
-        try {
-          // Verifica che tracks sia un array valido
-          if (!Array.isArray(tracks)) {
-            console.error('Tracks is not an array:', tracks);
-            return '';
-          }
+        const metadata = {
+          name: "Tracker Funghi e Tartufi",
+          desc: "Exported tracks and findings",
+          author: "Tracker App",
+          time: new Date().toISOString(),
+          keywords: "mushrooms,truffles,tracking"
+        };
 
-          const metadata = {
-            name: "Tracker Funghi e Tartufi",
-            desc: "Exported tracks and findings",
-            author: "Tracker App",
-            time: new Date().toISOString(),
-            keywords: "mushrooms,truffles,tracking"
-          };
-
-          // Verifica che ogni track sia valida
-          const validTracks = tracks.filter(track => {
-            if (!track || typeof track !== 'object') {
-              console.warn('Invalid track found:', track);
-              return false;
-            }
-            return true;
-          });
-
-          const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+        const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" 
      creator="${metadata.name}"
      xmlns="http://www.topografix.com/GPX/1/1"
@@ -845,52 +544,34 @@ export const useTrackStore = create<TrackState>()(
     <time>${metadata.time}</time>
     <keywords>${metadata.keywords}</keywords>
   </metadata>
-  ${validTracks.map(track => {
-    try {
-      return `
+  ${tracks.map(track => `
   <trk>
     <name>Track ${format(track.startTime, 'yyyy-MM-dd HH:mm')}</name>
     <desc>${track.location ? `Location: ${track.location.name}${track.location.region ? ` (${track.location.region})` : ''}` : 'Unknown Location'}
-Distance: ${track.distance?.toFixed(2) || '0.00'} km
-Findings: ${track.findings?.length || 0}
-Start Time: ${track.startTime instanceof Date ? track.startTime.toISOString() : new Date(track.startTime).toISOString()}
-${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toISOString() : new Date(track.endTime).toISOString()}` : ''}</desc>
+Distance: ${track.distance.toFixed(2)} km
+Findings: ${track.findings.length}
+Start Time: ${track.startTime.toISOString()}
+${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
     <trkseg>
-      ${(track.coordinates || []).map(coord => `
+      ${track.coordinates.map(coord => `
       <trkpt lat="${coord[0]}" lon="${coord[1]}">
         <ele>0</ele>
-        <time>${track.startTime instanceof Date ? track.startTime.toISOString() : new Date(track.startTime).toISOString()}</time>
+        <time>${track.startTime.toISOString()}</time>
       </trkpt>`).join('')}
     </trkseg>
   </trk>
-  ${(track.findings || []).map(finding => {
-    try {
-      return `
+  ${track.findings.map(finding => `
   <wpt lat="${finding.coordinates[0]}" lon="${finding.coordinates[1]}">
     <name>${finding.name}</name>
     <desc>${finding.description || ''}</desc>
-    <time>${finding.timestamp instanceof Date ? finding.timestamp.toISOString() : new Date(finding.timestamp).toISOString()}</time>
+    <time>${finding.timestamp.toISOString()}</time>
     ${finding.photoUrl ? `<link href="${finding.photoUrl}">
       <text>Photo</text>
     </link>` : ''}
     <sym>${finding.name.startsWith('Fungo') ? 'Mushroom' : 'Flag, Blue'}</sym>
-  </wpt>`;
-    } catch (error) {
-      console.error('Error processing finding:', error);
-      return '';
-    }
-  }).join('')}`;
-    } catch (error) {
-      console.error('Error processing track:', error);
-      return '';
-    }
-  }).join('')}
+  </wpt>`).join('')}`).join('')}
 </gpx>`;
-          return gpx;
-        } catch (error) {
-          console.error('Error during export:', error);
-          return '';
-        }
+        return gpx;
       },
 
       importTracks: (gpxData: string) => {
@@ -903,74 +584,70 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
           }
 
           const tracks = Array.from(gpx.getElementsByTagName('trk')).map(trk => {
-            try {
-              const name = trk.getElementsByTagName('name')[0]?.textContent || '';
-              const desc = trk.getElementsByTagName('desc')[0]?.textContent || '';
-              
-              const locationMatch = desc.match(/Location: (.+?)(?:\s*\((.+?)\))?$/m);
-              const location = locationMatch ? {
-                name: locationMatch[1],
-                region: locationMatch[2],
-                coordinates: [0, 0] as [number, number]
-              } : undefined;
+            const name = trk.getElementsByTagName('name')[0]?.textContent || '';
+            const desc = trk.getElementsByTagName('desc')[0]?.textContent || '';
+            
+            // Parse location from description
+            const locationMatch = desc.match(/Location: (.+?)(?:\s*\((.+?)\))?$/m);
+            const location = locationMatch ? {
+              name: locationMatch[1],
+              region: locationMatch[2],
+              coordinates: [0, 0] as [number, number]
+            } : undefined;
 
-              const coordinates: [number, number][] = Array.from(trk.getElementsByTagName('trkpt')).map(trkpt => {
-                const lat = parseFloat(trkpt.getAttribute('lat') || '0');
-                const lon = parseFloat(trkpt.getAttribute('lon') || '0');
-                return [lat, lon];
-              });
+            const coordinates: [number, number][] = Array.from(trk.getElementsByTagName('trkpt')).map(trkpt => [
+              parseFloat(trkpt.getAttribute('lat') || '0'),
+              parseFloat(trkpt.getAttribute('lon') || '0')
+            ]);
 
-              if (coordinates.length > 0 && location) {
-                location.coordinates = coordinates[0];
-              }
-
-              const findings: Finding[] = Array.from(gpx.getElementsByTagName('wpt'))
-                .filter(wpt => {
-                  const wptLat = parseFloat(wpt.getAttribute('lat') || '0');
-                  const wptLon = parseFloat(wpt.getAttribute('lon') || '0');
-                  return coordinates.some(coord => 
-                    Math.abs(coord[0] - wptLat) < 0.0001 && 
-                    Math.abs(coord[1] - wptLon) < 0.0001
-                  );
-                })
-                .map(wpt => ({
-                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  trackId: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  name: wpt.getElementsByTagName('name')[0]?.textContent || '',
-                  description: wpt.getElementsByTagName('desc')[0]?.textContent,
-                  photoUrl: wpt.getElementsByTagName('link')[0]?.getAttribute('href'),
-                  coordinates: [
-                    parseFloat(wpt.getAttribute('lat') || '0'),
-                    parseFloat(wpt.getAttribute('lon') || '0')
-                  ] as [number, number],
-                  timestamp: new Date(wpt.getElementsByTagName('time')[0]?.textContent || '')
-                }));
-
-                let distance = 0;
-                if (coordinates.length > 1) {
-                  const line = turf.lineString(coordinates);
-                  distance = turf.length(line, { units: 'kilometers' });
-                }
-
-                const startTime = new Date(trk.getElementsByTagName('time')[0]?.textContent || Date.now());
-                const endTimeMatch = desc.match(/End Time: (.+)$/m);
-                const endTime = endTimeMatch ? new Date(endTimeMatch[1]) : undefined;
-
-                return {
-                  id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  startTime,
-                  endTime,
-                  coordinates,
-                  distance,
-                  findings,
-                  isPaused: false,
-                  location
-                };
-            } catch (error) {
-              console.error('Error processing track during import:', error);
-              return null;
+            if (coordinates.length > 0 && location) {
+              location.coordinates = coordinates[0];
             }
-          }).filter(track => track !== null);
+
+            const findings: Finding[] = Array.from(gpx.getElementsByTagName('wpt'))
+              .filter(wpt => {
+                const wptLat = parseFloat(wpt.getAttribute('lat') || '0');
+                const wptLon = parseFloat(wpt.getAttribute('lon') || '0');
+                return coordinates.some(coord => 
+                  Math.abs(coord[0] - wptLat) < 0.0001 && 
+                  Math.abs(coord[1] - wptLon) < 0.0001
+                );
+              })
+              .map(wpt => ({
+                id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                trackId: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                name: wpt.getElementsByTagName('name')[0]?.textContent || '',
+                description: wpt.getElementsByTagName('desc')[0]?.textContent,
+                photoUrl: wpt.getElementsByTagName('link')[0]?.getAttribute('href'),
+                coordinates: [
+                  parseFloat(wpt.getAttribute('lat') || '0'),
+                  parseFloat(wpt.getAttribute('lon') || '0')
+                ] as [number, number],
+                timestamp: new Date(wpt.getElementsByTagName('time')[0]?.textContent || '')
+              }));
+
+            // Calculate track distance using turf.js
+            let distance = 0;
+            if (coordinates.length > 1) {
+              const line = turf.lineString(coordinates);
+              distance = turf.length(line, { units: 'kilometers' });
+            }
+
+            const startTime = new Date(trk.getElementsByTagName('time')[0]?.textContent || Date.now());
+            const endTimeMatch = desc.match(/End Time: (.+)$/m);
+            const endTime = endTimeMatch ? new Date(endTimeMatch[1]) : undefined;
+
+            return {
+              id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              startTime,
+              endTime,
+              coordinates,
+              distance,
+              findings,
+              isPaused: false,
+              location
+            };
+          });
 
           set(state => ({
             tracks: [...state.tracks, ...tracks]
@@ -983,299 +660,48 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
     }),
     {
       name: 'tracks-storage',
-      skipHydration: true,
-      storage: {
-        getItem: async (name) => {
-          try {
-            console.log('Reading from IndexedDB:', name);
-            const db = await initializeDB();
-            const tx = db.transaction('tracks', 'readonly');
-            const store = tx.objectStore('tracks');
-            const value = await store.get(name);
-            await tx.done;
-            
-            if (!value) {
-              console.log('No data found in IndexedDB, returning empty state');
-              return JSON.stringify({ state: { tracks: [] } });
-            }
-            
-            console.log('Raw data from IndexedDB:', value);
-            
-            // Verifica che i dati siano validi
-            const parsedValue = JSON.parse(JSON.stringify(value.value));
-            console.log('Parsed value from IndexedDB:', parsedValue);
-            
-            // Assicurati che la struttura sia corretta
-            if (!parsedValue || !parsedValue.state) {
-              console.warn('Invalid state structure, returning empty state');
-              return JSON.stringify({ state: { tracks: [] } });
-            }
-            
-            // Assicurati che tracks sia un array
-            if (!Array.isArray(parsedValue.state.tracks)) {
-              console.warn('Tracks is not an array, returning empty state');
-              return JSON.stringify({ state: { tracks: [] } });
-            }
-            
-            console.log('Number of tracks found:', parsedValue.state.tracks.length);
-            
-            // Assicurati che ogni traccia abbia un ID unico
-            const tracksWithIds = parsedValue.state.tracks.map(track => {
-              console.log('Processing track:', track.id);
-              return {
-                ...track,
-                id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                findings: Array.isArray(track.findings) ? track.findings.map(finding => {
-                  console.log('Processing finding:', finding.id);
-                  return {
-                    ...finding,
-                    id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    // Gestione speciale per le foto
-                    photoUrl: finding.photoUrl ? 
-                      (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
-                      null
-                  };
-                }) : []
-              };
-            });
-            
-            const result = JSON.stringify({
-              state: {
-                ...parsedValue.state,
-                tracks: tracksWithIds
-              }
-            });
-            
-            console.log('Final data to be returned:', result);
-            return result;
-          } catch (error) {
-            console.error('Error reading from IndexedDB:', error);
-            return JSON.stringify({ state: { tracks: [] } });
-          }
-        },
-        setItem: async (name, value) => {
-          try {
-            console.log('Writing to IndexedDB:', name);
-            console.log('Value to be written:', value);
-            
-            const db = await initializeDB();
-            const tx = db.transaction('tracks', 'readwrite');
-            const store = tx.objectStore('tracks');
-            
-            // Leggi i dati esistenti
-            const existingValue = await store.get(name);
-            console.log('Existing value in IndexedDB:', existingValue);
-            
-            let existingTracks = [];
-            if (existingValue && existingValue.value && existingValue.value.state) {
-              existingTracks = Array.isArray(existingValue.value.state.tracks) ? 
-                existingValue.value.state.tracks : 
-                [];
-              console.log('Number of existing tracks:', existingTracks.length);
-            }
-            
-            // Assicurati che il valore sia serializzabile e abbia la struttura corretta
-            let serializableValue;
-            try {
-              serializableValue = typeof value === 'string' ? 
-                JSON.parse(value) : 
-                JSON.parse(JSON.stringify(value));
-              console.log('Serialized value:', serializableValue);
-            } catch (parseError) {
-              console.error('Error parsing value:', parseError);
-              serializableValue = { state: { tracks: [] } };
-            }
-            
-            // Assicurati che la struttura sia corretta
-            if (!serializableValue || !serializableValue.state) {
-              console.warn('Invalid state structure, initializing empty state');
-              serializableValue = { state: { tracks: [] } };
-            }
-            
-            // Assicurati che tracks sia un array
-            if (!Array.isArray(serializableValue.state.tracks)) {
-              console.warn('Tracks is not an array, initializing empty array');
-              serializableValue.state.tracks = [];
-            }
-            
-            // Assicurati che le tracce siano sempre presenti e valide
-            const validTracks = serializableValue.state.tracks.map(track => {
-              console.log('Validating track:', track.id);
-              return {
-                ...track,
-                id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
-                endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
-                coordinates: Array.isArray(track.coordinates) ? track.coordinates : [],
-                findings: Array.isArray(track.findings) ? track.findings.map(finding => {
-                  console.log('Validating finding:', finding.id);
-                  return {
-                    ...finding,
-                    id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    coordinates: Array.isArray(finding.coordinates) ? finding.coordinates : [],
-                    timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
-                    // Gestione speciale per le foto
-                    photoUrl: finding.photoUrl ? 
-                      (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
-                      null
-                  };
-                }) : []
-              };
-            });
-            
-            console.log('Number of valid tracks:', validTracks.length);
-            
-            // Unisci le tracce esistenti con quelle nuove, evitando duplicati
-            const mergedTracks = [...existingTracks];
-            validTracks.forEach(newTrack => {
-              const existingIndex = mergedTracks.findIndex(t => t.id === newTrack.id);
-              if (existingIndex >= 0) {
-                console.log('Updating existing track:', newTrack.id);
-                mergedTracks[existingIndex] = newTrack;
-              } else {
-                console.log('Adding new track:', newTrack.id);
-                mergedTracks.push(newTrack);
-              }
-            });
-            
-            console.log('Total tracks after merge:', mergedTracks.length);
-            
-            // Se la quota è superata, rimuovi le tracce più vecchie
-            if (mergedTracks.length > 20) {
-              console.warn('Storage quota exceeded, cleaning up old tracks...');
-              const sortedTracks = [...mergedTracks].sort((a, b) => 
-                new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-              );
-              mergedTracks.length = 0;
-              mergedTracks.push(...sortedTracks.slice(0, 20));
-              console.log('Tracks after cleanup:', mergedTracks.length);
-            }
-            
-            const cleanValue = {
-              state: {
-                ...serializableValue.state,
-                tracks: mergedTracks
-              }
-            };
-            
-            console.log('Final value to be stored:', cleanValue);
-            
-            await store.put({ id: name, value: cleanValue });
-            await tx.done;
-            
-            console.log('Data successfully written to IndexedDB');
-          } catch (error) {
-            console.error('Error writing to IndexedDB:', error);
-            // In caso di errore, prova a salvare solo le tracce più recenti
-            if (error.name === 'QuotaExceededError') {
-              console.warn('Quota exceeded, attempting to save only recent tracks...');
-              try {
-                const db = await initializeDB();
-                const tx = db.transaction('tracks', 'readwrite');
-                const store = tx.objectStore('tracks');
-                
-                // Leggi i dati esistenti
-                const existingValue = await store.get(name);
-                let existingTracks = [];
-                
-                if (existingValue && existingValue.value && existingValue.value.state) {
-                  existingTracks = Array.isArray(existingValue.value.state.tracks) ? 
-                    existingValue.value.state.tracks : 
-                    [];
-                }
-                
-                console.log('Number of existing tracks for quota cleanup:', existingTracks.length);
-                
-                // Mantieni solo le ultime 10 tracce
-                const sortedTracks = [...existingTracks].sort((a, b) => 
-                  new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-                );
-                const recentTracks = sortedTracks.slice(0, 10);
-                
-                console.log('Saving recent tracks:', recentTracks.length);
-                
-                await store.put({ 
-                  id: name, 
-                  value: { 
-                    state: { 
-                      tracks: recentTracks 
-                    } 
-                  } 
-                });
-                await tx.done;
-                
-                console.log('Quota cleanup successful');
-              } catch (retryError) {
-                console.error('Error during quota cleanup:', retryError);
-              }
-            }
-          }
-        },
-        removeItem: async (name) => {
-          // Disabilitiamo completamente la rimozione dei dati
-          console.warn('Data removal blocked to prevent data loss');
-        }
-      },
+      skipHydration: false,
       partialize: (state) => {
-        // Assicurati che tutti i dati siano serializzabili
-        const serializableState = {
-          tracks: (state.tracks || []).map(track => ({
-            ...track,
-            id: track.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
-            endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
-            coordinates: track.coordinates || [],
-            findings: (track.findings || []).map(finding => ({
-              ...finding,
-              id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              coordinates: finding.coordinates || [],
-              timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp,
-              // Gestione speciale per le foto
-              photoUrl: finding.photoUrl ? 
-                (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
-                null
-            }))
-          })),
+        const tracks = state.tracks.map(track => ({
+          ...track,
+          startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
+          endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
+          findings: track.findings.map(finding => ({
+            ...finding,
+            timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
+          }))
+        }));
+
+        return {
+          ...state,
+          tracks,
           currentTrack: state.currentTrack ? {
             ...state.currentTrack,
-            id: state.currentTrack.id || `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             startTime: state.currentTrack.startTime instanceof Date ? 
               state.currentTrack.startTime.toISOString() : 
               state.currentTrack.startTime,
             endTime: state.currentTrack.endTime instanceof Date ? 
               state.currentTrack.endTime.toISOString() : 
               state.currentTrack.endTime,
-            coordinates: state.currentTrack.coordinates || [],
-            findings: (state.currentTrack.findings || []).map(finding => ({
+            findings: state.currentTrack.findings.map(finding => ({
               ...finding,
-              id: finding.id || `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              coordinates: finding.coordinates || [],
               timestamp: finding.timestamp instanceof Date ? 
                 finding.timestamp.toISOString() : 
-                finding.timestamp,
-              // Gestione speciale per le foto
-              photoUrl: finding.photoUrl ? 
-                (typeof finding.photoUrl === 'string' ? finding.photoUrl : URL.createObjectURL(finding.photoUrl)) : 
-                null
+                finding.timestamp
             }))
           } : null,
           loadedFindings: null
         };
-
-        return serializableState;
       },
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Ricostruisci gli oggetti Date e altri tipi complessi
-          state.tracks = (state.tracks || []).map(track => ({
+          state.tracks = state.tracks.map(track => ({
             ...track,
             startTime: new Date(track.startTime),
             endTime: track.endTime ? new Date(track.endTime) : undefined,
-            coordinates: track.coordinates || [],
-            findings: (track.findings || []).map(finding => ({
+            findings: track.findings.map(finding => ({
               ...finding,
-              timestamp: new Date(finding.timestamp),
-              coordinates: finding.coordinates || []
+              timestamp: new Date(finding.timestamp)
             }))
           }));
 
@@ -1284,11 +710,9 @@ ${track.endTime ? `End Time: ${track.endTime instanceof Date ? track.endTime.toI
               ...state.currentTrack,
               startTime: new Date(state.currentTrack.startTime),
               endTime: state.currentTrack.endTime ? new Date(state.currentTrack.endTime) : undefined,
-              coordinates: state.currentTrack.coordinates || [],
-              findings: (state.currentTrack.findings || []).map(finding => ({
+              findings: state.currentTrack.findings.map(finding => ({
                 ...finding,
-                timestamp: new Date(finding.timestamp),
-                coordinates: finding.coordinates || []
+                timestamp: new Date(finding.timestamp)
               }))
             };
           }

@@ -6,17 +6,9 @@ const Profile: React.FC = () => {
   const { user, logout } = useUser();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try {
-      // Esegui il logout senza pulire i dati
-      logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // In caso di errore, procedi comunque con il logout
-      logout();
-      navigate('/login');
-    }
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   if (!user) {

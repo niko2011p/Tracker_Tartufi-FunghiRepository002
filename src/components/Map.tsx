@@ -15,51 +15,73 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
   const markersRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
+    console.log('Map component mounted/updated');
+    console.log('Findings:', track.findings);
+    console.log('Coordinates:', track.coordinates);
+
     if (!mapContainerRef.current) return;
 
     // Inizializza la mappa se non esiste
     if (!mapRef.current) {
-      const map = L.map(mapContainerRef.current, {
+      console.log('Initializing map...');
+      mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: false,
         attributionControl: false
       });
 
-      // Aggiungi il layer base se non esiste
-      if (!map.getPane('tilePane')) {
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-      }
-
-      mapRef.current = map;
+      // Aggiungi il layer di base
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+      }).addTo(mapRef.current);
     }
 
     const map = mapRef.current;
 
-    // Rimuovi i layer esistenti
-    if (markersRef.current) {
-      map.removeLayer(markersRef.current);
-    }
+    // Rimuovi il layer della traccia precedente se esiste
     if (trackLayerRef.current) {
       map.removeLayer(trackLayerRef.current);
+    }
+
+    // Rimuovi i marker precedenti se esistono
+    if (markersRef.current) {
+      map.removeLayer(markersRef.current);
     }
 
     // Crea un nuovo layer per i marker
     markersRef.current = L.layerGroup().addTo(map);
 
-    // Aggiungi i marker per i ritrovamenti
-    if (track?.findings) {
-      track.findings.forEach(finding => {
-        if (!finding.coordinates || finding.coordinates.length !== 2) {
-          console.warn('Coordinate non valide per il ritrovamento:', finding);
-          return;
-        }
+    // Se ci sono coordinate, disegna la traccia
+    if (track.coordinates && track.coordinates.length > 0) {
+      console.log('Adding track polyline with coordinates:', track.coordinates);
+      // Converti le coordinate nel formato corretto per Leaflet
+      const latLngs = track.coordinates.map(coord => [coord[0], coord[1]]);
 
-        try {
-          // Crea l'icona HTML
+      // Crea il layer della traccia
+      trackLayerRef.current = L.polyline(latLngs, {
+        color: '#FF9800',
+        weight: 4,
+        opacity: 0.8,
+        smoothFactor: 1
+      }).addTo(map);
+
+      // Aggiungi i marker per i ritrovamenti
+      track.findings.forEach(finding => {
+        if (finding.coordinates) {
+          console.log('Processing finding:', finding);
+          console.log('Finding coordinates:', finding.coordinates);
+          
+          // Verify coordinates are valid numbers
+          if (!Array.isArray(finding.coordinates) || 
+              finding.coordinates.length !== 2 || 
+              typeof finding.coordinates[0] !== 'number' || 
+              typeof finding.coordinates[1] !== 'number') {
+            console.error('Invalid coordinates for finding:', finding);
+            return;
+          }
+
+          // Create the icon HTML
           const iconUrl = `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
-          console.log('Creazione marker per:', finding.name, 'con icona:', iconUrl);
+          console.log('Using icon URL:', iconUrl);
 
           const iconHtml = `
             <div class="finding-marker" style="
@@ -93,7 +115,7 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
             </div>
           `;
 
-          // Crea l'icona personalizzata
+          // Create the custom icon
           const customIcon = L.divIcon({
             html: iconHtml,
             className: 'finding-icon',
@@ -102,14 +124,14 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
             popupAnchor: [0, -20]
           });
 
-          // Crea e aggiungi il marker
+          // Create and add the marker
           const marker = L.marker(finding.coordinates, {
             icon: customIcon,
             riseOnHover: true,
             zIndexOffset: 1000
           });
 
-          // Aggiungi il popup con i dettagli del ritrovamento
+          // Add popup with finding details
           marker.bindPopup(`
             <div style="padding: 12px; min-width: 200px;">
               <h3 style="margin: 0 0 8px 0; font-weight: bold; color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};">${finding.name}</h3>
@@ -122,129 +144,34 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
           `);
 
           marker.addTo(markersRef.current);
-          console.log('Marker aggiunto per il ritrovamento:', finding.id);
-
-          // Forza l'aggiornamento del marker
-          marker.update();
-        } catch (error) {
-          console.error('Errore nella creazione del marker:', error);
+          console.log('Added marker for finding:', finding.id);
+        } else {
+          console.warn('Finding has no coordinates:', finding);
         }
       });
-    }
 
-    // Aggiungi il tracciato se esiste
-    if (track?.coordinates && track.coordinates.length > 0) {
-      trackLayerRef.current = L.polyline(track.coordinates, {
-        color: '#ff9500',
-        weight: 5,
-        opacity: 0.7,
-        lineJoin: 'round'
-      }).addTo(map);
-
-      // Centra la mappa sul tracciato
-      map.fitBounds(trackLayerRef.current.getBounds(), {
-        padding: [50, 50]
+      // Centra la mappa sulla traccia
+      const bounds = trackLayerRef.current.getBounds();
+      map.fitBounds(bounds, {
+        padding: [50, 50],
+        maxZoom: 16
       });
     }
 
-    // Pulisci quando il componente viene smontato
     return () => {
-      if (markersRef.current) {
-        map.removeLayer(markersRef.current);
-      }
-      if (trackLayerRef.current) {
-        map.removeLayer(trackLayerRef.current);
+      console.log('Cleaning up map...');
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
       }
     };
-  }, [track]);
-
-  // Aggiorna i marker quando cambiano i ritrovamenti
-  useEffect(() => {
-    if (!mapRef.current || !track) return;
-
-    console.log('Updating markers for track:', track.id);
-    console.log('Number of findings:', track.findings.length);
-
-    // Rimuovi i marker esistenti
-    if (markersRef.current && Array.isArray(markersRef.current)) {
-      markersRef.current.forEach(marker => {
-        if (marker && typeof marker.remove === 'function') {
-          console.log('Removing existing marker:', marker.options.title);
-          marker.remove();
-        }
-      });
-    }
-    markersRef.current = [];
-
-    // Aggiungi i marker per i ritrovamenti
-    if (Array.isArray(track.findings)) {
-      track.findings.forEach(finding => {
-        console.log('Processing finding:', finding.id);
-        console.log('Finding coordinates:', finding.coordinates);
-        
-        if (!finding.coordinates || !Array.isArray(finding.coordinates) || finding.coordinates.length !== 2) {
-          console.warn('Invalid coordinates for finding:', finding.id);
-          return;
-        }
-
-        try {
-          const marker = L.marker(finding.coordinates, {
-            icon: L.divIcon({
-              className: 'custom-div-icon',
-              html: `<div class="marker-pin ${finding.type.toLowerCase()}"></div>`,
-              iconSize: [30, 42],
-              iconAnchor: [15, 42]
-            }),
-            title: finding.name
-          });
-
-          console.log('Created marker for finding:', finding.id);
-
-          // Aggiungi il popup
-          const popupContent = `
-            <div class="popup-content">
-              <h3>${finding.name}</h3>
-              <p>${finding.description || ''}</p>
-              ${finding.photoUrl ? `<img src="${finding.photoUrl}" alt="${finding.name}" style="max-width: 200px; max-height: 200px;">` : ''}
-            </div>
-          `;
-
-          marker.bindPopup(popupContent, {
-            maxWidth: 300,
-            minWidth: 200,
-            closeButton: true,
-            autoClose: false,
-            closeOnClick: false
-          });
-
-          console.log('Added popup to marker:', finding.id);
-
-          // Aggiungi il marker alla mappa
-          marker.addTo(mapRef.current);
-          if (Array.isArray(markersRef.current)) {
-            markersRef.current.push(marker);
-          } else {
-            markersRef.current = [marker];
-          }
-
-          console.log('Marker added to map:', finding.id);
-        } catch (error) {
-          console.error('Error creating marker for finding:', finding.id, error);
-        }
-      });
-    }
-
-    console.log('Total markers added:', Array.isArray(markersRef.current) ? markersRef.current.length : 0);
-  }, [track]);
+  }, [track, onTakePhoto]);
 
   return (
     <div 
       ref={mapContainerRef} 
-          style={{
-        width: '100%', 
-        height: '100%',
-        position: 'relative'
-      }} 
+      className="w-full h-full bg-white"
+      style={{ minHeight: '300px' }}
     />
   );
 };

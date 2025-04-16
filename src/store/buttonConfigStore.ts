@@ -31,10 +31,10 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
   navigationButton: {
     position: { x: 5, y: 50 },
     positionType: 'percentage',
-    size: 60,
-    color: 'bg-orange-500',
+    size: 75,
+    color: 'bg-[#f5a149]',
     iconColor: 'text-white',
-    iconSize: 32,
+    iconSize: 42,
     borderRadius: 50,
     shadow: {
       color: 'rgba(0, 0, 0, 0.2)',
@@ -46,8 +46,8 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
     position: { x: 5, y: 90 },
     positionType: 'percentage',
     size: 75,
-    color: 'bg-black',
-    iconColor: 'text-white',
+    color: 'bg-white',
+    iconColor: 'text-red-700',
     iconSize: 42,
     borderRadius: 50,
     shadow: {
@@ -71,7 +71,7 @@ const useButtonConfigStore = create<ButtonConfigState>((set) => ({
     }
   },
   stopButton: {
-    position: { x: 13, y: 90 },
+    position: { x: 15, y: 90 },
     positionType: 'percentage',
     size: 75,
     color: 'bg-red-500',
