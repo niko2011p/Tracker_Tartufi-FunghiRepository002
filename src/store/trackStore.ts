@@ -721,7 +721,10 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           console.log('Tracce salvate con successo in IndexedDB');
         } catch (error) {
           console.error('Errore nel salvataggio delle tracce:', error);
-          alert('Errore nel salvataggio delle tracce. Riprova più tardi.');
+          // Mostra un alert solo se non è un errore di quota
+          if (!(error instanceof DOMException && error.name === 'QuotaExceededError')) {
+            alert('Errore nel salvataggio delle tracce. Riprova più tardi.');
+          }
         }
       },
 
@@ -766,61 +769,66 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
     {
       name: 'tracks-storage',
       skipHydration: false,
-      partialize: (state) => {
-        // Ottimizza i dati prima del salvataggio
-        const tracks = state.tracks.map(track => ({
-          ...track,
-          startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
-          endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
-          findings: track.findings.map(finding => ({
-            ...finding,
-            timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
-          }))
-        }));
-
-        return {
-          ...state,
-          tracks,
-          currentTrack: state.currentTrack ? {
-            ...state.currentTrack,
-            startTime: state.currentTrack.startTime instanceof Date ? 
-              state.currentTrack.startTime.toISOString() : 
-              state.currentTrack.startTime,
-            endTime: state.currentTrack.endTime instanceof Date ? 
-              state.currentTrack.endTime.toISOString() : 
-              state.currentTrack.endTime,
-            findings: state.currentTrack.findings.map(finding => ({
-              ...finding,
-              timestamp: finding.timestamp instanceof Date ? 
-                finding.timestamp.toISOString() : 
-                finding.timestamp
-            }))
-          } : null,
-          loadedFindings: null
-        };
-      },
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.tracks = state.tracks.map(track => ({
-            ...track,
-            startTime: new Date(track.startTime),
-            endTime: track.endTime ? new Date(track.endTime) : undefined,
-            findings: track.findings.map(finding => ({
-              ...finding,
-              timestamp: new Date(finding.timestamp)
-            }))
-          }));
-
-          if (state.currentTrack) {
-            state.currentTrack = {
-              ...state.currentTrack,
-              startTime: new Date(state.currentTrack.startTime),
-              endTime: state.currentTrack.endTime ? new Date(state.currentTrack.endTime) : undefined,
-              findings: state.currentTrack.findings.map(finding => ({
-                ...finding,
-                timestamp: new Date(finding.timestamp)
-              }))
-            };
+      storage: {
+        getItem: async (name) => {
+          try {
+            const db = await initDB();
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.getAll();
+            
+            return new Promise((resolve) => {
+              request.onsuccess = () => {
+                const tracks = request.result;
+                resolve(JSON.stringify({ state: { tracks } }));
+              };
+              request.onerror = () => resolve(null);
+            });
+          } catch (error) {
+            console.error('Errore nel caricamento dei dati:', error);
+            return null;
+          }
+        },
+        setItem: async (name, value) => {
+          try {
+            const { tracks } = JSON.parse(value).state;
+            const db = await initDB();
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            
+            // Pulisci lo store esistente
+            await new Promise<void>((resolve, reject) => {
+              const clearRequest = store.clear();
+              clearRequest.onsuccess = () => resolve();
+              clearRequest.onerror = () => reject(clearRequest.error);
+            });
+            
+            // Salva le nuove tracce
+            for (const track of tracks) {
+              await new Promise<void>((resolve, reject) => {
+                const request = store.put(track);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+              });
+            }
+          } catch (error) {
+            console.error('Errore nel salvataggio dei dati:', error);
+            throw error;
+          }
+        },
+        removeItem: async (name) => {
+          try {
+            const db = await initDB();
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.clear();
+            
+            await new Promise<void>((resolve, reject) => {
+              request.onsuccess = () => resolve();
+              request.onerror = () => reject(request.error);
+            });
+          } catch (error) {
+            console.error('Errore nella rimozione dei dati:', error);
           }
         }
       }

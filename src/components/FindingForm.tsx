@@ -66,7 +66,12 @@ function FindingForm({ onClose, position }: FindingFormProps) {
 
       await addFinding(finding);
       
-      // Aggiungi un feedback visivo
+      // Aggiungi feedback vibrazione
+      if ('vibrate' in navigator) {
+        navigator.vibrate(200); // Vibra per 200ms
+      }
+      
+      // Aggiungi un feedback audio
       const audio = new Audio('/sound/alert.mp3');
       audio.volume = 0.3;
       audio.play().catch(console.error);
@@ -80,34 +85,143 @@ function FindingForm({ onClose, position }: FindingFormProps) {
     }
   };
 
-  const handleTakePhoto = () => {
-    // Apri l'app fotocamera nativa
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment'; // Forza l'uso della fotocamera posteriore
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPhotoUrl(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-    input.click();
+  const handleTakePhoto = async () => {
+    try {
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+
+      // Aspetta che il video sia pronto
+      await new Promise((resolve) => {
+        video.onloadedmetadata = resolve;
+      });
+
+      // Crea un canvas per catturare il frame
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Impossibile ottenere il contesto del canvas');
+
+      // Disegna il frame sul canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Ferma lo stream della fotocamera
+      stream.getTracks().forEach(track => track.stop());
+
+      // Comprimi l'immagine
+      const compressedImage = await new Promise<string>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Impossibile creare il blob dell\'immagine'));
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          },
+          'image/jpeg',
+          0.6 // Riduci la qualità per una migliore compressione
+        );
+      });
+
+      setPhotoUrl(compressedImage);
+    } catch (error) {
+      console.error("Errore nell'accesso alla fotocamera:", error);
+      setError("Impossibile accedere alla fotocamera. Assicurati di aver concesso i permessi necessari.");
+    }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Verifica che il file sia un'immagine
+    if (!file.type.startsWith('image/')) {
+      setError('Seleziona un file immagine valido');
+      return;
     }
+
+    // Verifica la dimensione del file (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('L\'immagine è troppo grande. Dimensione massima consentita: 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const img = new Image();
+        img.src = e.target?.result as string;
+
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        // Crea un canvas per la compressione
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1080;
+        let width = img.width;
+        let height = img.height;
+
+        // Ridimensiona se necessario
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Impossibile ottenere il contesto del canvas');
+
+        // Disegna e comprimi l'immagine
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedImage = await new Promise<string>((resolve, reject) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Impossibile creare il blob dell\'immagine'));
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            },
+            'image/jpeg',
+            0.6 // Riduci la qualità per una migliore compressione
+          );
+        });
+
+        setPhotoUrl(compressedImage);
+      } catch (error) {
+        console.error('Errore nella compressione dell\'immagine:', error);
+        setError('Errore nella compressione dell\'immagine. Riprova con un\'altra immagine.');
+      }
+    };
+    reader.onerror = () => {
+      setError('Errore nella lettura del file. Riprova con un\'altra immagine.');
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -223,7 +337,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                 type="file"
                 ref={fileInputRef}
                 accept="image/*"
-                onChange={handleFileChange}
+                onChange={handlePhotoUpload}
                 className="hidden"
               />
               <button
