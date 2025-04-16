@@ -5,6 +5,7 @@ import L from 'leaflet';
 import { useTrackHistoryStore } from '../store/trackHistoryStore';
 import { formatDistance, formatDuration } from '../utils/formatUtils';
 import { useNavigate } from 'react-router-dom';
+import { useTrackStore } from '../store/trackStore';
 
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -15,24 +16,21 @@ L.Icon.Default.mergeOptions({
 });
 
 const Logger: React.FC = () => {
-  const tracks = useTrackHistoryStore((state) => state.tracks);
+  const { tracks, loadTracks } = useTrackStore();
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([45.4642, 9.1900]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Carica le tracce dal localStorage all'avvio
-    const savedTracks = localStorage.getItem('savedTracks');
-    if (savedTracks) {
-      useTrackHistoryStore.setState({ tracks: JSON.parse(savedTracks) });
-    }
-  }, []);
+    // Carica le tracce all'avvio
+    loadTracks();
+  }, [loadTracks]);
 
   const handleTrackSelect = (trackId: string) => {
     setSelectedTrack(trackId);
     const track = tracks.find((t) => t.id === trackId);
-    if (track && track.path.length > 0) {
-      setMapCenter(track.path[0]);
+    if (track && track.coordinates.length > 0) {
+      setMapCenter(track.coordinates[0]);
     }
   };
 

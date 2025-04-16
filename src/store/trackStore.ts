@@ -798,8 +798,9 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         },
         setItem: async (name, value) => {
           try {
-            const state = JSON.parse(value);
-            const { tracks } = state.state;
+            const { state } = JSON.parse(value);
+            const { tracks } = state;
+            
             const db = await initDB();
             const transaction = db.transaction(STORE_NAME, 'readwrite');
             const store = transaction.objectStore(STORE_NAME);

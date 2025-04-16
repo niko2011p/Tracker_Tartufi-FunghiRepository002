@@ -1,12 +1,14 @@
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTrackStore } from '../store/trackStore';
-import { Finding } from '../types';
+import { Finding, Track } from '../types';
 import { ArrowLeft, Share2, Download } from 'lucide-react';
 import LZString from 'lz-string';
+import Map from '../components/Map';
+import { formatDistance, formatDuration } from '../utils/formatUtils';
 
 // Fix per gli icon marker di Leaflet
 const defaultIcon = L.icon({
@@ -22,33 +24,42 @@ const defaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = defaultIcon;
 
-export default function TrackDetail() {
-  const { id } = useParams();
+const TrackDetail: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { tracks } = useTrackStore();
-  const [track, setTrack] = useState(tracks.find(t => t.id === id));
+  const { tracks, loadTracks } = useTrackStore();
+  const [track, setTrack] = useState<Track | null>(null);
   const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
 
   useEffect(() => {
-    // Se non troviamo la traccia nello store, proviamo a caricarla dal localStorage
-    if (!track) {
-      try {
-        const compressed = localStorage.getItem('savedTracks');
-        if (compressed) {
-          const decompressed = LZString.decompress(compressed);
-          if (decompressed) {
-            const storedTracks = JSON.parse(decompressed);
-            const foundTrack = storedTracks.find((t: any) => t.id === id);
-            if (foundTrack) {
-              setTrack(foundTrack);
+    loadTracks();
+  }, [loadTracks]);
+
+  useEffect(() => {
+    if (id) {
+      const foundTrack = tracks.find(t => t.id === id);
+      if (foundTrack) {
+        setTrack(foundTrack);
+      } else {
+        // Se non troviamo la traccia nello store, proviamo a caricarla da IndexedDB
+        const request = indexedDB.open('tracksDB', 1);
+        request.onsuccess = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          const transaction = db.transaction(['tracks'], 'readonly');
+          const store = transaction.objectStore('tracks');
+          const getRequest = store.get(id);
+          
+          getRequest.onsuccess = () => {
+            if (getRequest.result) {
+              setTrack(getRequest.result);
+            } else {
+              navigate('/logger');
             }
-          }
-        }
-      } catch (error) {
-        console.error('Errore nel caricamento della traccia:', error);
+          };
+        };
       }
     }
-  }, [id, track]);
+  }, [id, tracks, navigate]);
 
   useEffect(() => {
     if (track?.coordinates?.length) {
@@ -227,4 +238,6 @@ export default function TrackDetail() {
       </div>
     </div>
   );
-} 
+};
+
+export default TrackDetail; 

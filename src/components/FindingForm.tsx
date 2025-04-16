@@ -379,10 +379,12 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     const aspectRatio = img.naturalWidth / img.naturalHeight;
                     if (aspectRatio > 1) {
                       // Immagine orizzontale
-                      img.classList.add('w-full', 'h-auto');
+                      img.style.width = '100%';
+                      img.style.height = 'auto';
                     } else {
                       // Immagine verticale
-                      img.classList.add('h-[300px]', 'w-auto', 'mx-auto');
+                      img.style.width = 'auto';
+                      img.style.height = '300px';
                     }
                   }}
                 />
