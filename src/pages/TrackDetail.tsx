@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useTrackStore } from '../store/trackStore';
 import { Finding } from '../types';
 import { ArrowLeft, Share2, Download } from 'lucide-react';
+import LZString from 'lz-string';
 
 // Fix per gli icon marker di Leaflet
 const defaultIcon = L.icon({
@@ -29,7 +30,28 @@ export default function TrackDetail() {
   const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
 
   useEffect(() => {
-    if (track?.coordinates.length) {
+    // Se non troviamo la traccia nello store, proviamo a caricarla dal localStorage
+    if (!track) {
+      try {
+        const compressed = localStorage.getItem('savedTracks');
+        if (compressed) {
+          const decompressed = LZString.decompress(compressed);
+          if (decompressed) {
+            const storedTracks = JSON.parse(decompressed);
+            const foundTrack = storedTracks.find((t: any) => t.id === id);
+            if (foundTrack) {
+              setTrack(foundTrack);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Errore nel caricamento della traccia:', error);
+      }
+    }
+  }, [id, track]);
+
+  useEffect(() => {
+    if (track?.coordinates?.length) {
       const newBounds = L.latLngBounds(track.coordinates);
       setBounds(newBounds);
     }

@@ -3,6 +3,7 @@ import { Track, Finding } from '../types';
 import * as turf from '@turf/turf';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
+import LZString from 'lz-string';
 
 export interface TrackState {
   currentTrack: Track | null;
@@ -30,6 +31,8 @@ export interface TrackState {
   setShowFindingForm: (show: boolean) => void;
   currentPosition: [number, number] | null;
   resetForms: () => void;
+  loadTracks: () => void;
+  saveTracks: () => void;
 }
 
 async function getLocationName(lat: number, lon: number) {
@@ -655,6 +658,31 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         } catch (error) {
           console.error('Error during import:', error);
           throw new Error(error instanceof Error ? error.message : 'Unknown error during import');
+        }
+      },
+
+      loadTracks: () => {
+        try {
+          const compressed = localStorage.getItem('savedTracks');
+          if (compressed) {
+            const decompressed = LZString.decompress(compressed);
+            if (decompressed) {
+              const tracks = JSON.parse(decompressed);
+              set({ tracks });
+            }
+          }
+        } catch (error) {
+          console.error('Errore nel caricamento delle tracce:', error);
+        }
+      },
+
+      saveTracks: () => {
+        try {
+          const { tracks } = get();
+          const compressed = LZString.compress(JSON.stringify(tracks));
+          localStorage.setItem('savedTracks', compressed);
+        } catch (error) {
+          console.error('Errore nel salvataggio delle tracce:', error);
         }
       }
     }),
