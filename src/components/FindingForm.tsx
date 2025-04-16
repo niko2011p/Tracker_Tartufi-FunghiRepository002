@@ -85,63 +85,81 @@ function FindingForm({ onClose, position }: FindingFormProps) {
     }
   };
 
-  const handleTakePhoto = async () => {
-    try {
-      const constraints = {
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+  const handleTakePhoto = () => {
+    // Crea un input file nascosto
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Forza l'uso della fotocamera posteriore
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        // Crea un canvas per la compressione
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1080;
+        
+        // Carica l'immagine
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        // Calcola le dimensioni mantenendo l'aspect ratio
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
         }
-      };
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.playsInline = true;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Impossibile ottenere il contesto del canvas');
 
-      // Aspetta che il video sia pronto
-      await new Promise((resolve) => {
-        video.onloadedmetadata = resolve;
-      });
+        // Disegna e comprimi l'immagine
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedImage = await new Promise<string>((resolve, reject) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Impossibile creare il blob dell\'immagine'));
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            },
+            'image/jpeg',
+            0.6 // Riduci la qualità per una migliore compressione
+          );
+        });
 
-      // Crea un canvas per catturare il frame
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Impossibile ottenere il contesto del canvas');
+        // Pulisci l'URL dell'immagine
+        URL.revokeObjectURL(img.src);
+        
+        setPhotoUrl(compressedImage);
+      } catch (error) {
+        console.error('Errore nella compressione dell\'immagine:', error);
+        setError('Errore nella compressione dell\'immagine. Riprova con un\'altra immagine.');
+      }
+    };
 
-      // Disegna il frame sul canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Ferma lo stream della fotocamera
-      stream.getTracks().forEach(track => track.stop());
-
-      // Comprimi l'immagine
-      const compressedImage = await new Promise<string>((resolve, reject) => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error('Impossibile creare il blob dell\'immagine'));
-              return;
-            }
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          },
-          'image/jpeg',
-          0.6 // Riduci la qualità per una migliore compressione
-        );
-      });
-
-      setPhotoUrl(compressedImage);
-    } catch (error) {
-      console.error("Errore nell'accesso alla fotocamera:", error);
-      setError("Impossibile accedere alla fotocamera. Assicurati di aver concesso i permessi necessari.");
-    }
+    // Attiva l'input file che aprirà l'app fotocamera
+    input.click();
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
