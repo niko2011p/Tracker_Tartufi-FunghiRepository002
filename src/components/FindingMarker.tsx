@@ -2,20 +2,33 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Finding } from '../types';
 
-// Define icon paths and fallback colors
+// Base64 encoded fallback icons
+const FALLBACK_ICONS = {
+  // Simple red circle with white border
+  fungo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxMiIgZmlsbD0iIzhlYWEzNiIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+  // Simple brown circle with white border
+  tartufo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxMiIgZmlsbD0iIzhiNDUxMyIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+  // Simple orange circle with white border
+  poi: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxMiIgZmlsbD0iI2Y1YTE0OSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4='
+};
+
+// Define icon configurations with direct URLs
 const ICON_CONFIG = {
   fungo: {
-    iconPath: '/assets/icons/mushroom-tag-icon.svg',
+    iconUrl: '/assets/icons/mushroom-tag-icon.svg',
+    fallbackUrl: FALLBACK_ICONS.fungo,
     color: '#8eaa36',
     fallbackChar: '🍄'
   },
   tartufo: {
-    iconPath: '/assets/icons/truffle-tag-icon.svg',
+    iconUrl: '/assets/icons/truffle-tag-icon.svg',
+    fallbackUrl: FALLBACK_ICONS.tartufo,
     color: '#8B4513',
     fallbackChar: '🥔'
   },
   poi: {
-    iconPath: '/assets/icons/point-of-interest-tag-icon.svg',
+    iconUrl: '/assets/icons/point-of-interest-tag-icon.svg',
+    fallbackUrl: FALLBACK_ICONS.poi,
     color: '#f5a149',
     fallbackChar: '📍'
   }
@@ -44,62 +57,19 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
     const type = finding.type.toLowerCase() as keyof typeof ICON_CONFIG;
     const config = ICON_CONFIG[type] || ICON_CONFIG.poi;
 
-    // Create custom icon with fallback
-    const iconHtml = `
-      <div class="finding-marker ${type}-finding" style="
-        position: relative;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      ">
-        <div class="finding-pulse" style="
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          background-color: ${config.color}40;
-          animation: pulse 2s infinite;
-        "></div>
-        <div class="finding-icon-wrapper" style="
-          position: relative;
-          width: 32px;
-          height: 32px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-        ">
-          <div class="finding-icon" style="
-            width: 32px;
-            height: 32px;
-            background-image: url('${config.iconPath}');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-          ">
-            <div class="finding-icon-fallback" style="
-              display: none;
-              font-size: 24px;
-              text-align: center;
-              line-height: 32px;
-            ">${config.fallbackChar}</div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const icon = L.divIcon({
-      html: iconHtml,
-      className: `finding-marker-container ${type}-container`,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-      popupAnchor: [0, -20]
+    // Crea un'icona semplice come quella del GPS
+    const icon = L.icon({
+      iconUrl: config.iconUrl,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16],
+      // Add a fallback icon in case the main one fails to load
+      iconRetinaUrl: config.fallbackUrl
     });
 
-    // Create marker
+    console.log('📌 Creating marker with icon URL:', config.iconUrl);
+
+    // Create marker with the icon
     const marker = L.marker([lat, lng], { icon });
     markerRef.current = marker;
 
@@ -121,26 +91,6 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
     // Add to map
     marker.addTo(map);
 
-    // Add error handling for icon loading
-    const iconElement = marker.getElement()?.querySelector('.finding-icon') as HTMLElement;
-    const fallbackElement = marker.getElement()?.querySelector('.finding-icon-fallback') as HTMLElement;
-    
-    if (iconElement && fallbackElement) {
-      const checkIconLoading = () => {
-        const computedStyle = window.getComputedStyle(iconElement);
-        const backgroundImage = computedStyle.backgroundImage;
-        
-        if (backgroundImage === 'none' || backgroundImage.includes('data:image/gif;base64')) {
-          iconElement.style.backgroundImage = 'none';
-          fallbackElement.style.display = 'block';
-          console.warn(`Icon failed to load for ${finding.type}, using fallback`);
-        }
-      };
-
-      // Check after a short delay to allow for loading
-      setTimeout(checkIconLoading, 500);
-    }
-
     // Cleanup
     return () => {
       if (markerRef.current) {
@@ -158,58 +108,22 @@ export default FindingMarker;
 export const createFindingMarker = (finding: Finding): L.Icon => {
   const type = finding.type.toLowerCase() as keyof typeof ICON_CONFIG;
   const config = ICON_CONFIG[type] || ICON_CONFIG.poi;
-
-  const iconHtml = `
-    <div class="finding-marker ${type}-finding" style="
-      position: relative;
-      width: 40px;
-      height: 40px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    ">
-      <div class="finding-pulse" style="
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        background-color: ${config.color}40;
-        animation: pulse 2s infinite;
-      "></div>
-      <div class="finding-icon-wrapper" style="
-        position: relative;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-      ">
-        <div class="finding-icon" style="
-          width: 32px;
-          height: 32px;
-          background-image: url('${config.iconPath}');
-          background-size: contain;
-          background-repeat: no-repeat;
-          background-position: center;
-          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-        ">
-          <div class="finding-icon-fallback" style="
-            display: none;
-            font-size: 24px;
-            text-align: center;
-            line-height: 32px;
-          ">${config.fallbackChar}</div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  return L.divIcon({
-    html: iconHtml,
-    className: `finding-marker-container ${type}-container`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20]
+  
+  console.log('📌 createFindingMarker using icon URL:', config.iconUrl);
+  
+  // Attempt to preload the icon to check if it's valid
+  const img = new Image();
+  img.src = config.iconUrl;
+  img.onerror = () => {
+    console.warn(`🚨 Failed to load icon from ${config.iconUrl}, using fallback`);
+  };
+  
+  return L.icon({
+    iconUrl: config.iconUrl,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
+    // Add a fallback icon in case the main one fails to load
+    iconRetinaUrl: config.fallbackUrl
   });
 }; 

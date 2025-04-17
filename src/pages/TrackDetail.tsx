@@ -10,7 +10,7 @@ import LZString from 'lz-string';
 import Map from '../components/Map';
 import { formatDistance, formatDuration } from '../utils/formatUtils';
 import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
 
 // Fix per gli icon marker di Leaflet
 const defaultIcon = L.icon({

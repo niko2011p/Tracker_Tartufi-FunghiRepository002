@@ -58,6 +58,8 @@ const NavigationPage: React.FC = () => {
     iconAnchor: [16, 16],
     popupAnchor: [0, -16]
   });
+  
+  console.log('📌 GPS marker icon URL:', '/assets/icons/map-navigation-orange-icon.svg');
 
   return (
     <div className="fixed inset-0" style={{ zIndex: 1000 }}>
@@ -80,18 +82,18 @@ const NavigationPage: React.FC = () => {
                 <p>Lat: {currentPosition[0].toFixed(6)}°</p>
                 <p>Lon: {currentPosition[1].toFixed(6)}°</p>
                 <p>Precisione: {accuracy !== null ? `${accuracy.toFixed(1)}m` : 'N/A'}</p>
-              </div>
-            </div>
+        </div>
+        </div>
           </Popup>
         </Marker>
 
         {/* Track polyline */}
         {currentTrack?.coordinates && currentTrack.coordinates.length > 0 && (
-          <Polyline
-            positions={currentTrack.coordinates}
-            color="#FF9800"
-            weight={4}
-            opacity={0.9}
+            <Polyline
+              positions={currentTrack.coordinates}
+              color="#FF9800"
+              weight={4}
+              opacity={0.9}
           />
         )}
 
@@ -103,11 +105,14 @@ const NavigationPage: React.FC = () => {
             return null;
           }
 
+          const iconForFinding = createFindingMarker(finding);
+          console.log('🔍 Icon URL for finding:', finding.type, iconForFinding.options.iconUrl);
+
           return (
             <Marker
               key={finding.id}
               position={finding.coordinates}
-              icon={createFindingMarker(finding)}
+              icon={iconForFinding}
             >
               <Popup>
                 <div className="p-2">
@@ -123,7 +128,7 @@ const NavigationPage: React.FC = () => {
             </Marker>
           );
         })}
-
+        
         {/* GPS Status Indicator */}
         <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
           <GpsStatusIndicator 
@@ -140,23 +145,23 @@ const NavigationPage: React.FC = () => {
 
         {/* Tag Button */}
         <div className="fixed bottom-10 right-10 z-[10000]">
-          <button
-            onClick={() => setShowTagOptions(true)}
-            className="unified-button tag"
-            style={{
+        <button
+          onClick={() => setShowTagOptions(true)}
+          className="unified-button tag"
+          style={{
               backgroundColor: 'rgba(59, 130, 246, 0.9)',
               borderRadius: '50%'
-            }}
-          >
-            <MapPin className="w-6 h-6" />
-            Tag
-          </button>
-        </div>
-
+          }}
+        >
+          <MapPin className="w-6 h-6" />
+          Tag
+        </button>
+      </div>
+      
         {/* Forms and Popups */}
-        {showTagOptions && (
-          <TagOptionsPopup
-            onClose={() => setShowTagOptions(false)}
+      {showTagOptions && (
+        <TagOptionsPopup 
+          onClose={() => setShowTagOptions(false)}
             onFindingClick={() => {
               setShowTagOptions(false);
               setShowFindingForm(true);

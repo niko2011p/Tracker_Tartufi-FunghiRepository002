@@ -1,5 +1,5 @@
 import mushroomIcon from './mushroom-tag-icon.svg';
-import truffleIcon from './Truffle-tag-icon.svg';
+import truffleIcon from './truffle-tag-icon.svg';
 import poiIcon from './point-of-interest-tag-icon.svg';
 
 export const icons = {

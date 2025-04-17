@@ -5,7 +5,7 @@ import { species } from '../data/species';
 
 // Import SVG icons
 import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
 
 export interface FindingFormProps {
   onClose: () => void;
