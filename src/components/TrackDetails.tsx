@@ -92,7 +92,7 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
       case 'Tartufo':
         return <img src="/assets/icons/Truffle-tag-icon.svg" alt="Tartufo" className="w-6 h-6" />;
       case 'poi':
-        return <img src="/icon/point-of-interest-tag-icon.svg" alt="Punto di interesse" className="w-6 h-6" />;
+        return <img src="/assets/icons/point-of-interest-tag-icon.svg" alt="Punto di interesse" className="w-6 h-6" />;
       default:
         return null;
     }

@@ -32,7 +32,7 @@ const createGpsArrowIcon = (direction = 0) => {
   return new DivIcon({
     html: `
       <div class="gps-arrow-wrapper navigation-gps-cursor" style="transform: rotate(${direction}deg);">
-        <img src="/icon/map-navigation-orange-icon.svg" width="22" height="22" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
+        <img src="/assets/icons/map-navigation-orange-icon.svg" width="22" height="22" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
       </div>
     `,
     className: 'gps-arrow-icon',
