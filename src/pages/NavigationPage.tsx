@@ -12,6 +12,7 @@ import { useTrackHistoryStore, SavedTrack, TrackTag, calculateStats } from '../s
 import useButtonConfigStore from '../store/buttonConfigStore';
 import TagButton from '../components/TagButton';
 import StopButton from '../components/StopButton';
+import { Finding } from '../types';
 
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -71,7 +72,7 @@ const MapCenterUpdater: React.FC<{ center: [number, number] }> = ({ center }) =>
 };
 
 const NavigationPage: React.FC = () => {
-  const { currentPosition, currentDirection, isRecording, startTrack, stopTrack, setShowFindingForm, showFindingForm } = useTrackStore();
+  const { currentPosition, currentDirection, isRecording, startTrack, stopTrack, setShowFindingForm, showFindingForm, currentTrack } = useTrackStore();
   const addTrack = useTrackHistoryStore((state) => state.addTrack);
   const [startTime] = useState(new Date().toISOString());
   const [currentTags, setCurrentTags] = useState<TrackTag[]>([]);
@@ -243,52 +244,61 @@ const NavigationPage: React.FC = () => {
   useEffect(() => {
     if (!mapRef.current || gpsData.latitude === 0 || gpsData.longitude === 0) return;
     
-    // Create or update the GPS marker
-    if (gpsMarkerRef.current) {
-      // Update existing marker position
-      gpsMarkerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
-      
-      // Update the icon to reflect current GPS signal
-      const newIcon = createFindingIcon('Fungo', true);
-      gpsMarkerRef.current.setIcon(newIcon);
-      
-      // Update popup content
-      const popupContent = `
-        <div class="p-2">
-          <h3 class="font-bold text-sm mb-1">${locationName}</h3>
-          <div class="text-xs space-y-1">
-            <p>Lat: ${gpsData.latitude.toFixed(6)}°</p>
-            <p>Lon: ${gpsData.longitude.toFixed(6)}°</p>
-            <p>Alt: ${gpsData.altitude.toFixed(1)}m</p>
-            <p>Precisione: ${gpsData.accuracy.toFixed(1)}m</p>
+    try {
+      // Create or update the GPS marker
+      if (gpsMarkerRef.current) {
+        // Update existing marker position
+        gpsMarkerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
+        
+        // Update the icon to reflect current GPS signal
+        const newIcon = createFindingIcon('Fungo', true);
+        gpsMarkerRef.current.setIcon(newIcon);
+        
+        // Update popup content
+        const popupContent = `
+          <div class="p-2">
+            <h3 class="font-bold text-sm mb-1">${locationName}</h3>
+            <div class="text-xs space-y-1">
+              <p>Lat: ${gpsData.latitude.toFixed(6)}°</p>
+              <p>Lon: ${gpsData.longitude.toFixed(6)}°</p>
+              <p>Alt: ${gpsData.altitude.toFixed(1)}m</p>
+              <p>Precisione: ${gpsData.accuracy.toFixed(1)}m</p>
+            </div>
           </div>
-        </div>
-      `;
-      gpsMarkerRef.current.bindPopup(popupContent);
-    } else {
-      // Create new marker
-      console.log("Creating new GPS marker");
-      const marker = L.marker(
-        [gpsData.latitude, gpsData.longitude],
-        { icon: createFindingIcon('Fungo', true) }
-      );
-      
-      // Add popup
-      marker.bindPopup(`
-        <div class="p-2">
-          <h3 class="font-bold text-sm mb-1">${locationName}</h3>
-          <div class="text-xs space-y-1">
-            <p>Lat: ${gpsData.latitude.toFixed(6)}°</p>
-            <p>Lon: ${gpsData.longitude.toFixed(6)}°</p>
-            <p>Alt: ${gpsData.altitude.toFixed(1)}m</p>
-            <p>Precisione: ${gpsData.accuracy.toFixed(1)}m</p>
+        `;
+        gpsMarkerRef.current.bindPopup(popupContent);
+      } else {
+        // Create new marker only if it doesn't exist
+        console.log("Creating new GPS marker");
+        const marker = L.marker(
+          [gpsData.latitude, gpsData.longitude],
+          { icon: createFindingIcon('Fungo', true) }
+        );
+        
+        // Add popup
+        marker.bindPopup(`
+          <div class="p-2">
+            <h3 class="font-bold text-sm mb-1">${locationName}</h3>
+            <div class="text-xs space-y-1">
+              <p>Lat: ${gpsData.latitude.toFixed(6)}°</p>
+              <p>Lon: ${gpsData.longitude.toFixed(6)}°</p>
+              <p>Alt: ${gpsData.altitude.toFixed(1)}m</p>
+              <p>Precisione: ${gpsData.accuracy.toFixed(1)}m</p>
+            </div>
           </div>
-        </div>
-      `);
-      
-      // Add to map
-      marker.addTo(mapRef.current);
-      gpsMarkerRef.current = marker;
+        `);
+        
+        // Add to map
+        marker.addTo(mapRef.current);
+        gpsMarkerRef.current = marker;
+      }
+    } catch (error) {
+      console.error("Error updating GPS marker:", error);
+    }
+
+    // Process any findings if available
+    if (currentTrack && currentTrack.findings && currentTrack.findings.length > 0) {
+      processFindings(currentTrack.findings);
     }
 
     return () => {
@@ -299,6 +309,130 @@ const NavigationPage: React.FC = () => {
       }
     };
   }, [gpsData.latitude, gpsData.longitude, gpsSignal, locationName, gpsData.altitude, gpsData.accuracy]);
+
+  // Add a function to process findings and show them on the map
+  const findingMarkersRef = useRef<{[id: string]: L.Marker}>({});
+
+  const processFindings = (findings: Finding[]) => {
+    if (!mapRef.current) return;
+
+    try {
+      console.log(`🗺️ Processing ${findings.length} findings`);
+
+      // Remove any findings not in the current set
+      const currentIds = findings.map(f => f.id);
+      Object.keys(findingMarkersRef.current).forEach(id => {
+        if (!currentIds.includes(id) && findingMarkersRef.current[id]) {
+          findingMarkersRef.current[id].remove();
+          delete findingMarkersRef.current[id];
+        }
+      });
+
+      // Add or update markers for each finding
+      findings.forEach(finding => {
+        try {
+          if (!finding.coordinates || 
+              !Array.isArray(finding.coordinates) || 
+              finding.coordinates.length !== 2 ||
+              isNaN(finding.coordinates[0]) || 
+              isNaN(finding.coordinates[1])) {
+            console.warn('⚠️ Invalid coordinates for finding:', finding);
+            return;
+          }
+
+          // If marker already exists, just update it
+          if (findingMarkersRef.current[finding.id]) {
+            findingMarkersRef.current[finding.id].setLatLng(finding.coordinates);
+            return;
+          }
+
+          console.log(`🗺️ Creating marker for ${finding.type} at [${finding.coordinates[0]}, ${finding.coordinates[1]}]`);
+          
+          // Create icon using FindingMarker's utility
+          const type = finding.type.toLowerCase();
+          const iconColor = type === 'fungo' ? '#8eaa36' : type === 'tartufo' ? '#8B4513' : '#f5a149';
+          const iconUrl = type === 'fungo' ? '/assets/icons/mushroom-tag-icon.svg' : 
+                          type === 'tartufo' ? '/assets/icons/truffle-tag-icon.svg' : 
+                          '/assets/icons/point-of-interest-tag-icon.svg';
+          
+          const customIcon = L.divIcon({
+            html: `
+              <div class="finding-marker ${type}-marker" style="
+                width: 40px;
+                height: 40px;
+                position: relative;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background-color: ${iconColor}40;
+                border-radius: 50%;
+                border: 2px solid ${iconColor};
+              ">
+                <div class="finding-pulse" style="
+                  position: absolute;
+                  width: 100%;
+                  height: 100%;
+                  border-radius: 50%;
+                  background-color: ${iconColor}30;
+                  animation: pulse 2s infinite;
+                "></div>
+                <div style="
+                  width: 24px;
+                  height: 24px;
+                  background-image: url(${iconUrl});
+                  background-size: contain;
+                  background-position: center;
+                  background-repeat: no-repeat;
+                  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));
+                "></div>
+              </div>
+            `,
+            className: `finding-icon ${type}-icon`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            popupAnchor: [0, -20]
+          });
+          
+          // Create and add marker
+          const marker = L.marker(finding.coordinates, { 
+            icon: customIcon,
+            riseOnHover: true,
+            zIndexOffset: 1000
+          });
+          
+          // Add popup with finding details
+          marker.bindPopup(`
+            <div class="p-2">
+              <h3 class="font-semibold">${finding.name || finding.type}</h3>
+              ${finding.description ? `<p class="text-sm mt-1">${finding.description}</p>` : ''}
+              <p class="text-xs text-gray-500 mt-1">
+                ${new Date(finding.timestamp).toLocaleString('it-IT')}
+              </p>
+            </div>
+          `);
+          
+          // Add to map and store reference
+          marker.addTo(mapRef.current);
+          findingMarkersRef.current[finding.id] = marker;
+          console.log(`✅ Added marker for finding ${finding.id}`);
+        } catch (err) {
+          console.error(`❌ Error creating marker for finding ${finding.id}:`, err);
+        }
+      });
+    } catch (error) {
+      console.error("❌ Error processing findings:", error);
+    }
+  }
+
+  // Add effect to handle findings changes
+  useEffect(() => {
+    if (currentTrack && currentTrack.findings && currentTrack.findings.length > 0 && mapRef.current) {
+      console.log(`🔍 Track has ${currentTrack.findings.length} findings`);
+      processFindings(currentTrack.findings);
+    } else {
+      console.log('📍 No findings to render');
+    }
+  }, [currentTrack?.findings]);
 
   const handleCenterMap = () => {
     if (mapRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
