@@ -173,13 +173,13 @@ const saveToIndexedDB = async (key: string, data: any) => {
     console.log('Tentativo di salvataggio in IndexedDB', { key, data });
     
     // Pre-processiamo i dati per assicurarci che siano serializzabili
-    const processedData = JSON.parse(JSON.stringify(data, (key, value) => {
+    const processedData = JSON.stringify(data, (key, value) => {
       // Converti le date in ISO strings
       if (value instanceof Date) {
         return value.toISOString();
       }
       return value;
-    }));
+    });
     
     const db = await openDB('tracksDB', 1, {
       upgrade(db) {
@@ -231,18 +231,37 @@ const convertDates = (obj: any): any => {
 
 const loadFromIndexedDB = async (key: string): Promise<any> => {
   try {
-    console.log(`Tentativo di caricamento da IndexedDB: ${key}`);
-    const db = await openDB('tracksDB', 1);
+    console.log('Tentativo di caricamento da IndexedDB', { key });
+    
+    const db = await openDB('tracksDB', 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('tracks')) {
+          db.createObjectStore('tracks');
+        }
+      },
+    });
+
     const tx = db.transaction('tracks', 'readonly');
     const store = tx.objectStore('tracks');
+    
     const data = await store.get(key);
     await tx.done;
     
-    // Converti le stringhe di data in oggetti Date
-    const processedData = convertDates(data);
+    if (!data) {
+      console.log(`Nessun dato trovato in IndexedDB per la chiave: ${key}`);
+      return null;
+    }
     
-    console.log(`Dati caricati da IndexedDB: ${key}`, processedData);
-    return processedData;
+    // Parse the serialized data and convert ISO strings back to Date objects
+    const parsedData = JSON.parse(data, (key, value) => {
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+        return new Date(value);
+      }
+      return value;
+    });
+    
+    console.log(`Dati caricati con successo da IndexedDB: ${key}`);
+    return parsedData;
   } catch (error) {
     console.error('Errore nel caricamento da IndexedDB:', error);
     return null;
