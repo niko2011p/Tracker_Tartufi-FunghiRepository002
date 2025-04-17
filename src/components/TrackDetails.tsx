@@ -8,9 +8,9 @@ import { useWeatherStore } from '../store/weatherStore';
 import { useTrackStore } from '../store/trackStore';
 
 // Import SVG icons
-import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
-import poiIconUrl from '../assets/icons/point-of-interest-tag-icon.svg';
+import mushroomIconUrl from '@/assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '@/assets/icons/truffle-tag-icon.svg';
+import poiIconUrl from '@/assets/icons/point-of-interest-tag-icon.svg';
 
 interface TrackingData {
   totalTime: number;
