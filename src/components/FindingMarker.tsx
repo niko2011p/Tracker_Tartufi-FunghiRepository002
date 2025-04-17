@@ -1,87 +1,90 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Finding } from '../types';
+import mushroomIcon from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIcon from '../assets/icons/Truffle-tag-icon.svg';
+import poiIcon from '../assets/icons/point-of-interest-tag-icon.svg';
 import './FindingMarker.css';
-
-// Import SVG icons
-import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
 
 interface FindingMarkerProps {
   finding: Finding;
   map: L.Map;
 }
 
-const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
+export const FindingMarker = ({ finding, map }: FindingMarkerProps) => {
   const markerRef = useRef<L.Marker | null>(null);
-  const [iconLoaded, setIconLoaded] = useState(false);
-  const [iconError, setIconError] = useState(false);
 
   useEffect(() => {
+    if (!finding.position || !map) return;
+
     // Validate coordinates
-    if (!finding.coordinates || 
-        !Array.isArray(finding.coordinates) || 
-        finding.coordinates.length !== 2 ||
-        typeof finding.coordinates[0] !== 'number' || 
-        typeof finding.coordinates[1] !== 'number' ||
-        isNaN(finding.coordinates[0]) || 
-        isNaN(finding.coordinates[1])) {
-      console.error('❌ Invalid coordinates for finding:', {
-        id: finding.id,
-        coordinates: finding.coordinates
-      });
+    if (!Array.isArray(finding.position) || finding.position.length !== 2) {
+      console.error('Invalid coordinates format:', finding.position);
       return;
     }
 
-    console.log('📍 Creating marker for finding:', {
+    const [lat, lng] = finding.position;
+    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+      console.error('Invalid coordinate values:', { lat, lng });
+      return;
+    }
+
+    console.log('Creating marker for finding:', {
       id: finding.id,
       type: finding.type,
-      coordinates: finding.coordinates
+      coordinates: finding.position
     });
 
-    // Use imported icon URLs
-    const iconUrl = finding.type === 'Fungo' ? mushroomIconUrl : truffleIconUrl;
-    console.log('🎨 Using icon:', iconUrl);
+    // Get the appropriate icon based on finding type
+    const iconUrl = finding.type === 'Fungo' 
+      ? mushroomIcon
+      : finding.type === 'Tartufo'
+        ? truffleIcon
+        : poiIcon;
 
-    const icon = new L.Icon({
-      iconUrl: iconUrl,
+    // Create custom icon
+    const customIcon = L.divIcon({
+      className: 'custom-marker',
+      html: `
+        <div class="marker-container">
+          <img src="${iconUrl}" alt="${finding.type} icon" class="marker-icon" />
+        </div>
+      `,
       iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16],
-      className: 'finding-marker-icon'
+      iconAnchor: [16, 16]
     });
 
-    // Create marker with icon
-    const marker = L.marker(finding.coordinates, { icon });
-
-    // Add marker to map and store reference
-    marker.addTo(map);
+    // Create marker
+    const marker = L.marker([lat, lng], { icon: customIcon });
     markerRef.current = marker;
 
-    // Verify actual marker position
-    const actualPosition = marker.getLatLng();
-    console.log('✅ Marker placed at:', {
-      intended: finding.coordinates,
-      actual: [actualPosition.lat, actualPosition.lng],
-      difference: {
-        lat: Math.abs(actualPosition.lat - finding.coordinates[0]),
-        lng: Math.abs(actualPosition.lng - finding.coordinates[1])
-      }
-    });
-
-    // Add popup with finding details
+    // Add popup
     marker.bindPopup(`
       <div class="finding-popup">
         <h3>${finding.name || finding.type}</h3>
-        <p>${new Date(finding.timestamp).toLocaleString('it-IT')}</p>
+        <p>${new Date(finding.timestamp).toLocaleString()}</p>
       </div>
     `);
 
-    // Cleanup function
+    // Add to map
+    marker.addTo(map);
+
+    // Verify marker position
+    const actualPos = marker.getLatLng();
+    console.log('Marker position verification:', {
+      intended: { lat, lng },
+      actual: actualPos,
+      difference: {
+        lat: Math.abs(actualPos.lat - lat),
+        lng: Math.abs(actualPos.lng - lng)
+      }
+    });
+
     return () => {
-      console.log('🧹 Removing marker for finding:', {
+      console.log('Cleaning up marker:', {
         id: finding.id,
-        coordinates: finding.coordinates
+        type: finding.type,
+        position: finding.position
       });
       if (markerRef.current) {
         markerRef.current.remove();
@@ -118,20 +121,21 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-export default FindingMarker;
-
 // Funzione di utilità per creare marker
 export const createFindingMarker = (finding: Finding) => {
-  const iconUrl = finding.type === 'Fungo' ? mushroomIconUrl : truffleIconUrl;
+  const iconUrl = finding.type === 'Fungo' ? mushroomIcon : finding.type === 'Tartufo' ? truffleIcon : poiIcon;
   console.log(`🎯 Creating marker for ${finding.type} with icon: ${iconUrl}`);
 
-  const icon = new L.Icon({
-    iconUrl: iconUrl,
+  const customIcon = L.divIcon({
+    className: 'custom-marker',
+    html: `
+      <div class="marker-container">
+        <img src="${iconUrl}" alt="${finding.type} icon" class="marker-icon" />
+      </div>
+    `,
     iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16],
-    className: 'finding-marker-icon'
+    iconAnchor: [16, 16]
   });
 
-  return icon;
+  return customIcon;
 }; 

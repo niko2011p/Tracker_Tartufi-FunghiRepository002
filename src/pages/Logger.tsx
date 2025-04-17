@@ -6,10 +6,12 @@ import { useTrackStore } from '../store/trackStore';
 import { Track, Finding } from '../types';
 import { formatDistance, formatDuration } from '../utils/formatUtils';
 import { useNavigate } from 'react-router-dom';
+import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
 
 // Funzione per creare un marker personalizzato
 const createCustomMarker = (finding: Finding) => {
-  const iconUrl = `/assets/icons/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+  const iconUrl = finding.type === 'Fungo' ? mushroomIconUrl : truffleIconUrl;
   console.log(`🎯 Creazione marker per ${finding.type} con icona: ${iconUrl}`);
 
   const iconHtml = `

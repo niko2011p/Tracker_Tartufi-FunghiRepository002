@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Track, Finding } from '../types';
+import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
 
 interface MapProps {
   track: Track;
@@ -80,7 +82,7 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
           }
 
           // Create the icon HTML
-          const iconUrl = `/assets/icons/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+          const iconUrl = finding.type === 'Fungo' ? mushroomIconUrl : truffleIconUrl;
           console.log('Using icon URL:', iconUrl);
 
           const iconHtml = `
