@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
 import { MapPin } from 'lucide-react';
@@ -23,6 +23,73 @@ const GEOLOCATION_OPTIONS = {
   enableHighAccuracy: true,
   timeout: 20000,
   maximumAge: 5000
+};
+
+// Component to handle map markers
+const FindingsLayer = ({ findings }: { findings: Finding[] }) => {
+  const map = useMap();
+  const markersRef = useRef<L.Marker[]>([]);
+
+  useEffect(() => {
+    // Clear previous markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    if (!findings || findings.length === 0) {
+      console.log('🗺️ No findings to display on map');
+      return;
+    }
+
+    console.log(`🗺️ Displaying ${findings.length} findings on map`);
+    
+    findings.forEach(finding => {
+      if (!finding.coordinates || 
+          !Array.isArray(finding.coordinates) || 
+          finding.coordinates.length !== 2 ||
+          isNaN(finding.coordinates[0]) || 
+          isNaN(finding.coordinates[1])) {
+        console.warn('⚠️ Finding with invalid coordinates:', finding);
+        return;
+      }
+
+      try {
+        const iconForFinding = createFindingMarker(finding);
+        console.log(`🗺️ Creating marker for ${finding.type} at [${finding.coordinates[0]}, ${finding.coordinates[1]}]`);
+        
+        const marker = L.marker(finding.coordinates, {
+          icon: iconForFinding,
+          riseOnHover: true,
+          zIndexOffset: 1000
+        });
+
+        // Add popup
+        marker.bindPopup(`
+          <div class="p-2">
+            <h3 class="font-semibold">${finding.name || finding.type}</h3>
+            ${finding.description ? `<p class="text-sm mt-1">${finding.description}</p>` : ''}
+            <p class="text-xs text-gray-500 mt-1">
+              ${new Date(finding.timestamp).toLocaleString('it-IT')}
+            </p>
+          </div>
+        `);
+
+        // Add to map and store reference
+        marker.addTo(map);
+        markersRef.current.push(marker);
+        console.log(`✅ Marker added to map for finding ${finding.id}`);
+      } catch (error) {
+        console.error('❌ Error creating marker for finding:', error, finding);
+      }
+    });
+
+    return () => {
+      // Cleanup markers when component unmounts
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+    };
+  }, [findings, map]);
+
+  return null;
 };
 
 const NavigationPage: React.FC = () => {
@@ -50,6 +117,7 @@ const NavigationPage: React.FC = () => {
     alt: 0,
     speed: 0
   });
+  const mapRef = useRef<L.Map | null>(null);
 
   // Create GPS position marker icon
   const gpsMarkerIcon = L.icon({
@@ -78,12 +146,24 @@ const NavigationPage: React.FC = () => {
     }
   }, [currentTrack]);
 
+  // Map Event Handlers
+  const handleMapReady = (map: L.Map) => {
+    console.log('🗺️ Map is ready');
+    mapRef.current = map;
+  };
+
   return (
     <div className="fixed inset-0" style={{ zIndex: 1000 }}>
       <MapContainer
         center={currentPosition}
         zoom={18}
         style={{ height: '100%', width: '100%' }}
+        ref={(map) => {
+          if (map) {
+            mapRef.current = map;
+            console.log('🗺️ Map is ready');
+          }
+        }}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -114,38 +194,10 @@ const NavigationPage: React.FC = () => {
           />
         )}
 
-        {/* Current track findings */}
-        {currentTrack?.findings?.map((finding: Finding) => {
-          if (!finding.coordinates || 
-              !Array.isArray(finding.coordinates) || 
-              finding.coordinates.length !== 2 ||
-              isNaN(finding.coordinates[0]) || 
-              isNaN(finding.coordinates[1])) {
-            return null;
-          }
-
-          const iconForFinding = createFindingMarker(finding);
-          
-          return (
-            <Marker
-              key={finding.id}
-              position={finding.coordinates}
-              icon={iconForFinding}
-            >
-              <Popup>
-                <div className="p-2">
-                  <h3 className="font-semibold">{finding.name || finding.type}</h3>
-                  {finding.description && (
-                    <p className="text-sm mt-1">{finding.description}</p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(finding.timestamp).toLocaleString('it-IT')}
-                  </p>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+        {/* Findings layer - use the dedicated component */}
+        {currentTrack?.findings && currentTrack.findings.length > 0 && (
+          <FindingsLayer findings={currentTrack.findings} />
+        )}
         
         {/* GPS Status Indicator */}
         <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
