@@ -7,8 +7,25 @@ import LZString from 'lz-string';
 import { openDB } from 'idb';
 
 // Import SVG icons
-import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
+import mushroomIconUrl from '@/assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '@/assets/icons/truffle-tag-icon.svg';
+
+// Update the Track interface to include historyData
+interface ExtendedTrack extends Track {
+  historyData?: {
+    recentTracks: string[];
+    lastUpdated: string;
+  };
+}
+
+// Add type declarations for @turf/turf
+declare module '@turf/turf' {
+  export function point(coordinates: [number, number]): any;
+  export function distance(from: any, to: any, options?: { units?: string }): number;
+  export function bearing(from: any, to: any): number;
+  export function lineString(coordinates: [number, number][]): any;
+  export function length(geojson: any, options?: { units?: string }): number;
+}
 
 export interface TrackState {
   currentTrack: Track | null;
@@ -198,7 +215,7 @@ const loadFromLocalStorage = (key: string): any => {
   }
 };
 
-// Funzione per salvare in IndexedDB
+// Update the transaction handling
 const saveToIndexedDB = async (key: string, data: any) => {
   console.log(`🔄 Salvataggio in IndexedDB per ${key}...`);
   try {
@@ -226,7 +243,12 @@ const saveToIndexedDB = async (key: string, data: any) => {
       }
     }
     
-    await tx.done;
+    // Wait for transaction to complete
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    
     console.log(`✅ Dati salvati in IndexedDB per ${key}`);
   } catch (error) {
     console.error('❌ Errore nel salvataggio in IndexedDB:', error);
@@ -872,13 +894,14 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
                 id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 trackId: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 name: wpt.getElementsByTagName('name')[0]?.textContent || '',
-                description: wpt.getElementsByTagName('desc')[0]?.textContent,
-                photoUrl: wpt.getElementsByTagName('link')[0]?.getAttribute('href'),
+                description: wpt.getElementsByTagName('desc')[0]?.textContent || undefined,
+                photoUrl: wpt.getElementsByTagName('link')[0]?.getAttribute('href') || undefined,
                 coordinates: [
                   parseFloat(wpt.getAttribute('lat') || '0'),
                   parseFloat(wpt.getAttribute('lon') || '0')
                 ] as [number, number],
-                timestamp: new Date(wpt.getElementsByTagName('time')[0]?.textContent || '')
+                timestamp: new Date(wpt.getElementsByTagName('time')[0]?.textContent || ''),
+                type: 'Fungo' // Default type
               }));
 
             // Calculate track distance using turf.js
@@ -901,7 +924,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
               findings,
               isPaused: false,
               location
-            };
+            } as ExtendedTrack;
           });
 
           set(state => ({
