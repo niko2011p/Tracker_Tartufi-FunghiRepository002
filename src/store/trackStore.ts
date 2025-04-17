@@ -1080,33 +1080,57 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           try {
             let dataToStore;
             try {
-              dataToStore = JSON.parse(valueStr);
-              console.log('📦 Dati da salvare:', dataToStore);
+              // Parse the value string
+              const parsedValue = JSON.parse(valueStr);
+              
+              // Ensure we have a valid state object
+              if (!parsedValue?.state) {
+                throw new Error('Invalid state format');
+              }
+              
+              // Process the data to ensure it's serializable
+              dataToStore = {
+                state: {
+                  ...parsedValue.state,
+                  tracks: Array.isArray(parsedValue.state.tracks) 
+                    ? parsedValue.state.tracks.map(track => ({
+                        ...track,
+                        startTime: track.startTime instanceof Date 
+                          ? track.startTime.toISOString() 
+                          : track.startTime,
+                        endTime: track.endTime instanceof Date 
+                          ? track.endTime.toISOString() 
+                          : track.endTime,
+                        findings: Array.isArray(track.findings)
+                          ? track.findings.map(finding => ({
+                              ...finding,
+                              timestamp: finding.timestamp instanceof Date
+                                ? finding.timestamp.toISOString()
+                                : finding.timestamp
+                            }))
+                          : []
+                      }))
+                    : []
+                }
+              };
+              
+              console.log('📦 Dati processati per il salvataggio:', dataToStore);
             } catch (e) {
-              console.warn('⚠️ Errore nel parsing JSON, uso valore originale');
+              console.warn('⚠️ Errore nel parsing JSON, uso valore originale:', e);
               dataToStore = valueStr;
             }
 
-            // Assicurati che i dati siano in un formato valido
-            if (dataToStore?.state) {
-              // Salva in IndexedDB
-              await saveToIndexedDB(name, {
-                ...dataToStore,
-                state: {
-                  ...dataToStore.state,
-                  tracks: Array.isArray(dataToStore.state.tracks) ? dataToStore.state.tracks : []
-                }
-              });
+            // Salva in IndexedDB
+            await saveToIndexedDB(name, dataToStore);
 
-              // Backup in localStorage (solo se i dati non sono troppo grandi)
-              try {
-                const serialized = JSON.stringify(dataToStore);
-                if (serialized.length < 5000000) { // ~5MB limit
-                  localStorage.setItem(name, serialized);
-                }
-              } catch (e) {
-                console.warn('⚠️ Fallback su localStorage non riuscito:', e);
+            // Backup in localStorage (solo se i dati non sono troppo grandi)
+            try {
+              const serialized = JSON.stringify(dataToStore);
+              if (serialized.length < 5000000) { // ~5MB limit
+                localStorage.setItem(name, serialized);
               }
+            } catch (e) {
+              console.warn('⚠️ Fallback su localStorage non riuscito:', e);
             }
           } catch (error) {
             console.error('❌ Errore nel salvataggio dei dati:', error);
