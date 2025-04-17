@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, X, Search } from 'lucide-react';
-import { species, Species } from '../data/species';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
+import { X, Camera, Upload } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
-import { useToast } from './Toast';
+import { species } from '../data/species';
 
 export interface FindingFormProps {
   onClose: () => void;
@@ -10,39 +9,38 @@ export interface FindingFormProps {
 }
 
 function FindingForm({ onClose, position }: FindingFormProps) {
-  const trackStore = useTrackStore();
-  const { addFinding, currentTrack } = trackStore;
-  const { toast } = useToast();
-  
+  const { addFinding } = useTrackStore();
   const [findingType, setFindingType] = useState<'Fungo' | 'Tartufo' | 'poi'>('Fungo');
   const [speciesName, setSpeciesName] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [showCamera, setShowCamera] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<Species[]>([]);
 
-  useEffect(() => {
-    // Filtra le sugerimenti in base all'input
-    if (speciesName.trim().length > 0) {
-      const searchTerm = speciesName.toLowerCase();
-      const filteredSuggestions = species
-        .filter(s => 
-          s.type === findingType && 
-          (s.commonName.toLowerCase().includes(searchTerm) || 
-           s.scientificName.toLowerCase().includes(searchTerm))
-        )
-        .slice(0, 5);
-      setSuggestions(filteredSuggestions);
-    } else {
-      setSuggestions([]);
-    }
+  const filteredSpecies = useMemo(() => {
+    if (!speciesName.trim()) return [];
+    const searchTerm = speciesName.toLowerCase();
+    return species
+      .filter(s => s.type === findingType)
+      .filter(s => 
+        s.commonName.toLowerCase().includes(searchTerm) ||
+        s.scientificName.toLowerCase().includes(searchTerm)
+      )
+      .slice(0, 5);
   }, [speciesName, findingType]);
 
-  const handleSelectSpecies = (species: Species) => {
-    setSpeciesName(`${species.commonName} (${species.scientificName})`);
-    setSuggestions([]);
-  };
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,206 +61,344 @@ function FindingForm({ onClose, position }: FindingFormProps) {
         coordinates: position,
         timestamp: new Date(),
         id: crypto.randomUUID(),
-        trackId: currentTrack?.id || ''
+        trackId: crypto.randomUUID()
       };
 
       await addFinding(finding);
       
-      // Feedback visivo e sonoro
-      try {
-        const audio = new Audio('/sounds/alert.mp3');
-        audio.volume = 0.3;
-        audio.play().catch(err => console.log('Audio feedback not available:', err));
-      } catch (err) {
-        console.log('Audio notification error:', err);
+      // Aggiungi feedback vibrazione
+      if ('vibrate' in navigator) {
+        navigator.vibrate(200); // Vibra per 200ms
       }
       
-      // Mostra notifica toast
-      toast.success(
-        'Ritrovamento aggiunto', 
-        `${finding.name} è stato aggiunto alla tua traccia`
-      );
+      // Aggiungi un feedback audio
+      const audio = new Audio('/sound/alert.mp3');
+      audio.volume = 0.3;
+      audio.play().catch(console.error);
       
       onClose();
     } catch (e) {
-      console.error("Errore durante il salvataggio:", e);
-      setError("Errore durante il salvataggio. Riprova più tardi.");
-      
-      toast.error(
-        'Errore', 
-        'Non è stato possibile aggiungere il ritrovamento'
-      );
+      console.error("Errore durante la salvataggio:", e);
+      setError("Errore durante la salvataggio. Riprova più tardi.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCapturePhoto = (photoDataUrl: string) => {
-    setPhotoUrl(photoDataUrl);
-    setShowCamera(false);
+  const handleTakePhoto = () => {
+    // Crea un input file nascosto
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Forza l'uso della fotocamera posteriore
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        // Crea un canvas per la compressione
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1080;
+        
+        // Carica l'immagine
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        // Calcola le dimensioni mantenendo l'aspect ratio
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Impossibile ottenere il contesto del canvas');
+
+        // Disegna e comprimi l'immagine
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedImage = await new Promise<string>((resolve, reject) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Impossibile creare il blob dell\'immagine'));
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            },
+            'image/jpeg',
+            0.6 // Riduci la qualità per una migliore compressione
+          );
+        });
+
+        // Pulisci l'URL dell'immagine
+        URL.revokeObjectURL(img.src);
+        
+        setPhotoUrl(compressedImage);
+      } catch (error) {
+        console.error('Errore nella compressione dell\'immagine:', error);
+        setError('Errore nella compressione dell\'immagine. Riprova con un\'altra immagine.');
+      }
+    };
+
+    // Attiva l'input file che aprirà l'app fotocamera
+    input.click();
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Verifica che il file sia un'immagine
+    if (!file.type.startsWith('image/')) {
+      setError('Seleziona un file immagine valido');
+      return;
+    }
+
+    // Verifica la dimensione del file (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('L\'immagine è troppo grande. Dimensione massima consentita: 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const img = new Image();
+        img.src = e.target?.result as string;
+
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        // Crea un canvas per la compressione
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1080;
+        let width = img.width;
+        let height = img.height;
+
+        // Ridimensiona se necessario
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Impossibile ottenere il contesto del canvas');
+
+        // Disegna e comprimi l'immagine
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedImage = await new Promise<string>((resolve, reject) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Impossibile creare il blob dell\'immagine'));
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            },
+            'image/jpeg',
+            0.6 // Riduci la qualità per una migliore compressione
+          );
+        });
+
+        setPhotoUrl(compressedImage);
+      } catch (error) {
+        console.error('Errore nella compressione dell\'immagine:', error);
+        setError('Errore nella compressione dell\'immagine. Riprova con un\'altra immagine.');
+      }
+    };
+    reader.onerror = () => {
+      setError('Errore nella lettura del file. Riprova con un\'altra immagine.');
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center px-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-bold">Aggiungi ritrovamento</h2>
-          <button 
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">Aggiungi Ritrovamento</h2>
+          <div className="flex items-center gap-2">
+            {error && (
+              <div className="text-red-500 text-sm mr-2">
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="px-6 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors text-lg font-medium"
+            >
+              {isLoading ? 'Salvataggio...' : 'Salva'}
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-4">
-          {error && (
-            <div className="bg-red-100 text-red-800 p-3 rounded-lg mb-4">
-              {error}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setFindingType('Fungo');
+                  setSpeciesName('');
+                  setShowSuggestions(false);
+                }}
+                className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
+                  findingType === 'Fungo'
+                    ? 'bg-[#8eaa36] text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-8 h-8" />
+                Fungo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFindingType('Tartufo');
+                  setSpeciesName('');
+                  setShowSuggestions(false);
+                }}
+                className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
+                  findingType === 'Tartufo'
+                    ? 'bg-[#8B4513] text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-8 h-8" />
+                Tartufo
+              </button>
             </div>
-          )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2 font-medium">Tipo di ritrovamento</label>
-              <div className="flex gap-4">
-                <button
-                  type="button"
-                  onClick={() => setFindingType('Fungo')}
-                  className={`flex-1 flex items-center justify-center gap-3 py-4 px-6 rounded-lg border ${
-                    findingType === 'Fungo' 
-                      ? 'border-green-600 bg-green-50 text-green-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
+            <div className="relative">
+              <input
+                type="text"
+                value={speciesName}
+                onChange={(e) => {
+                  setSpeciesName(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                placeholder="Nome specie *"
+                className="w-full px-4 py-3 border-2 border-[#8eaa36] rounded-lg focus:ring-2 focus:ring-[#8eaa36] focus:border-[#8eaa36] bg-gray-50 text-lg"
+                required
+              />
+              {showSuggestions && (
+                <div 
+                  ref={suggestionsRef}
+                  className="absolute bottom-full left-0 right-0 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto mb-2"
                 >
-                  <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-8 h-8" />
-                  <span className="text-lg font-medium">Fungo</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFindingType('Tartufo')}
-                  className={`flex-1 flex items-center justify-center gap-3 py-4 px-6 rounded-lg border ${
-                    findingType === 'Tartufo' 
-                      ? 'border-amber-600 bg-amber-50 text-amber-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-8 h-8" />
-                  <span className="text-lg font-medium">Tartufo</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label htmlFor="speciesName" className="block text-gray-700 mb-2 font-medium">
-                Nome della specie
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
+                  {filteredSpecies.map((suggestion) => (
+                    <button
+                      key={suggestion.commonName}
+                      type="button"
+                      onClick={() => {
+                        setSpeciesName(`${suggestion.commonName} (${suggestion.scientificName})`);
+                        setShowSuggestions(false);
+                      }}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                    >
+                      <div className="font-medium">{suggestion.commonName}</div>
+                      <div className="text-sm text-gray-600">{suggestion.scientificName}</div>
+                    </button>
+                  ))}
                 </div>
-                <input
-                  type="text"
-                  id="speciesName"
-                  value={speciesName}
-                  onChange={e => setSpeciesName(e.target.value)}
-                  className="pl-10 block w-full rounded-lg border border-gray-300 py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="Cerca o inserisci nome..."
-                />
-                {suggestions.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full bg-white rounded-lg border border-gray-300 shadow-lg max-h-60 overflow-auto">
-                    {suggestions.map((item, index) => (
-                      <div
-                        key={index}
-                        className="px-4 py-2 cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSelectSpecies(item)}
-                      >
-                        <div className="font-medium">{item.commonName}</div>
-                        <div className="text-sm text-gray-500">{item.scientificName}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2 font-medium">Foto (opzionale)</label>
-              {photoUrl ? (
-                <div className="relative">
-                  <img 
-                    src={photoUrl} 
-                    alt="Foto del ritrovamento" 
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPhotoUrl(null)}
-                    className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-md"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowCamera(true)}
-                  className="w-full py-4 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors"
-                >
-                  <Camera className="w-8 h-8 mb-2" />
-                  <span>Scatta una foto</span>
-                </button>
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-4">
               <button
                 type="button"
-                onClick={onClose}
-                className="flex-1 py-3 px-4 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+                onClick={handleTakePhoto}
+                className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
               >
-                Annulla
+                <Camera className="w-6 h-6" />
+                Scatta Foto
               </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
               <button
-                type="submit"
-                disabled={isLoading}
-                className={`flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
-                  isLoading ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
               >
-                {isLoading ? 'Salvataggio...' : 'Salva'}
+                <Upload className="w-6 h-6" />
+                Carica Foto
               </button>
             </div>
-          </form>
-        </div>
 
-        {showCamera && (
-          <div className="fixed inset-0 bg-black z-[10000] flex flex-col">
-            <div className="p-4 flex justify-between items-center">
-              <h3 className="text-white text-lg font-medium">Scatta una foto</h3>
-              <button 
-                onClick={() => setShowCamera(false)}
-                className="p-1 text-white"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="flex-1 relative">
-              {/* Here you would integrate a camera component */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-white text-lg">Camera component would go here</p>
+            {photoUrl && (
+              <div className="relative w-full">
+                <img
+                  src={photoUrl}
+                  alt="Preview"
+                  className="w-full h-auto max-h-[300px] object-contain rounded-lg"
+                  onLoad={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    const aspectRatio = img.naturalWidth / img.naturalHeight;
+                    if (aspectRatio > 1) {
+                      // Immagine orizzontale
+                      img.style.width = '100%';
+                      img.style.height = 'auto';
+                    } else {
+                      // Immagine verticale
+                      img.style.width = 'auto';
+                      img.style.height = '300px';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPhotoUrl(null)}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                >
+                  <X size={16} />
+                </button>
               </div>
-            </div>
-            <div className="p-4">
-              <button 
-                onClick={() => handleCapturePhoto(`https://example.com/placeholder-${Date.now()}.jpg`)}
-                className="w-full py-3 bg-white rounded-full font-medium"
-              >
-                Scatta foto
-              </button>
-            </div>
+            )}
           </div>
-        )}
+        </form>
       </div>
     </div>
   );

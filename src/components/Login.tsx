@@ -54,34 +54,4 @@
         </div>
       )}
     </div>
-  </div>
-
-  {/* Dialog/Popup per traccia esistente */}
-  {showContinueDialog && (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 mx-4 max-w-md w-full">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Traccia esistente rilevata</h3>
-        <p className="text-gray-700 mb-6">È stata trovata una traccia non completata. Vuoi continuare questa traccia o iniziarne una nuova?</p>
-        
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={handleContinue}
-            className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-center transition-colors"
-          >
-            Continua traccia esistente
-          </button>
-          
-          <button
-            onClick={handleNewTrack}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-center transition-colors"
-          >
-            Inizia nuova traccia
-          </button>
-        </div>
-        
-        {continueError && (
-          <p className="text-red-600 mt-4 text-center">{continueError}</p>
-        )}
-      </div>
-    </div>
-  )} 
+  </div> 

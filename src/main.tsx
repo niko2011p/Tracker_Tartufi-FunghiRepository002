@@ -1,20 +1,10 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App.tsx';
 import './index.css';
-import { Toaster } from 'react-hot-toast';
 
-// Create root element
-const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error('Failed to find the root element');
-
-// Create React root
-const root = ReactDOM.createRoot(rootElement);
-
-// Render app
-root.render(
-  <React.StrictMode>
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
     <App />
-    <Toaster position="bottom-right" />
-  </React.StrictMode>
+  </StrictMode>
 );

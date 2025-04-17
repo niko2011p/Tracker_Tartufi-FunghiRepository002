@@ -1,91 +1,92 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { UserProvider, useUser } from './context/UserContext';
-import MainLayout from './components/MainLayout';
-import Login from './pages/Login';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Navigation, History, Cloud, Settings as SettingsIcon, Menu, X } from 'lucide-react';
+import Navi from './components/Navi';
+import TrackingControls from './components/TrackingControls';
+import FloatingMapButtons from './components/FloatingMapButtons';
+import Meteo from './components/Meteo';
+import MapLogo from './components/MapLogo';
 import NavigationPage from './pages/NavigationPage';
-import Logger from './pages/Logger';
-import TrackDetails from './components/TrackDetails';
-import HomePage from './pages/HomePage';
 import FindingForm from './components/FindingForm';
-import { toast } from './components/ui/use-toast';
-import { Toaster } from './components/ui/toaster';
+import ScrollToTop from './components/ScrollToTop';
 import { useTrackStore } from './store/trackStore';
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useUser();
+// Importazione dei componenti per l'autenticazione
+import { UserProvider } from './context/UserContext';
+import PrivateRoute from './routes/PrivateRoute';
+import Login from './pages/Login';
+import Profile from './pages/Profile';
+import Logger from './components/Logger';
+import Settings from './components/Settings';
+import MainLayout from './components/MainLayout';
+import TrackDetail from './pages/TrackDetail';
 
-  if (!user) {
-    toast({
-      title: "Accesso richiesto",
-      description: "Effettua l'accesso per continuare",
-      variant: "destructive",
-    });
-    return <Navigate to="/login" />;
-  }
-
-  return <>{children}</>;
-};
-
-const TrackDetailsWrapper: React.FC = () => {
-  const { id } = useParams();
-  const { tracks } = useTrackStore();
-  const track = tracks.find(t => t.id === id);
-
-  if (!track) {
-    return <Navigate to="/logger" />;
-  }
-
-  return <TrackDetails track={track} onClose={() => window.history.back()} />;
-};
-
-const App: React.FC = () => {
+function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+  
   return (
-    <UserProvider>
-      <BrowserRouter>
+    <Link
+      to={to}
+      className={`flex items-center px-3 sm:px-4 py-2 rounded-lg transition-colors ${
+        isActive
+          ? 'bg-green-100 text-green-700'
+          : 'text-gray-600 hover:bg-gray-100'
+      }`}
+    >
+      <Icon className="w-5 h-5 sm:mr-2" />
+      <span className="hidden sm:inline">{text}</span>
+    </Link>
+  );
+}
+
+function MainApp() {
+  const { showFindingForm, setShowFindingForm, isRecording } = useTrackStore();
+  
+  // If track is recording (active navigation), show the navigation page
+  if (isRecording) {
+    return <NavigationPage />;
+  }
+
+  return (
+    <div className="relative h-screen w-full">
+      <Navi />
+      <MapLogo />
+      <FloatingMapButtons />
+      <TrackingControls />
+      {showFindingForm && <FindingForm onClose={() => setShowFindingForm(false)} />}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <ScrollToTop />
+      <UserProvider>
         <MainLayout>
           <Routes>
+            {/* Rotte pubbliche */}
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<HomePage />} />
-            <Route
-              path="/navigation"
-              element={
-                <ProtectedRoute>
-                  <NavigationPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/logger"
-              element={
-                <ProtectedRoute>
-                  <Logger />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/track/:id"
-              element={
-                <ProtectedRoute>
-                  <TrackDetailsWrapper />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/finding/:trackId"
-              element={
-                <ProtectedRoute>
-                  <FindingForm onClose={() => {}} position={[0, 0]} />
-                </ProtectedRoute>
-              }
-            />
+            
+            {/* Rotte protette */}
+            <Route element={<PrivateRoute />}>
+              <Route path="/" element={<MainApp />} />
+              <Route path="/NavigationPage" element={<NavigationPage />} />
+              <Route path="/logger" element={<Logger />} />
+              <Route path="/meteo" element={<Meteo />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/track/:id" element={<TrackDetail />} />
+            </Route>
+            
+            {/* Reindirizzamento per rotte non trovate */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          <Toaster />
         </MainLayout>
-      </BrowserRouter>
-    </UserProvider>
+      </UserProvider>
+    </BrowserRouter>
   );
-};
+}
 
-export default App; 
+export default App;
