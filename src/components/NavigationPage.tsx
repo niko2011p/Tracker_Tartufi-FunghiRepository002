@@ -47,44 +47,45 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
       ? '/icon/Truffle-tag-icon.svg'
       : '/icon/point-of-interest-tag-icon.svg';
 
-  return new L.DivIcon({
-    html: `
-      <div class="finding-icon-wrapper ${type.toLowerCase()}-finding" style="
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 32px;
-        height: 32px;
-        position: relative;
-        cursor: pointer;
-      ">
-        <div class="finding-icon-pulse" style="
-          position: absolute;
+  const iconColor = type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#8B4513' : '#f5a149';
+
+  const iconHtml = `
+    <div class="finding-marker" style="
+      width: 40px;
+      height: 40px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    ">
+      <div class="finding-pulse" style="
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: ${iconColor}40;
+        animation: pulse 2s infinite;
+      "></div>
+      <img 
+        src="${iconUrl}" 
+        style="
           width: 32px;
           height: 32px;
-          border-radius: 50%;
-          background: ${type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#8B4513' : '#f5a149'}40;
-          animation: pulse 2s infinite;
-        "></div>
-        <img 
-          src="${iconUrl}" 
-          width="24" 
-          height="24" 
-          alt="${type} Icon" 
-          style="
-            position: relative;
-            z-index: 1;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-            opacity: ${isLoaded ? '0.6' : '1'};
-            transition: transform 0.2s ease;
-          "
-        />
-      </div>
-    `,
+          position: relative;
+          z-index: 1000;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        "
+        alt="${type}"
+      />
+    </div>
+  `;
+
+  return L.divIcon({
+    html: iconHtml,
     className: 'finding-icon',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20]
   });
 };
 

@@ -24,6 +24,13 @@ const defaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = defaultIcon;
 
+// Funzione per assicurarsi che una data sia un oggetto Date valido
+const ensureDate = (date: Date | string | undefined): Date => {
+  if (!date) return new Date();
+  if (typeof date === 'string') return new Date(date);
+  return date;
+};
+
 const TrackDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -39,7 +46,20 @@ const TrackDetail: React.FC = () => {
     if (id) {
       const foundTrack = tracks.find(t => t.id === id);
       if (foundTrack) {
-        setTrack(foundTrack);
+        // Converti le date prima di impostare lo stato
+        const processedTrack = {
+          ...foundTrack,
+          startTime: ensureDate(foundTrack.startTime),
+          endTime: foundTrack.endTime ? ensureDate(foundTrack.endTime) : undefined,
+          findings: Array.isArray(foundTrack.findings) 
+            ? foundTrack.findings.map(finding => ({
+                ...finding,
+                timestamp: finding.timestamp ? ensureDate(finding.timestamp) : new Date()
+              }))
+            : []
+        };
+        
+        setTrack(processedTrack);
       } else {
         // Se non troviamo la traccia nello store, proviamo a caricarla da IndexedDB
         const request = indexedDB.open('tracksDB', 1);
@@ -51,7 +71,21 @@ const TrackDetail: React.FC = () => {
           
           getRequest.onsuccess = () => {
             if (getRequest.result) {
-              setTrack(getRequest.result);
+              // Converti le date prima di impostare lo stato
+              const track = getRequest.result;
+              const processedTrack = {
+                ...track,
+                startTime: ensureDate(track.startTime),
+                endTime: track.endTime ? ensureDate(track.endTime) : undefined,
+                findings: Array.isArray(track.findings) 
+                  ? track.findings.map(finding => ({
+                      ...finding,
+                      timestamp: finding.timestamp ? ensureDate(finding.timestamp) : new Date()
+                    }))
+                  : []
+              };
+              
+              setTrack(processedTrack);
             } else {
               navigate('/logger');
             }
@@ -228,7 +262,7 @@ const TrackDetail: React.FC = () => {
                     />
                   )}
                   <p className="text-sm text-gray-500">
-                    {new Date(finding.timestamp).toLocaleString('it-IT')}
+                    {ensureDate(finding.timestamp).toLocaleString('it-IT')}
                   </p>
                 </div>
               </Popup>
