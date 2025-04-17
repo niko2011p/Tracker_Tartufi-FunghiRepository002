@@ -12,6 +12,8 @@ import { useTrackHistoryStore, SavedTrack, TrackTag, calculateStats } from '../s
 import useButtonConfigStore from '../store/buttonConfigStore';
 import TagButton from '../components/TagButton';
 import StopButton from '../components/StopButton';
+import { createFindingMarker } from '../components/FindingMarker';
+import { Finding } from '../types';
 
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -35,27 +37,6 @@ const style = document.createElement('style');
 style.innerHTML = pulseAnimation;
 document.head.appendChild(style);
 
-const createFindingIcon = (type: string, isLoaded = false) => {
-  const size: [number, number] = [32, 32];
-  const color = type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#a0522d' : '#f5a149';
-  
-  return L.divIcon({
-    html: `
-      <div class="marker-container">
-        <div class="marker-pulse"></div>
-        <div class="marker-inner">
-          <div class="marker-dot"></div>
-          <div class="marker-ring"></div>
-        </div>
-      </div>
-    `,
-    className: `custom-icon ${isLoaded ? 'loaded' : ''}`,
-    iconSize: size,
-    iconAnchor: [size[0] / 2, size[1] / 2],
-    popupAnchor: [0, -size[1] / 2]
-  });
-};
-
 // Componente per aggiornare il centro della mappa con effetto volo
 const MapCenterUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
   const map = useMap();
@@ -69,6 +50,17 @@ const MapCenterUpdater: React.FC<{ center: [number, number] }> = ({ center }) =>
   }, [center, map]);
   return null;
 };
+
+// Create a helper function to create a valid Finding object
+const createGPSFinding = (lat: number, lng: number): Finding => ({
+  id: 'gps-marker',
+  name: 'Current Position',
+  type: 'Fungo',
+  coordinates: [lat, lng],
+  timestamp: new Date(),
+  trackId: 'gps-track',
+  description: 'Current Position'
+});
 
 const NavigationPage: React.FC = () => {
   const { currentPosition, currentDirection, isRecording, startTrack, stopTrack, setShowFindingForm, showFindingForm } = useTrackStore();
@@ -239,16 +231,17 @@ const NavigationPage: React.FC = () => {
     };
   }, [isRecording, isFollowingGPS]);
 
-  // Aggiorna il marker GPS
+  // Update the GPS marker creation
   useEffect(() => {
     if (mapRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
       if (gpsMarkerRef.current) {
         gpsMarkerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
       } else {
-        gpsMarkerRef.current = L.marker(
-          [gpsData.latitude, gpsData.longitude],
-          { icon: createFindingIcon('Fungo') }
-        ).addTo(mapRef.current);
+        const finding = createGPSFinding(gpsData.latitude, gpsData.longitude);
+        gpsMarkerRef.current = createFindingMarker(finding, mapRef.current);
+        if (gpsMarkerRef.current) {
+          gpsMarkerRef.current.addTo(mapRef.current);
+        }
       }
     }
   }, [gpsData.latitude, gpsData.longitude]);
@@ -372,7 +365,10 @@ const NavigationPage: React.FC = () => {
         {gpsData.latitude !== 0 && gpsData.longitude !== 0 && (
           <Marker
             position={[gpsData.latitude, gpsData.longitude]}
-            icon={createFindingIcon('Fungo')}
+            icon={createFindingMarker(
+              createGPSFinding(gpsData.latitude, gpsData.longitude),
+              mapRef.current
+            )?.getIcon()}
           >
             <Popup>
               <div className="p-2">
