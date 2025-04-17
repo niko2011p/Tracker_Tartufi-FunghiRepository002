@@ -1099,5 +1099,3 @@ const initializeStore = () => {
 
 // Chiamiamo l'inizializzazione subito dopo la creazione dello store
 initializeStore();
-
-export { useTrackStore };
