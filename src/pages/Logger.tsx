@@ -7,6 +7,7 @@ import { formatDistance, formatDuration } from '../utils/formatUtils';
 import { useNavigate } from 'react-router-dom';
 import { useTrackStore } from '../store/trackStore';
 import { Track } from '../types';
+import { openDB } from 'idb';
 
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -18,58 +19,67 @@ L.Icon.Default.mergeOptions({
 
 const Logger: React.FC = () => {
   const navigate = useNavigate();
-  const { tracks, loadTracks } = useTrackStore();
+  const trackStore = useTrackStore();
+  const { tracks, loadTracks } = trackStore;
+  const [localTracks, setLocalTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([45.4642, 9.1900]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Carica direttamente da IndexedDB al mount del componente
   useEffect(() => {
-    console.log('📋 Logger montato, caricamento tracce...');
-    
-    const loadAllTracks = async () => {
+    async function loadTracksFromIndexedDB() {
       setIsLoading(true);
+      console.log('📋 Logger: caricamento tracce...');
+      
       try {
-        // Verifica se ci sono tracce già in memoria
-        if (tracks.length > 0) {
-          console.log(`✅ ${tracks.length} tracce già presenti in memoria`);
+        // 1. Prima verifica se abbiamo già tracce nello store
+        if (tracks && tracks.length > 0) {
+          console.log(`✅ Logger: ${tracks.length} tracce già presenti nello store`);
+          setLocalTracks(tracks);
           setIsLoading(false);
           return;
         }
         
-        // Carica tracce dallo storage
-        console.log('🔍 Nessuna traccia in memoria, carico da storage...');
+        // 2. Prova a caricare dallo store usando loadTracks
+        console.log('🔄 Logger: nessuna traccia nello store, chiamata a loadTracks()...');
         await loadTracks();
-        console.log(`✅ Caricamento completato: ${tracks.length} tracce caricate`);
-      } catch (error) {
-        console.error('❌ Errore nel caricamento delle tracce:', error);
-        // Prova a leggere direttamente da IndexedDB
-        console.log('🔍 Tentativo di lettura diretta da IndexedDB...');
-        try {
-          const { openDB } = await import('idb');
-          const db = await openDB('tracksDB', 1);
-          const tx = db.transaction('tracks', 'readonly');
-          const store = tx.objectStore('tracks');
-          const tracksFromDB = await store.get('tracks');
-          await tx.done;
-          
-          if (tracksFromDB && Array.isArray(tracksFromDB) && tracksFromDB.length > 0) {
-            console.log(`✅ Recuperate ${tracksFromDB.length} tracce direttamente da IndexedDB`);
-            
-            // Non è necessario chiamare set() qui, possiamo usare i dati localmente
-            console.log('Tracce disponibili:', tracksFromDB);
-          } else {
-            console.log('❌ Nessuna traccia trovata in IndexedDB');
-          }
-        } catch (dbError) {
-          console.error('❌ Errore nella lettura diretta da IndexedDB:', dbError);
+        
+        // 3. Verifica se abbiamo caricato con successo
+        if (trackStore.tracks && trackStore.tracks.length > 0) {
+          console.log(`✅ Logger: ${trackStore.tracks.length} tracce caricate tramite loadTracks`);
+          setLocalTracks(trackStore.tracks);
+          setIsLoading(false);
+          return;
         }
+        
+        // 4. Fallback: caricamento diretto da IndexedDB
+        console.log('🔍 Logger: caricamento diretto da IndexedDB...');
+        const db = await openDB('tracksDB', 1);
+        const tx = db.transaction('tracks', 'readonly');
+        const store = tx.objectStore('tracks');
+        const tracksFromDB = await store.get('tracks');
+        await tx.done;
+        
+        if (tracksFromDB && Array.isArray(tracksFromDB) && tracksFromDB.length > 0) {
+          console.log(`✅ Logger: ${tracksFromDB.length} tracce caricate direttamente da IndexedDB`);
+          setLocalTracks(tracksFromDB);
+          // Aggiorna anche lo store globale
+          trackStore.setState({ tracks: tracksFromDB });
+        } else {
+          console.log('❌ Logger: nessuna traccia trovata in IndexedDB');
+          setLocalTracks([]);
+        }
+      } catch (error) {
+        console.error('❌ Logger: errore nel caricamento delle tracce', error);
+        setLocalTracks([]);
       } finally {
         setIsLoading(false);
       }
-    };
+    }
     
-    loadAllTracks();
-  }, [loadTracks, tracks.length]);
+    loadTracksFromIndexedDB();
+  }, []);
 
   const handleTrackSelect = (track: Track) => {
     setSelectedTrack(track.id);
@@ -125,16 +135,22 @@ const Logger: React.FC = () => {
     );
   }
 
+  const displayTracks = localTracks.length > 0 ? localTracks : [];
+
   return (
     <div className="h-screen flex">
       {/* Lista tracce */}
       <div className="w-1/3 bg-gray-100 p-4 overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Tracce Salvate</h2>
-        {tracks.length === 0 ? (
+        {displayTracks.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-600">Nessuna traccia salvata</p>
             <button 
-              onClick={() => loadTracks()} 
+              onClick={async () => {
+                setIsLoading(true);
+                await loadTracks();
+                setIsLoading(false);
+              }} 
               className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
             >
               Riprova a caricare
@@ -142,7 +158,7 @@ const Logger: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {tracks.map((track) => (
+            {displayTracks.map((track) => (
               <div
                 key={track.id}
                 className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
@@ -157,7 +173,7 @@ const Logger: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-600">
-                      {track.findings ? track.findings.length : 0} ritrovamenti
+                      {track.findings && track.findings.length ? track.findings.length : 0} ritrovamenti
                     </p>
                     <p className="text-xs text-gray-500">
                       {new Date(track.startTime).toLocaleDateString('it-IT')}

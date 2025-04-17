@@ -170,6 +170,8 @@ const loadFromLocalStorage = (key: string): any => {
 
 const saveToIndexedDB = async (key: string, data: any) => {
   try {
+    console.log('Tentativo di salvataggio in IndexedDB', { key, data });
+    
     // Pre-processiamo i dati per assicurarci che siano serializzabili
     const processedData = JSON.parse(JSON.stringify(data, (key, value) => {
       // Converti le date in ISO strings
@@ -189,8 +191,10 @@ const saveToIndexedDB = async (key: string, data: any) => {
 
     const tx = db.transaction('tracks', 'readwrite');
     const store = tx.objectStore('tracks');
+    
     await store.put(processedData, key);
     await tx.done;
+    
     console.log(`Dati salvati con successo in IndexedDB: ${key}`);
   } catch (error) {
     console.error('Errore nel salvataggio in IndexedDB:', error);
@@ -199,11 +203,14 @@ const saveToIndexedDB = async (key: string, data: any) => {
 
 const loadFromIndexedDB = async (key: string): Promise<any> => {
   try {
+    console.log(`Tentativo di caricamento da IndexedDB: ${key}`);
     const db = await openDB('tracksDB', 1);
     const tx = db.transaction('tracks', 'readonly');
     const store = tx.objectStore('tracks');
     const data = await store.get(key);
     await tx.done;
+    
+    console.log(`Dati caricati da IndexedDB: ${key}`, data);
     return data;
   } catch (error) {
     console.error('Errore nel caricamento da IndexedDB:', error);
@@ -982,18 +989,6 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         currentTrack: state.currentTrack,
         loadedFindings: state.loadedFindings
       }),
-      onRehydrateStorage: (state) => {
-        return (rehydratedState, error) => {
-          if (error) {
-            console.error('Error during rehydration:', error);
-          } else {
-            console.log('Rehydration complete, recovered state:', rehydratedState);
-            if (rehydratedState) {
-              set(rehydratedState);
-            }
-          }
-        };
-      },
       storage: {
         getItem: async (name) => {
           console.log(`🔄 Tentativo di recupero dati da storage per ${name}...`);
@@ -1007,13 +1002,17 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             
             if (tracksFromDB && Array.isArray(tracksFromDB)) {
               console.log(`✅ Recuperate ${tracksFromDB.length} tracce da IndexedDB`);
-              return JSON.stringify({
-                state: {
-                  tracks: tracksFromDB,
-                  currentTrack: null,
-                  loadedFindings: null
-                }
-              });
+              
+              // Costruisci lo stato completo per zustand persist
+              const state = {
+                tracks: tracksFromDB,
+                currentTrack: null,
+                loadedFindings: null,
+                isRecording: false
+              };
+              
+              console.log('Stato recuperato da IndexedDB:', state);
+              return JSON.stringify({ state });
             }
             
             // Fallback su localStorage
@@ -1023,10 +1022,11 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
               try {
                 // Se troviamo dati in localStorage, li salviamo anche in IndexedDB
                 const parsed = JSON.parse(persistedData);
-                if (parsed.state && parsed.state.tracks) {
+                if (parsed.state && parsed.state.tracks && Array.isArray(parsed.state.tracks)) {
                   console.log(`🔄 Migrazione ${parsed.state.tracks.length} tracce da localStorage a IndexedDB`);
                   await saveToIndexedDB('tracks', parsed.state.tracks);
                 }
+                console.log('Stato recuperato da localStorage:', parsed);
                 return persistedData;
               } catch (e) {
                 console.error('Errore nel parsing dei dati da localStorage', e);
@@ -1050,6 +1050,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             try {
               const parsed = JSON.parse(value);
               if (parsed.state && parsed.state.tracks) {
+                console.log('Stato da salvare in IndexedDB:', parsed.state.tracks);
                 await saveToIndexedDB('tracks', parsed.state.tracks);
                 console.log(`🔄 Salvate ${parsed.state.tracks.length} tracce in IndexedDB`);
               }
@@ -1077,3 +1078,26 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
     }
   )
 );
+
+// Aggiungiamo una funzione di inizializzazione che verrà chiamata all'avvio dell'app
+const initializeStore = () => {
+  // Carica il track corrente da IndexedDB e localStorage
+  (async () => {
+    try {
+      const tracksFromIndexedDB = await loadFromIndexedDB('tracks');
+      if (tracksFromIndexedDB && Array.isArray(tracksFromIndexedDB) && tracksFromIndexedDB.length > 0) {
+        console.log(`⚡ Inizializzazione: caricate ${tracksFromIndexedDB.length} tracce da IndexedDB`);
+        useTrackStore.setState({ tracks: tracksFromIndexedDB });
+      } else {
+        console.log('⚡ Inizializzazione: nessuna traccia trovata in IndexedDB');
+      }
+    } catch (error) {
+      console.error('⚡ Errore durante l\'inizializzazione del tracksStore:', error);
+    }
+  })();
+};
+
+// Chiamiamo l'inizializzazione subito dopo la creazione dello store
+initializeStore();
+
+export { useTrackStore };
