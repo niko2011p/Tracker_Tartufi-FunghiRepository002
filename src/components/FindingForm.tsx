@@ -74,11 +74,6 @@ function FindingForm({ onClose, position }: FindingFormProps) {
         navigator.vibrate(200); // Vibra per 200ms
       }
       
-      // Aggiungi un feedback audio
-      const audio = new Audio('./sound/alert.mp3');
-      audio.volume = 0.3;
-      audio.play().catch(console.error);
-      
       onClose();
     } catch (e) {
       console.error("Errore durante la salvataggio:", e);

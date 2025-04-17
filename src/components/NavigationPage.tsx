@@ -61,6 +61,23 @@ const NavigationPage: React.FC = () => {
   
   console.log('📌 GPS marker icon URL:', '/assets/icons/map-navigation-orange-icon.svg');
 
+  // Add this useEffect to log findings whenever currentTrack changes
+  useEffect(() => {
+    if (currentTrack && currentTrack.findings && currentTrack.findings.length > 0) {
+      console.log('🔍 RENDERING FINDINGS:', currentTrack.findings.length, 'findings found');
+      currentTrack.findings.forEach(finding => {
+        console.log('📍 Finding:', {
+          id: finding.id,
+          type: finding.type,
+          coordinates: finding.coordinates,
+          name: finding.name
+        });
+      });
+    } else {
+      console.log('📍 No findings to render in current track');
+    }
+  }, [currentTrack]);
+
   return (
     <div className="fixed inset-0" style={{ zIndex: 1000 }}>
       <MapContainer
@@ -82,8 +99,8 @@ const NavigationPage: React.FC = () => {
                 <p>Lat: {currentPosition[0].toFixed(6)}°</p>
                 <p>Lon: {currentPosition[1].toFixed(6)}°</p>
                 <p>Precisione: {accuracy !== null ? `${accuracy.toFixed(1)}m` : 'N/A'}</p>
-        </div>
-        </div>
+              </div>
+            </div>
           </Popup>
         </Marker>
 
@@ -98,16 +115,17 @@ const NavigationPage: React.FC = () => {
         )}
 
         {/* Current track findings */}
-        {currentTrack?.findings.map((finding: Finding) => {
-          console.log('📍 Rendering finding:', finding);
-          if (!finding.coordinates) {
-            console.warn('⚠️ Finding without coordinates:', finding);
+        {currentTrack?.findings?.map((finding: Finding) => {
+          if (!finding.coordinates || 
+              !Array.isArray(finding.coordinates) || 
+              finding.coordinates.length !== 2 ||
+              isNaN(finding.coordinates[0]) || 
+              isNaN(finding.coordinates[1])) {
             return null;
           }
 
           const iconForFinding = createFindingMarker(finding);
-          console.log('🔍 Icon URL for finding:', finding.type, iconForFinding.options.iconUrl);
-
+          
           return (
             <Marker
               key={finding.id}

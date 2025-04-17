@@ -17,15 +17,18 @@ const FALLBACK_ICONS = {
 const MARKER_COLORS = {
   fungo: {
     color: '#8eaa36',
-    fallbackChar: '🍄'
+    fallbackChar: '🍄',
+    iconPath: '/assets/icons/mushroom-tag-icon.svg'
   },
   tartufo: {
     color: '#8B4513',
-    fallbackChar: '🥔'
+    fallbackChar: '🥔',
+    iconPath: '/assets/icons/truffle-tag-icon.svg'
   },
   poi: {
     color: '#f5a149',
-    fallbackChar: '📍'
+    fallbackChar: '📍',
+    iconPath: '/assets/icons/point-of-interest-tag-icon.svg'
   }
 } as const;
 
@@ -83,13 +86,12 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
             <div style="
               width: 24px;
               height: 24px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 16px;
-              font-weight: bold;
-              color: ${config.color};
-            ">${config.fallbackChar}</div>
+              background-image: url(${config.iconPath});
+              background-size: contain;
+              background-position: center;
+              background-repeat: no-repeat;
+              filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));
+            "></div>
           </div>
         `,
         className: `finding-icon ${type}-icon`,
@@ -98,7 +100,7 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
         popupAnchor: [0, -20]
       });
 
-      console.log('📌 FindingMarker: Creazione marker con CSS, senza immagine esterna');
+      console.log('📌 FindingMarker: Creazione marker con CSS, usando icona SVG');
 
       // Create the marker with the custom icon
       const marker = L.marker([lat, lng], {
@@ -156,11 +158,20 @@ export default FindingMarker;
 export const createFindingMarker = (finding: Finding): L.DivIcon => {
   try {
     console.log('📍 createFindingMarker: Creazione icona per', finding.type);
+    console.log('📍 Coordinate del ritrovamento:', finding.coordinates);
+    console.log('📍 ID del ritrovamento:', finding.id);
+    
     const type = finding.type.toLowerCase() as keyof typeof MARKER_COLORS;
     const config = MARKER_COLORS[type] || MARKER_COLORS.poi;
     
-    // Create a CSS-based marker
-    return L.divIcon({
+    console.log('📍 Configurazione marker:', { 
+      type, 
+      color: config.color, 
+      iconPath: config.iconPath 
+    });
+    
+    // Create a CSS-based marker with actual SVG icon
+    const divIcon = L.divIcon({
       html: `
         <div class="finding-marker ${type}-marker" style="
           width: 40px;
@@ -184,13 +195,12 @@ export const createFindingMarker = (finding: Finding): L.DivIcon => {
           <div style="
             width: 24px;
             height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            font-weight: bold;
-            color: ${config.color};
-          ">${config.fallbackChar}</div>
+            background-image: url(${config.iconPath});
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));
+          "></div>
         </div>
       `,
       className: `finding-icon ${type}-icon`,
@@ -198,6 +208,9 @@ export const createFindingMarker = (finding: Finding): L.DivIcon => {
       iconAnchor: [20, 20],
       popupAnchor: [0, -20]
     });
+    
+    console.log('✅ Marker creato con successo, classe:', `finding-icon ${type}-icon`);
+    return divIcon;
   } catch (error) {
     console.error('❌ createFindingMarker: Errore nella creazione dell\'icona:', error);
     // Fallback to a simple div icon
