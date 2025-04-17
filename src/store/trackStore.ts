@@ -676,18 +676,18 @@ export const useTrackStore = create<TrackState>()(
           try {
             // Ottieni la posizione con alta precisione
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              const geoOptions = {
-                enableHighAccuracy: true,
+          const geoOptions = {
+            enableHighAccuracy: true,
                 timeout: 10000,
                 maximumAge: 0
-              };
-
+          };
+          
               console.log('📍 Acquisizione posizione GPS per nuovo ritrovamento...');
               navigator.geolocation.getCurrentPosition(resolve, reject, geoOptions);
             });
-
+          
             // Valida e formatta le coordinate con 6 decimali di precisione
-            const coordinates: [number, number] = [
+                const coordinates: [number, number] = [
               Number(position.coords.latitude.toFixed(6)),
               Number(position.coords.longitude.toFixed(6))
             ];
@@ -700,15 +700,15 @@ export const useTrackStore = create<TrackState>()(
 
             console.log(`✅ Coordinate acquisite: [${coordinates[0]}, ${coordinates[1]}]`);
             console.log(`📊 Precisione GPS: ${position.coords.accuracy}m`);
-
-            const newFinding: Finding = {
-              ...finding,
-              id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              trackId: currentTrack.id,
-              coordinates,
-              timestamp: new Date()
-            };
-
+                
+                const newFinding: Finding = {
+                  ...finding,
+                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  trackId: currentTrack.id,
+                  coordinates,
+                  timestamp: new Date()
+                };
+                
             console.log('🎯 Nuovo ritrovamento creato:', {
               id: newFinding.id,
               type: newFinding.type,
@@ -717,18 +717,18 @@ export const useTrackStore = create<TrackState>()(
 
             // Aggiorna la traccia corrente con il nuovo ritrovamento
             const updatedTrack = {
-              ...currentTrack,
-              findings: [...currentTrack.findings, newFinding]
+                    ...currentTrack,
+                    findings: [...currentTrack.findings, newFinding]
             };
-
+                
             // Aggiorna lo stato
             set({ currentTrack: updatedTrack });
-
+                
             // Salva immediatamente in IndexedDB
-            try {
+                try {
               await saveToIndexedDB('currentTrack', updatedTrack);
               console.log('💾 Ritrovamento salvato in IndexedDB');
-            } catch (error) {
+                } catch (error) {
               console.error('❌ Errore nel salvataggio in IndexedDB:', error);
             }
 
@@ -917,14 +917,14 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             console.log(`✅ Caricate ${stateData.state.tracks.length} tracce da IndexedDB`);
             // Converti le date da string a Date
             const tracks = stateData.state.tracks.map(track => ({
-              ...track,
+          ...track,
               startTime: new Date(track.startTime),
               endTime: track.endTime ? new Date(track.endTime) : undefined,
-              findings: track.findings.map(finding => ({
-                ...finding,
+          findings: track.findings.map(finding => ({
+            ...finding,
                 timestamp: new Date(finding.timestamp)
-              }))
-            }));
+          }))
+        }));
             set({ tracks });
             return;
           }
@@ -938,14 +938,14 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
                 console.log(`✅ Caricate ${parsed.state.tracks.length} tracce da localStorage`);
                 // Converti le date da string a Date
                 const tracks = parsed.state.tracks.map(track => ({
-                  ...track,
-                  startTime: new Date(track.startTime),
-                  endTime: track.endTime ? new Date(track.endTime) : undefined,
-                  findings: track.findings.map(finding => ({
-                    ...finding,
-                    timestamp: new Date(finding.timestamp)
-                  }))
-                }));
+            ...track,
+            startTime: new Date(track.startTime),
+            endTime: track.endTime ? new Date(track.endTime) : undefined,
+            findings: track.findings.map(finding => ({
+              ...finding,
+              timestamp: new Date(finding.timestamp)
+            }))
+          }));
                 set({ tracks });
                 // Salva anche in IndexedDB per il futuro
                 await saveToIndexedDB('tracks-storage', { state: { tracks } });

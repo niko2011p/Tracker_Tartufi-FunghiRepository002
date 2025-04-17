@@ -203,13 +203,13 @@ const TrackingControls: React.FC = () => {
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Punto di Interesse</h3>
-              <button 
+                    <button
                 onClick={() => useTrackStore.setState({ showPointOfInterestForm: false })}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-6 h-6" />
-              </button>
-            </div>
+                    </button>
+              </div>
             <PointOfInterestForm
               onClose={() => useTrackStore.setState({ showPointOfInterestForm: false })}
               onSubmit={handlePoiSubmit}
@@ -218,7 +218,7 @@ const TrackingControls: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
   );
 };
 

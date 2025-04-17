@@ -49,7 +49,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
       : '/assets/icons/point-of-interest-tag-icon.svg';
 
   return new L.DivIcon({
-    html: `
+      html: `
       <div class="finding-icon-wrapper ${type.toLowerCase()}-finding" style="
         display: flex;
         justify-content: center;
@@ -80,8 +80,8 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
             transition: transform 0.2s ease;
           "
         />
-      </div>
-    `,
+        </div>
+      `,
     className: 'finding-icon',
     iconSize: [32, 32],
     iconAnchor: [16, 16],
@@ -498,73 +498,73 @@ const NavigationPage: React.FC = () => {
   return (
     <div data-page="navigation" className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Pannello informazioni di tracking con il nuovo componente */}
+      {/* Pannello informazioni di tracking con il nuovo componente */}
         <TrackingDataPanel realTimeData={trackingData} />
-        
-        {/* Full screen map */}
-        <MapContainer
-          ref={mapRef}
-          center={currentPosition}
-          zoom={MAX_ZOOM}
-          minZoom={MIN_ZOOM}
-          maxZoom={MAX_ZOOM}
-          className="h-full w-full"
-          attributionControl={false}
-          zoomControl={false}
-          dragging={true}
-          scrollWheelZoom={false}
-          doubleClickZoom={false}
-          touchZoom={false}
-        >
-          <TileLayer
+      
+      {/* Full screen map */}
+      <MapContainer
+        ref={mapRef}
+        center={currentPosition}
+        zoom={MAX_ZOOM}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
+        className="h-full w-full"
+        attributionControl={false}
+        zoomControl={false}
+        dragging={true}
+        scrollWheelZoom={false}
+        doubleClickZoom={false}
+        touchZoom={false}
+      >
+        <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
-          
-          <LocationUpdater 
-            onGpsUpdate={(acc, acquiring) => {
-              setAccuracy(acc);
-              setIsAcquiringGps(acquiring);
-            }} 
-            onPositionUpdate={(position, direction) => {
-              setCurrentPosition(position);
+        />
+        
+        <LocationUpdater 
+          onGpsUpdate={(acc, acquiring) => {
+            setAccuracy(acc);
+            setIsAcquiringGps(acquiring);
+          }} 
+          onPositionUpdate={(position, direction) => {
+            setCurrentPosition(position);
               setDirection(direction);
               setTrackingData(prev => ({
                 ...prev,
                 lat: position[0],
                 lng: position[1]
               }));
-            }}
-          />
-          <CenterButton />
-          <ZoomControl />
-          {/* Posiziono la bussola in alto a destra, spostata più in basso */}
-          <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 1001 }}>
-            <CompassIndicator position="topRight" />
-          </div>
-          {/* Posiziono l'indicatore GPS al centro in alto */}
-          <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
+          }}
+        />
+        <CenterButton />
+        <ZoomControl />
+        {/* Posiziono la bussola in alto a destra, spostata più in basso */}
+        <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 1001 }}>
+          <CompassIndicator position="topRight" />
+        </div>
+        {/* Posiziono l'indicatore GPS al centro in alto */}
+        <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001 }}>
             <GpsStatusIndicator 
               accuracy={accuracy} 
               isAcquiring={isAcquiringGps}
               currentPosition={currentPosition}
             />
-          </div>
-          
-          {/* Display current position marker */}
-          <Marker position={currentPosition} icon={gpsArrowIcon} />
-          
-          {/* Display track polyline - Percorso in tempo reale in arancione */}
-          {currentTrack && (
-            <>
-              <Polyline
-                positions={currentTrack.coordinates}
-                color="#FF9800"
-                weight={4}
-                opacity={0.9}
-                // Linea continua come richiesto
-              />
-              {/* Display findings markers */}
+        </div>
+        
+        {/* Display current position marker */}
+        <Marker position={currentPosition} icon={gpsArrowIcon} />
+        
+        {/* Display track polyline - Percorso in tempo reale in arancione */}
+        {currentTrack && (
+          <>
+            <Polyline
+              positions={currentTrack.coordinates}
+              color="#FF9800"
+              weight={4}
+              opacity={0.9}
+              // Linea continua come richiesto
+            />
+            {/* Display findings markers */}
               {currentTrack?.findings.map((finding) => {
                 console.log('📍 Rendering finding:', finding);
                 if (!finding.coordinates) {
@@ -592,10 +592,10 @@ const NavigationPage: React.FC = () => {
                   </Marker>
                 );
               })}
-            </>
-          )}
-          
-          {/* Display loaded findings if any */}
+          </>
+        )}
+        
+        {/* Display loaded findings if any */}
           {loadedFindings?.map((finding) => (
             <Marker
               key={`loaded-${finding.id}`}
@@ -615,19 +615,19 @@ const NavigationPage: React.FC = () => {
               </Popup>
             </Marker>
           ))}
-          
-          {/* Display tags added during navigation */}
-          {currentTrack?.findings
-            .filter(finding => finding.type === 'Fungo' || finding.type === 'Tartufo' || finding.type === 'poi')
-            .map((finding) => {
-              console.log('Visualizzazione tag:', finding.type, finding.coordinates);
-              const findingType = finding.type === 'poi' ? 'Interesse' : 
-                                 finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
-              return (
-                <Marker
-                  key={`tag-${finding.id}`}
-                  position={finding.coordinates}
-                  icon={createFindingIcon(findingType)}
+        
+        {/* Display tags added during navigation */}
+        {currentTrack?.findings
+          .filter(finding => finding.type === 'Fungo' || finding.type === 'Tartufo' || finding.type === 'poi')
+          .map((finding) => {
+            console.log('Visualizzazione tag:', finding.type, finding.coordinates);
+            const findingType = finding.type === 'poi' ? 'Interesse' : 
+                               finding.type === 'Fungo' ? 'Fungo' : 'Tartufo';
+            return (
+              <Marker
+                key={`tag-${finding.id}`}
+                position={finding.coordinates}
+                icon={createFindingIcon(findingType)}
                 >
                   <Popup>
                     <div className="p-2">
@@ -641,29 +641,29 @@ const NavigationPage: React.FC = () => {
                     </div>
                   </Popup>
                 </Marker>
-              );
-            })}
-        </MapContainer>
-        
-        {/* Control buttons */}
-        <div className="fixed bottom-10 left-0 right-0 flex justify-between px-10 z-[10000]">
-          {/* Tasto Tag - spostato in basso a destra attaccato al bordo */}
-          <button
-            onClick={() => setShowTagOptions(true)}
-            className="unified-button tag"
-            style={{
-              backgroundColor: 'rgba(59, 130, 246, 0.9)', /* Blu */
-              borderRadius: '50%', /* Pulsante circolare */
-              position: 'absolute',
-              right: '10px',
-              bottom: '0px'
-            }}
-          >
-            <MapPin className="w-6 h-6" />
-            Tag
-          </button>
-        </div>
-        
+            );
+          })}
+      </MapContainer>
+      
+      {/* Control buttons */}
+      <div className="fixed bottom-10 left-0 right-0 flex justify-between px-10 z-[10000]">
+        {/* Tasto Tag - spostato in basso a destra attaccato al bordo */}
+        <button
+          onClick={() => setShowTagOptions(true)}
+          className="unified-button tag"
+          style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.9)', /* Blu */
+            borderRadius: '50%', /* Pulsante circolare */
+            position: 'absolute',
+            right: '10px',
+            bottom: '0px'
+          }}
+        >
+          <MapPin className="w-6 h-6" />
+          Tag
+        </button>
+      </div>
+      
         {/* Finding Form */}
         {showFindingForm && (
           <FindingForm 
@@ -673,9 +673,9 @@ const NavigationPage: React.FC = () => {
         )}
         
         {/* Tag Options Popup */}
-        {showTagOptions && (
-          <TagOptionsPopup 
-            onClose={() => setShowTagOptions(false)}
+      {showTagOptions && (
+        <TagOptionsPopup 
+          onClose={() => setShowTagOptions(false)}
             onFindingClick={() => {
               setShowTagOptions(false);
               setShowFindingForm(true);
@@ -686,7 +686,7 @@ const NavigationPage: React.FC = () => {
             }}
           />
         )}
-      </div>
+        </div>
     </div>
   );
 };
