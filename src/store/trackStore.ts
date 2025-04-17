@@ -82,6 +82,11 @@ const initDB = async () => {
       db.createObjectStore('state');
       console.log('✅ Store "state" creato');
     };
+
+    request.onblocked = () => {
+      console.error('❌ IndexedDB bloccato. Chiudi altre istanze dell\'applicazione.');
+      reject(new Error('IndexedDB bloccato'));
+    };
   });
 };
 
@@ -379,7 +384,6 @@ export const useTrackStore = create<TrackState>()(
           const avgSpeed = durationHours > 0 ? currentTrack.distance / durationHours : 0;
           
           // Calcola l'altitudine media dai dati GPS raccolti
-          // Se non abbiamo dati di altitudine, utilizziamo un valore di fallback
           let totalAltitude = 0;
           let altitudePoints = 0;
           
@@ -442,7 +446,6 @@ export const useTrackStore = create<TrackState>()(
               
               const recentTracks = tracks
                 .filter(track => {
-                  // Assicuriamoci che startTime sia una data
                   const startTime = track.startTime instanceof Date ? 
                     track.startTime : new Date(track.startTime);
                   return startTime >= sevenDaysAgo;
@@ -451,7 +454,6 @@ export const useTrackStore = create<TrackState>()(
               
               // Verifica che tutti i ritrovamenti abbiano coordinate valide
               const validatedFindings = currentTrack.findings.map(finding => {
-                // Se le coordinate non sono valide, utilizza l'ultima posizione conosciuta
                 if (!finding.coordinates || finding.coordinates.some(isNaN)) {
                   console.warn(`Coordinate non valide per il ritrovamento ${finding.id}, utilizzo ultima posizione conosciuta`);
                   return {
@@ -472,18 +474,14 @@ export const useTrackStore = create<TrackState>()(
                 avgSpeed,
                 avgAltitude,
                 totalDistance: currentTrack.distance,
-                // Aggiungi metadati per lo storico
                 historyData: {
                   recentTracks: recentTracks.map(t => t.id),
                   lastUpdated: new Date().toISOString()
                 }
               };
               
-              // Aggiungiamo un log per verificare che la traccia venga salvata correttamente
               console.log('✅ Track stopped and saved successfully. Total tracks:', tracks.length + 1);
               
-              // Aggiorniamo lo stato con la nuova traccia completata
-              // Assicuriamoci che la traccia venga aggiunta all'array tracks
               const updatedTracks = [...tracks, completedTrack];
               
               set({
@@ -493,7 +491,7 @@ export const useTrackStore = create<TrackState>()(
                 loadedFindings: null
               });
               
-              // Salviamo direttamente in IndexedDB prima di tutto
+              // Salviamo direttamente in IndexedDB
               console.log('💾 Salvando dati direttamente in IndexedDB...');
               try {
                 await saveToIndexedDB('tracks', updatedTracks);
@@ -502,7 +500,7 @@ export const useTrackStore = create<TrackState>()(
                 console.error('❌ Errore nel salvataggio diretto in IndexedDB:', idbError);
               }
               
-              // Aggiorniamo lo stato di persist di Zustand per garantire la sincronizzazione
+              // Aggiorniamo lo stato di persist di Zustand
               try {
                 get().saveTracks();
               } catch (error) {
@@ -513,7 +511,7 @@ export const useTrackStore = create<TrackState>()(
               console.log('🧹 Pulizia dei dati temporanei...');
               try {
                 localStorage.removeItem('currentTrack');
-                const db = await openDB('tracksDB', 1);
+                const db = await initDB(); // Usa initDB invece di openDB
                 const tx = db.transaction('tracks', 'readwrite');
                 const store = tx.objectStore('tracks');
                 await store.delete('currentTrack');
@@ -527,7 +525,7 @@ export const useTrackStore = create<TrackState>()(
             } catch (error) {
               console.error('Errore durante il salvataggio della traccia:', error);
               
-              // Fallback in caso di errore: salva comunque la traccia con i dati disponibili
+              // Fallback in caso di errore
               const basicCompletedTrack: Track = {
                 ...currentTrack,
                 endTime,
@@ -537,7 +535,6 @@ export const useTrackStore = create<TrackState>()(
                 totalDistance: currentTrack.distance
               };
               
-              // Assicuriamoci che la traccia venga aggiunta all'array tracks anche in caso di errore
               const updatedTracks = [...tracks, basicCompletedTrack];
               
               set({
@@ -557,7 +554,6 @@ export const useTrackStore = create<TrackState>()(
             }
           };
           
-          // Avvia il processo di finalizzazione e restituisci una promessa
           return finalizeTrack();
         }
         return null;
