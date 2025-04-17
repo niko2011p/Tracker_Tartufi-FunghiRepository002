@@ -46,15 +46,15 @@ const STORE_NAME = 'tracks';
 // Funzione per inizializzare IndexedDB
 const initDB = () => {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open('tracksDB', 1);
     
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('tracks')) {
+        db.createObjectStore('tracks');
       }
     };
   });
@@ -168,45 +168,41 @@ const loadFromLocalStorage = (key: string): any => {
   }
 };
 
+// Funzione per salvare in IndexedDB
 const saveToIndexedDB = async (key: string, data: any) => {
   try {
+    const db = await initDB();
+    const tx = db.transaction('tracks', 'readwrite');
+    const store = tx.objectStore('tracks');
+    
     // Pre-processiamo i dati per assicurarci che siano serializzabili
     const processedData = JSON.parse(JSON.stringify(data, (key, value) => {
-      // Converti le date in ISO strings
       if (value instanceof Date) {
         return value.toISOString();
       }
       return value;
     }));
     
-    const db = await openDB('tracksDB', 1, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('tracks')) {
-          db.createObjectStore('tracks');
-        }
-      },
-    });
-
-    const tx = db.transaction('tracks', 'readwrite');
-    const store = tx.objectStore('tracks');
     await store.put(processedData, key);
     await tx.done;
-    console.log(`Dati salvati con successo in IndexedDB: ${key}`);
+    console.log(`✅ Dati salvati in IndexedDB: ${key}`);
   } catch (error) {
-    console.error('Errore nel salvataggio in IndexedDB:', error);
+    console.error('❌ Errore nel salvataggio in IndexedDB:', error);
+    throw error;
   }
 };
 
+// Funzione per caricare da IndexedDB
 const loadFromIndexedDB = async (key: string): Promise<any> => {
   try {
-    const db = await openDB('tracksDB', 1);
+    const db = await initDB();
     const tx = db.transaction('tracks', 'readonly');
     const store = tx.objectStore('tracks');
     const data = await store.get(key);
     await tx.done;
     return data;
   } catch (error) {
-    console.error('Errore nel caricamento da IndexedDB:', error);
+    console.error('❌ Errore nel caricamento da IndexedDB:', error);
     return null;
   }
 };
@@ -985,12 +981,10 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
       onRehydrateStorage: (state) => {
         return (rehydratedState, error) => {
           if (error) {
-            console.error('Error during rehydration:', error);
-          } else {
-            console.log('Rehydration complete, recovered state:', rehydratedState);
-            if (rehydratedState) {
-              set(rehydratedState);
-            }
+            console.error('❌ Errore durante la reidratazione:', error);
+          } else if (rehydratedState) {
+            console.log('✅ Reidratazione completata:', rehydratedState);
+            set(rehydratedState);
           }
         };
       },
@@ -999,78 +993,53 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           console.log(`🔄 Tentativo di recupero dati da storage per ${name}...`);
           try {
             // Prima prova a recuperare da IndexedDB
-            const db = await openDB('tracksDB', 1);
-            const tx = db.transaction('tracks', 'readonly');
-            const store = tx.objectStore('tracks');
-            const tracksFromDB = await store.get('tracks');
-            await tx.done;
-            
-            if (tracksFromDB && Array.isArray(tracksFromDB)) {
-              console.log(`✅ Recuperate ${tracksFromDB.length} tracce da IndexedDB`);
-              return JSON.stringify({
-                state: {
-                  tracks: tracksFromDB,
-                  currentTrack: null,
-          loadedFindings: null
-                }
-              });
+            const data = await loadFromIndexedDB(name);
+            if (data) {
+              console.log(`✅ Dati recuperati da IndexedDB per ${name}`);
+              return JSON.stringify({ state: data });
             }
             
             // Fallback su localStorage
-            console.log('Nessun dato trovato in IndexedDB, controllo localStorage...');
             const persistedData = localStorage.getItem(name);
             if (persistedData) {
-              try {
-                // Se troviamo dati in localStorage, li salviamo anche in IndexedDB
-                const parsed = JSON.parse(persistedData);
-                if (parsed.state && parsed.state.tracks) {
-                  console.log(`🔄 Migrazione ${parsed.state.tracks.length} tracce da localStorage a IndexedDB`);
-                  await saveToIndexedDB('tracks', parsed.state.tracks);
-                }
-                return persistedData;
-              } catch (e) {
-                console.error('Errore nel parsing dei dati da localStorage', e);
-              }
+              console.log(`✅ Dati recuperati da localStorage per ${name}`);
+              return persistedData;
             }
             
             console.log('❌ Nessun dato trovato');
             return null;
           } catch (error) {
-            console.error('Errore critico nel recupero dei dati:', error);
+            console.error('❌ Errore critico nel recupero dei dati:', error);
             return null;
           }
         },
         setItem: async (name, value) => {
           console.log(`🔄 Salvataggio dati in storage per ${name}...`);
           try {
-            // Salva in localStorage per compatibilità
+            // Salva in localStorage
             localStorage.setItem(name, value);
             
             // Salva anche in IndexedDB
-            try {
-              const parsed = JSON.parse(value);
-              if (parsed.state && parsed.state.tracks) {
-                await saveToIndexedDB('tracks', parsed.state.tracks);
-                console.log(`🔄 Salvate ${parsed.state.tracks.length} tracce in IndexedDB`);
-              }
-            } catch (e) {
-              console.error('Errore nel salvataggio su IndexedDB', e);
+            const parsed = JSON.parse(value);
+            if (parsed.state) {
+              await saveToIndexedDB(name, parsed.state);
+              console.log(`✅ Dati salvati in IndexedDB per ${name}`);
             }
           } catch (error) {
-            console.error('Errore nel salvataggio dei dati:', error);
+            console.error('❌ Errore nel salvataggio dei dati:', error);
           }
         },
         removeItem: async (name) => {
           try {
             localStorage.removeItem(name);
-            const db = await openDB('tracksDB', 1);
+            const db = await initDB();
             const tx = db.transaction('tracks', 'readwrite');
             const store = tx.objectStore('tracks');
-            await store.delete('tracks');
+            await store.delete(name);
             await tx.done;
-            console.log('Dati rimossi da localStorage e IndexedDB');
+            console.log(`✅ Dati rimossi da storage per ${name}`);
           } catch (error) {
-            console.error('Errore nella rimozione dei dati:', error);
+            console.error('❌ Errore nella rimozione dei dati:', error);
           }
         }
       }
