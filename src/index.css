@@ -304,16 +304,16 @@ img {
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
 
-.fungo-icon {
-  background-image: url('/assets/icons/mushroom-tag-icon.svg');
+.finding-icon-mushroom, .mushroom-icon {
+  background-image: url('./assets/icons/mushroom-tag-icon.svg');
 }
 
-.tartufo-icon {
-  background-image: url('/assets/icons/Truffle-tag-icon.svg');
+.finding-icon-tartufo, .truffle-icon {
+  background-image: url('./assets/icons/Truffle-tag-icon.svg');
 }
 
-.poi-icon {
-  background-image: url('/assets/icons/point-of-interest-tag-icon.svg');
+.finding-icon-poi, .poi-icon {
+  background-image: url('./assets/icons/point-of-interest-tag-icon.svg');
 }
 
 .finding-pulse {

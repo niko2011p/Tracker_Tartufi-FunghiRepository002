@@ -4,9 +4,7 @@ import { useTrackStore } from '../store/trackStore';
 import { species } from '../data/species';
 import '../styles/FindingForm.css'; // Make sure this CSS file exists
 
-// Define icon URLs as constants - using relative paths that match CSS
-const mushroomIconUrl = 'src/assets/icons/mushroom-tag-icon.svg';
-const truffleIconUrl = 'src/assets/icons/truffle-tag-icon.svg';
+// No need to define icon URLs here - they're handled by CSS classes
 
 export interface FindingFormProps {
   onClose: () => void;
@@ -77,7 +75,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
       }
       
       // Aggiungi un feedback audio
-      const audio = new Audio('/sound/alert.mp3');
+      const audio = new Audio('./sound/alert.mp3');
       audio.volume = 0.3;
       audio.play().catch(console.error);
       
