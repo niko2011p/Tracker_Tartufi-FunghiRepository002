@@ -13,39 +13,44 @@
 }
 
 .marker-icon {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
 }
 
-.marker-fungo .marker-icon {
+.fungo-marker .marker-icon {
   background-image: url('/assets/icons/mushroom-tag-icon.svg');
 }
 
-.marker-tartufo .marker-icon {
+.tartufo-marker .marker-icon {
   background-image: url('/assets/icons/Truffle-tag-icon.svg');
 }
 
-.marker-poi .marker-icon {
+.point-of-interest-marker .marker-icon {
   background-image: url('/assets/icons/point-of-interest-tag-icon.svg');
 }
 
 .finding-popup {
   padding: 8px;
-  text-align: center;
+  min-width: 200px;
 }
 
 .finding-popup h3 {
   margin: 0 0 4px 0;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .finding-popup p {
-  margin: 0;
-  font-size: 12px;
+  margin: 0 0 4px 0;
+  font-size: 14px;
+}
+
+.finding-popup small {
   color: #666;
+  font-size: 12px;
 }
 
 /* Pulse animation for markers */
