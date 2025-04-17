@@ -283,6 +283,133 @@ const loadFromIndexedDB = async (key: string): Promise<any> => {
   }
 };
 
+// Custom storage implementation for Zustand persist
+const createCustomStorage = () => {
+  const storage = {
+    getItem: async (name: string): Promise<string | null> => {
+      try {
+        // Try IndexedDB first
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open('tracksDB', 2);
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result);
+          request.onupgradeneeded = (event) => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains('tracks')) {
+              db.createObjectStore('tracks');
+            }
+          };
+        });
+
+        const transaction = db.transaction('tracks', 'readonly');
+        const store = transaction.objectStore('tracks');
+        const request = store.get(name);
+
+        return new Promise((resolve, reject) => {
+          request.onsuccess = () => {
+            const data = request.result;
+            if (data) {
+              // Convert date strings back to Date objects
+              const parsedData = JSON.parse(data, (key, value) => {
+                if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+                  return new Date(value);
+                }
+                return value;
+              });
+              resolve(JSON.stringify(parsedData));
+            } else {
+              // Fallback to localStorage
+              const localStorageData = localStorage.getItem(name);
+              if (localStorageData) {
+                const parsedData = JSON.parse(localStorageData, (key, value) => {
+                  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+                    return new Date(value);
+                  }
+                  return value;
+                });
+                resolve(JSON.stringify(parsedData));
+              }
+              resolve(null);
+            }
+          };
+          request.onerror = () => reject(request.error);
+        });
+      } catch (error) {
+        console.error('Error loading from IndexedDB:', error);
+        // Fallback to localStorage
+        return localStorage.getItem(name);
+      }
+    },
+    setItem: async (name: string, value: string): Promise<void> => {
+      try {
+        // Convert Date objects to strings before saving
+        const data = JSON.parse(value, (key, value) => {
+          if (value instanceof Date) {
+            return value.toISOString();
+          }
+          return value;
+        });
+
+        // Save to IndexedDB
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open('tracksDB', 2);
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result);
+          request.onupgradeneeded = (event) => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains('tracks')) {
+              db.createObjectStore('tracks');
+            }
+          };
+        });
+
+        const transaction = db.transaction('tracks', 'readwrite');
+        const store = transaction.objectStore('tracks');
+        await new Promise<void>((resolve, reject) => {
+          const request = store.put(JSON.stringify(data), name);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+
+        // Backup to localStorage
+        localStorage.setItem(name, JSON.stringify(data));
+      } catch (error) {
+        console.error('Error saving to IndexedDB:', error);
+        // Fallback to localStorage
+        localStorage.setItem(name, value);
+      }
+    },
+    removeItem: async (name: string): Promise<void> => {
+      try {
+        // Remove from IndexedDB
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open('tracksDB', 2);
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result);
+        });
+
+        const transaction = db.transaction('tracks', 'readwrite');
+        const store = transaction.objectStore('tracks');
+        await new Promise<void>((resolve, reject) => {
+          const request = store.delete(name);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+
+        // Remove from localStorage
+        localStorage.removeItem(name);
+      } catch (error) {
+        console.error('Error removing from IndexedDB:', error);
+        // Fallback to localStorage
+        localStorage.removeItem(name);
+      }
+    }
+  };
+
+  return storage;
+};
+
+// Create the store with custom storage
 export const useTrackStore = create<TrackState>()(
   persist(
     (set, get) => ({
@@ -1039,104 +1166,27 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
     }),
     {
       name: 'tracks-storage',
+      storage: createCustomStorage(),
       partialize: (state) => ({
-        tracks: state.tracks,
-        currentTrack: state.currentTrack,
-        loadedFindings: state.loadedFindings
-      }),
-      storage: {
-        getItem: async (name) => {
-          console.log(`🔄 Recupero dati da storage per ${name}...`);
-          try {
-            // Prima prova a caricare da IndexedDB
-            const data = await loadFromIndexedDB(name);
-            if (data) {
-              console.log('📦 Dati recuperati da IndexedDB:', data);
-              return JSON.stringify({
-                state: {
-                  ...data.state,
-                  tracks: Array.isArray(data.state?.tracks) ? data.state.tracks : []
-                },
-                version: 0
-              });
-            }
-
-            // Fallback su localStorage
-            const localData = localStorage.getItem(name);
-            if (localData) {
-              console.log('📦 Dati recuperati da localStorage');
-              return localData;
-            }
-
-            console.log('❌ Nessun dato trovato');
-            return null;
-          } catch (error) {
-            console.error('❌ Errore nel recupero dei dati:', error);
-            return null;
-          }
-        },
-        setItem: async (name, valueStr) => {
-          console.log(`💾 Salvataggio dati per ${name}...`);
-          try {
-            let dataToStore;
-            try {
-              dataToStore = JSON.parse(valueStr);
-              console.log('📦 Dati da salvare:', dataToStore);
-            } catch (e) {
-              console.warn('⚠️ Errore nel parsing JSON, uso valore originale');
-              dataToStore = valueStr;
-            }
-
-            // Assicurati che i dati siano in un formato valido
-            if (dataToStore?.state) {
-              // Salva in IndexedDB
-              await saveToIndexedDB(name, {
-                ...dataToStore,
-                state: {
-                  ...dataToStore.state,
-                  tracks: Array.isArray(dataToStore.state.tracks) ? dataToStore.state.tracks : []
-                }
-              });
-
-              // Backup in localStorage (solo se i dati non sono troppo grandi)
-              try {
-                const serialized = JSON.stringify(dataToStore);
-                if (serialized.length < 5000000) { // ~5MB limit
-                  localStorage.setItem(name, serialized);
-                }
-              } catch (e) {
-                console.warn('⚠️ Fallback su localStorage non riuscito:', e);
-              }
-            }
-          } catch (error) {
-            console.error('❌ Errore nel salvataggio dei dati:', error);
-          }
-        },
-        removeItem: async (name) => {
-          try {
-            localStorage.removeItem(name);
-            const db = await initDB();
-            const tx = db.transaction(['state', 'tracks'], 'readwrite');
-            await Promise.all([
-              tx.objectStore('state').delete(name),
-              tx.objectStore('tracks').clear()
-            ]);
-            await tx.done;
-            console.log(`✅ Dati rimossi per ${name}`);
-          } catch (error) {
-            console.error('❌ Errore nella rimozione dei dati:', error);
-          }
-        }
-      },
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          console.log('✅ Stato reidratato:', state);
-          // Forza il caricamento delle tracce
-          setTimeout(() => {
-            useTrackStore.getState().loadTracks();
-          }, 0);
-        }
-      }
+        tracks: state.tracks.map(track => ({
+          ...track,
+          startTime: track.startTime instanceof Date ? track.startTime.toISOString() : track.startTime,
+          endTime: track.endTime instanceof Date ? track.endTime.toISOString() : track.endTime,
+          findings: track.findings.map(finding => ({
+            ...finding,
+            timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
+          }))
+        })),
+        currentTrack: state.currentTrack ? {
+          ...state.currentTrack,
+          startTime: state.currentTrack.startTime instanceof Date ? state.currentTrack.startTime.toISOString() : state.currentTrack.startTime,
+          endTime: state.currentTrack.endTime instanceof Date ? state.currentTrack.endTime.toISOString() : state.currentTrack.endTime,
+          findings: state.currentTrack.findings.map(finding => ({
+            ...finding,
+            timestamp: finding.timestamp instanceof Date ? finding.timestamp.toISOString() : finding.timestamp
+          }))
+        } : null
+      })
     }
   )
 );

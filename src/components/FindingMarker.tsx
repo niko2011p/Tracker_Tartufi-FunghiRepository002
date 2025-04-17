@@ -3,6 +3,18 @@ import L from 'leaflet';
 import { Finding } from '../types';
 import './FindingMarker.css';
 
+// Import SVG icons
+import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+import poiIconUrl from '../assets/icons/point-of-interest-tag-icon.svg';
+
+// Log imported icon URLs
+console.log('🔍 Imported Icon URLs:', {
+  mushroom: mushroomIconUrl,
+  truffle: truffleIconUrl,
+  poi: poiIconUrl
+});
+
 interface FindingMarkerProps {
   finding: Finding;
   map: L.Map;
@@ -17,12 +29,12 @@ const markerColors = {
 
 // Funzione createFindingIcon aggiornata con LOG
 const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean = false) => {
-  // Use absolute paths for icons
+  // Use imported SVG URLs
   const iconUrl = type === 'Fungo'
-    ? `${window.location.origin}/assets/icons/mushroom-tag-icon.svg`
+    ? mushroomIconUrl
     : type === 'Tartufo'
-      ? `${window.location.origin}/assets/icons/Truffle-tag-icon.svg`
-      : `${window.location.origin}/assets/icons/point-of-interest-tag-icon.svg`;
+      ? truffleIconUrl
+      : poiIconUrl;
 
   // Enhanced debug logging
   console.group(`[createFindingIcon] Debug Session - ${new Date().toISOString()}`);
