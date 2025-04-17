@@ -14,6 +14,7 @@ import GpsStatusIndicator from './GpsStatusIndicator';
 import CompassIndicator from './CompassIndicator';
 import TrackingDataPanel from './TrackingDataPanel';
 import { useLocation } from 'react-router-dom';
+import { createFindingMarker } from './FindingMarker';
 
 // Constants from Map.tsx
 const MIN_ZOOM = 4;
@@ -565,71 +566,17 @@ const NavigationPage: React.FC = () => {
               />
               {/* Display findings markers */}
               {currentTrack?.findings.map((finding) => {
-                if (!finding.coordinates) return null;
-                
-                console.log('Rendering finding:', finding); // Debug log
-                
-                const iconUrl = finding.type === 'Fungo' 
-                  ? '/icon/mushroom-tag-icon.svg'
-                  : '/icon/Truffle-tag-icon.svg';
-
-                const iconHtml = `
-                  <div class="finding-marker" style="
-                    width: 40px;
-                    height: 40px;
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background-color: ${finding.type === 'Fungo' ? 'rgba(142, 170, 54, 0.9)' : 'rgba(139, 69, 19, 0.9)'};
-                    border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
-                    border-radius: 50%;
-                    animation: pulse 2s infinite;
-                  ">
-                    <div style="
-                      width: 32px;
-                      height: 32px;
-                      position: relative;
-                      mask-image: url(${iconUrl});
-                      -webkit-mask-image: url(${iconUrl});
-                      mask-size: contain;
-                      -webkit-mask-size: contain;
-                      mask-repeat: no-repeat;
-                      -webkit-mask-repeat: no-repeat;
-                      mask-position: center;
-                      -webkit-mask-position: center;
-                      background-color: white;
-                      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-                    "></div>
-                  </div>
-                  <style>
-                    @keyframes pulse {
-                      0% {
-                        transform: scale(1);
-                        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7);
-                      }
-                      70% {
-                        transform: scale(1.05);
-                        box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
-                      }
-                      100% {
-                        transform: scale(1);
-                        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
-                      }
-                    }
-                  </style>
-                `;
+                console.log('📍 Rendering finding:', finding);
+                if (!finding.coordinates) {
+                  console.warn('⚠️ Finding without coordinates:', finding);
+                  return null;
+                }
 
                 return (
                   <Marker
                     key={finding.id}
                     position={finding.coordinates}
-                    icon={L.divIcon({
-                      html: iconHtml,
-                      className: 'finding-icon',
-                      iconSize: [40, 40],
-                      iconAnchor: [20, 20]
-                    })}
+                    icon={createFindingMarker(finding)}
                   >
                     <Popup>
                       <div className="p-2">

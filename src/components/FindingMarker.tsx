@@ -137,4 +137,76 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-export default FindingMarker; 
+export default FindingMarker;
+
+export const createFindingMarker = (finding: Finding) => {
+  const iconUrl = finding.type === 'Fungo' 
+    ? '/icon/mushroom-tag-icon.svg'
+    : '/icon/Truffle-tag-icon.svg';
+
+  console.log(`🎯 Creating marker for ${finding.type} with icon: ${iconUrl}`);
+
+  const iconHtml = `
+    <div class="finding-marker" style="
+      width: 40px;
+      height: 40px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: ${finding.type === 'Fungo' ? 'rgba(142, 170, 54, 0.9)' : 'rgba(139, 69, 19, 0.9)'};
+      border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    ">
+      <div style="
+        width: 32px;
+        height: 32px;
+        position: relative;
+        mask-image: url(${iconUrl});
+        -webkit-mask-image: url(${iconUrl});
+        mask-size: contain;
+        -webkit-mask-size: contain;
+        mask-repeat: no-repeat;
+        -webkit-mask-repeat: no-repeat;
+        mask-position: center;
+        -webkit-mask-position: center;
+        background-color: white;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      "></div>
+    </div>
+    <style>
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7);
+        }
+        70% {
+          transform: scale(1.05);
+          box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
+        }
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+        }
+      }
+    </style>
+  `;
+
+  // Log per debug
+  console.log('Generated HTML:', iconHtml);
+
+  // Test di caricamento dell'immagine
+  const img = new Image();
+  img.onload = () => console.log(`✅ Icon loaded successfully: ${iconUrl}`);
+  img.onerror = (e) => console.error(`❌ Failed to load icon: ${iconUrl}`, e);
+  img.src = iconUrl;
+
+  return L.divIcon({
+    html: iconHtml,
+    className: 'finding-icon',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20]
+  });
+}; 
