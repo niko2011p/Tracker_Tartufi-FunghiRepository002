@@ -13,15 +13,23 @@
 }
 
 .marker-icon {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
-  transition: transform 0.2s ease;
+  width: 32px;
+  height: 32px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
-.marker-icon:hover {
-  transform: scale(1.2);
+.marker-fungo .marker-icon {
+  background-image: url('/assets/icons/mushroom-tag-icon.svg');
+}
+
+.marker-tartufo .marker-icon {
+  background-image: url('/assets/icons/Truffle-tag-icon.svg');
+}
+
+.marker-poi .marker-icon {
+  background-image: url('/assets/icons/point-of-interest-tag-icon.svg');
 }
 
 .finding-popup {
@@ -32,7 +40,6 @@
 .finding-popup h3 {
   margin: 0 0 4px 0;
   font-size: 14px;
-  color: #333;
 }
 
 .finding-popup p {
