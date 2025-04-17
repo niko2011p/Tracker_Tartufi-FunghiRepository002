@@ -49,10 +49,6 @@ jobs:
         uses: actions/deploy-pages@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: gh-pages
-          folder: dist
-          clean: true
-          clean-exclude: |
-            .git
-            .github
-          single-commit: true
+          timeout: 600000
+          error_count: 3
+          reporting_interval: 10000
