@@ -24,10 +24,15 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
       ? `${window.location.origin}/assets/icons/Truffle-tag-icon.svg`
       : `${window.location.origin}/assets/icons/point-of-interest-tag-icon.svg`;
 
-  // Debug logging with full URL information
-  console.log(`[createFindingIcon] Debug Info:`, {
+  // Enhanced debug logging
+  console.group(`[createFindingIcon] Debug Session - ${new Date().toISOString()}`);
+  console.log('🔍 Basic Information:', {
     type,
     isLoaded,
+    timestamp: new Date().toISOString()
+  });
+
+  console.log('🌐 URL Analysis:', {
     iconUrl,
     iconUrlType: typeof iconUrl,
     iconUrlExists: !!iconUrl,
@@ -35,7 +40,8 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
     iconUrlStartsWith: iconUrl?.startsWith('http'),
     iconUrlEndsWith: iconUrl?.endsWith('.svg'),
     baseUrl: window.location.origin,
-    currentPath: window.location.pathname
+    currentPath: window.location.pathname,
+    fullUrl: iconUrl
   });
 
   // Preload the icon image
@@ -44,13 +50,17 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
 
   return new Promise<L.DivIcon>((resolve) => {
     preloadIcon.onload = () => {
-      console.log(`[createFindingIcon] Icon loaded successfully:`, {
+      console.log('✅ Icon Load Success:', {
         type,
         iconUrl,
         dimensions: {
           width: preloadIcon.width,
-          height: preloadIcon.height
-        }
+          height: preloadIcon.height,
+          naturalWidth: preloadIcon.naturalWidth,
+          naturalHeight: preloadIcon.naturalHeight
+        },
+        loadTime: performance.now(),
+        complete: preloadIcon.complete
       });
 
       resolve(new L.DivIcon({
@@ -66,7 +76,9 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
                 console.error('[createFindingIcon] Image Load Error:', {
                   src: e.target.src,
                   type: '${type}',
-                  timestamp: new Date().toISOString()
+                  timestamp: new Date().toISOString(),
+                  error: e.target.error,
+                  status: e.target.status
                 });
                 e.target.style.display = 'none';
                 e.target.parentElement.style.backgroundColor = '${markerColors[type] || '#ff0000'}';
@@ -81,11 +93,19 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
       }));
     };
 
-    preloadIcon.onerror = () => {
-      console.error(`[createFindingIcon] Failed to preload icon:`, {
+    preloadIcon.onerror = (error) => {
+      console.error('❌ Icon Load Failure:', {
         type,
         iconUrl,
-        error: 'Image failed to load'
+        error: error,
+        timestamp: new Date().toISOString(),
+        errorEvent: {
+          type: error.type,
+          message: error.message,
+          filename: error.filename,
+          lineno: error.lineno,
+          colno: error.colno
+        }
       });
 
       // Return fallback marker
@@ -112,6 +132,8 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
         iconAnchor: [12, 12]
       }));
     };
+  }).finally(() => {
+    console.groupEnd();
   });
 };
 
@@ -121,22 +143,38 @@ export const FindingMarker = ({ finding, map }: FindingMarkerProps) => {
   useEffect(() => {
     if (!finding.position || !map) return;
 
-    // Validate coordinates
+    // Enhanced coordinate validation logging
+    console.group(`[FindingMarker] Marker Creation - ${finding.id}`);
+    console.log('📍 Coordinate Validation:', {
+      position: finding.position,
+      isValidArray: Array.isArray(finding.position),
+      arrayLength: finding.position?.length,
+      lat: finding.position[0],
+      lng: finding.position[1],
+      latType: typeof finding.position[0],
+      lngType: typeof finding.position[1],
+      latIsNaN: isNaN(finding.position[0]),
+      lngIsNaN: isNaN(finding.position[1])
+    });
+
     if (!Array.isArray(finding.position) || finding.position.length !== 2) {
-      console.error('Invalid coordinates format:', finding.position);
+      console.error('❌ Invalid coordinates format:', finding.position);
+      console.groupEnd();
       return;
     }
 
     const [lat, lng] = finding.position;
     if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
-      console.error('Invalid coordinate values:', { lat, lng });
+      console.error('❌ Invalid coordinate values:', { lat, lng });
+      console.groupEnd();
       return;
     }
 
-    console.log('Creating marker for finding:', {
+    console.log('🎯 Marker Creation:', {
       id: finding.id,
       type: finding.type,
-      coordinates: finding.position
+      coordinates: finding.position,
+      timestamp: new Date().toISOString()
     });
 
     // Create marker with async icon loading
@@ -155,28 +193,31 @@ export const FindingMarker = ({ finding, map }: FindingMarkerProps) => {
       // Add to map
       marker.addTo(map);
 
-      // Verify marker position
+      // Enhanced position verification
       const actualPos = marker.getLatLng();
-      console.log('Marker position verification:', {
+      console.log('📐 Position Verification:', {
         intended: { lat, lng },
         actual: actualPos,
         difference: {
           lat: Math.abs(actualPos.lat - lat),
           lng: Math.abs(actualPos.lng - lng)
-        }
+        },
+        verificationTime: new Date().toISOString()
       });
     });
 
     return () => {
-      console.log('Cleaning up marker:', {
+      console.log('🧹 Cleanup:', {
         id: finding.id,
         type: finding.type,
-        position: finding.position
+        position: finding.position,
+        cleanupTime: new Date().toISOString()
       });
       if (markerRef.current) {
         markerRef.current.remove();
         markerRef.current = null;
       }
+      console.groupEnd();
     };
   }, [finding, map]);
 
