@@ -2,35 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Finding } from '../types';
 
-// Define static paths for icons
-const ICON_PATHS = {
-  mushroom: '/assets/icons/mushroom-tag-icon.svg',
-  truffle: '/assets/icons/Truffle-tag-icon.svg',
-  poi: '/assets/icons/point-of-interest-tag-icon.svg'
-} as const;
-
-// Create native icon instances
-const mushroomIcon = L.icon({
-  iconUrl: ICON_PATHS.mushroom,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16]
-});
-
-const truffleIcon = L.icon({
-  iconUrl: ICON_PATHS.truffle,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16]
-});
-
-const poiIcon = L.icon({
-  iconUrl: ICON_PATHS.poi,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16]
-});
-
 interface FindingMarkerProps {
   finding: Finding;
   map: L.Map;
@@ -51,14 +22,23 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
       return;
     }
 
-    // Select icon based on finding type
-    const icon = finding.type === 'Fungo' 
-      ? mushroomIcon 
-      : finding.type === 'Tartufo'
-        ? truffleIcon
-        : poiIcon;
+    // Create custom icon using CSS classes
+    const iconHtml = `
+      <div class="finding-marker ${finding.type.toLowerCase()}-finding">
+        <div class="finding-pulse"></div>
+        <div class="finding-icon-wrapper">
+          <div class="finding-icon ${finding.type.toLowerCase()}-icon"></div>
+        </div>
+      </div>
+    `;
 
-    console.log('[DEBUG] Creating marker for', finding.type, 'at', [lat, lng], 'with icon:', icon.options.iconUrl);
+    const icon = L.divIcon({
+      html: iconHtml,
+      className: `finding-marker-container ${finding.type.toLowerCase()}-container`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20]
+    });
 
     // Create marker
     const marker = L.marker([lat, lng], { icon });
@@ -91,12 +71,20 @@ export default FindingMarker;
 
 // Utility function to create a finding marker
 export const createFindingMarker = (finding: Finding): L.Icon => {
-  const icon = finding.type === 'Fungo' 
-    ? mushroomIcon 
-    : finding.type === 'Tartufo'
-      ? truffleIcon
-      : poiIcon;
+  const iconHtml = `
+    <div class="finding-marker ${finding.type.toLowerCase()}-finding">
+      <div class="finding-pulse"></div>
+      <div class="finding-icon-wrapper">
+        <div class="finding-icon ${finding.type.toLowerCase()}-icon"></div>
+      </div>
+    </div>
+  `;
 
-  console.log('[DEBUG] Selected icon for', finding.type, ':', icon.options.iconUrl);
-  return icon;
+  return L.divIcon({
+    html: iconHtml,
+    className: `finding-marker-container ${finding.type.toLowerCase()}-container`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20]
+  });
 }; 
