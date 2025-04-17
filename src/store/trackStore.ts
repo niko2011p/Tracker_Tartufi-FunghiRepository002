@@ -915,7 +915,17 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           const stateData = await loadFromIndexedDB('tracks-storage');
           if (stateData?.state?.tracks?.length > 0) {
             console.log(`✅ Caricate ${stateData.state.tracks.length} tracce da IndexedDB`);
-            set({ tracks: stateData.state.tracks });
+            // Converti le date da string a Date
+            const tracks = stateData.state.tracks.map(track => ({
+              ...track,
+              startTime: new Date(track.startTime),
+              endTime: track.endTime ? new Date(track.endTime) : undefined,
+              findings: track.findings.map(finding => ({
+                ...finding,
+                timestamp: new Date(finding.timestamp)
+              }))
+            }));
+            set({ tracks });
             return;
           }
           
@@ -926,9 +936,19 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
               const parsed = JSON.parse(localData);
               if (parsed.state?.tracks?.length > 0) {
                 console.log(`✅ Caricate ${parsed.state.tracks.length} tracce da localStorage`);
-                set({ tracks: parsed.state.tracks });
+                // Converti le date da string a Date
+                const tracks = parsed.state.tracks.map(track => ({
+                  ...track,
+                  startTime: new Date(track.startTime),
+                  endTime: track.endTime ? new Date(track.endTime) : undefined,
+                  findings: track.findings.map(finding => ({
+                    ...finding,
+                    timestamp: new Date(finding.timestamp)
+                  }))
+                }));
+                set({ tracks });
                 // Salva anche in IndexedDB per il futuro
-                await saveToIndexedDB('tracks-storage', parsed);
+                await saveToIndexedDB('tracks-storage', { state: { tracks } });
                 return;
               }
             } catch (e) {
