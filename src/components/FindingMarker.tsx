@@ -7,32 +7,32 @@ import poiIconUrl from '../assets/icons/point-of-interest-tag-icon.svg?url';
 import './FindingMarker.css';
 import 'leaflet/dist/leaflet.css';
 
-interface FindingMarkerProps {
-  finding: Finding;
-  map: L.Map;
-}
-
-// Create icon instances
+// Create native icon instances
 const mushroomIcon = L.icon({
   iconUrl: mushroomIconUrl,
   iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32]
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16]
 });
 
 const truffleIcon = L.icon({
   iconUrl: truffleIconUrl,
   iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32]
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16]
 });
 
 const poiIcon = L.icon({
   iconUrl: poiIconUrl,
   iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32]
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16]
 });
+
+interface FindingMarkerProps {
+  finding: Finding;
+  map: L.Map;
+}
 
 const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
   const markerRef = useRef<L.Marker | null>(null);
