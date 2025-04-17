@@ -47,7 +47,7 @@ const STORE_NAME = 'tracks';
 const initDB = async () => {
   console.log('🔄 Inizializzazione IndexedDB...');
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open('tracksDB', 1);
+    const request = indexedDB.open('tracksDB', 2); // Incremento versione per forzare l'upgrade
     
     request.onerror = () => {
       console.error('❌ Errore apertura IndexedDB:', request.error);
@@ -62,14 +62,21 @@ const initDB = async () => {
     request.onupgradeneeded = (event) => {
       console.log('🔄 Aggiornamento schema IndexedDB...');
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('tracks')) {
-        db.createObjectStore('tracks', { keyPath: 'id' });
-        console.log('✅ Store "tracks" creato');
+      
+      // Elimina gli store esistenti se presenti
+      if (db.objectStoreNames.contains('tracks')) {
+        db.deleteObjectStore('tracks');
       }
-      if (!db.objectStoreNames.contains('state')) {
-        db.createObjectStore('state');
-        console.log('✅ Store "state" creato');
+      if (db.objectStoreNames.contains('state')) {
+        db.deleteObjectStore('state');
       }
+      
+      // Crea gli store con la configurazione corretta
+      db.createObjectStore('tracks', { keyPath: 'id' });
+      console.log('✅ Store "tracks" creato');
+      
+      db.createObjectStore('state');
+      console.log('✅ Store "state" creato');
     };
   });
 };
@@ -188,7 +195,8 @@ const saveToIndexedDB = async (key: string, data: any) => {
   try {
     const db = await initDB();
     const tx = db.transaction(['state', 'tracks'], 'readwrite');
-    const store = tx.objectStore('state');
+    const stateStore = tx.objectStore('state');
+    const tracksStore = tx.objectStore('tracks');
     
     // Pre-processiamo i dati per assicurarci che siano serializzabili
     const processedData = JSON.parse(JSON.stringify(data, (key, value) => {
@@ -198,12 +206,28 @@ const saveToIndexedDB = async (key: string, data: any) => {
       return value;
     }));
     
-    await store.put(processedData, key);
+    if (key === 'tracks-storage') {
+      await stateStore.put(processedData, key);
+    } else if (key === 'tracks') {
+      // Se stiamo salvando le tracce, le salviamo una per una usando l'id come chiave
+      if (Array.isArray(processedData)) {
+        for (const track of processedData) {
+          await tracksStore.put(track);
+        }
+      }
+    }
+    
     await tx.done;
     console.log(`✅ Dati salvati in IndexedDB per ${key}`);
   } catch (error) {
     console.error('❌ Errore nel salvataggio in IndexedDB:', error);
-    throw error;
+    // Fallback su localStorage
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+      console.log(`✅ Dati salvati in localStorage come fallback per ${key}`);
+    } catch (lsError) {
+      console.error('❌ Errore anche nel fallback su localStorage:', lsError);
+    }
   }
 };
 
@@ -213,19 +237,44 @@ const loadFromIndexedDB = async (key: string): Promise<any> => {
   try {
     const db = await initDB();
     const tx = db.transaction(['state', 'tracks'], 'readonly');
-    const store = tx.objectStore('state');
-    const data = await store.get(key);
+    const stateStore = tx.objectStore('state');
+    const tracksStore = tx.objectStore('tracks');
+    
+    let data;
+    if (key === 'tracks-storage') {
+      data = await stateStore.get(key);
+    } else if (key === 'tracks') {
+      data = await tracksStore.getAll();
+    }
+    
     await tx.done;
     
     if (data) {
       console.log(`✅ Dati caricati da IndexedDB per ${key}`);
       return data;
-    } else {
-      console.log(`ℹ️ Nessun dato trovato in IndexedDB per ${key}`);
-      return null;
     }
+    
+    // Fallback su localStorage
+    const localData = localStorage.getItem(key);
+    if (localData) {
+      console.log(`✅ Dati caricati da localStorage come fallback per ${key}`);
+      return JSON.parse(localData);
+    }
+    
+    console.log(`ℹ️ Nessun dato trovato per ${key}`);
+    return null;
   } catch (error) {
     console.error('❌ Errore nel caricamento da IndexedDB:', error);
+    // Fallback su localStorage
+    try {
+      const localData = localStorage.getItem(key);
+      if (localData) {
+        console.log(`✅ Dati caricati da localStorage come fallback per ${key}`);
+        return JSON.parse(localData);
+      }
+    } catch (lsError) {
+      console.error('❌ Errore anche nel fallback su localStorage:', lsError);
+    }
     return null;
   }
 };
@@ -1012,7 +1061,10 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
 // Funzione per creare un marker personalizzato
 const createCustomMarker = (finding: Finding) => {
   // Determina l'icona in base al tipo
-  const iconUrl = `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+  const iconUrl = finding.type === 'Fungo' ? 
+    '/icon/mushroom-tag-icon.svg' : 
+    '/icon/Truffle-tag-icon.svg';
+  
   console.log(`🎯 Creazione marker per ${finding.type} con icona: ${iconUrl}`);
 
   const iconHtml = `
@@ -1023,6 +1075,9 @@ const createCustomMarker = (finding: Finding) => {
       display: flex;
       justify-content: center;
       align-items: center;
+      background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+      border-radius: 50%;
+      border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
     ">
       <div class="finding-pulse" style="
         position: absolute;
@@ -1032,19 +1087,17 @@ const createCustomMarker = (finding: Finding) => {
         background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
         animation: pulse 2s infinite;
       "></div>
-      <img 
-        src="${iconUrl}" 
-        style="
-          width: 32px;
-          height: 32px;
-          position: relative;
-          z-index: 1000;
-          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-        "
-        alt="${finding.type}"
-        onerror="console.error('❌ Errore caricamento icona:', this.src)"
-        onload="console.log('✅ Icona caricata:', this.src)"
-      />
+      <div style="
+        width: 32px;
+        height: 32px;
+        position: relative;
+        z-index: 1000;
+        background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+        mask: url(${iconUrl}) no-repeat center;
+        -webkit-mask: url(${iconUrl}) no-repeat center;
+        mask-size: contain;
+        -webkit-mask-size: contain;
+      "></div>
     </div>
   `;
 
