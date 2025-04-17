@@ -124,10 +124,32 @@ async function getLocationName(lat: number, lon: number) {
 
 const saveToLocalStorage = (key: string, data: any) => {
   try {
-    const serializedData = JSON.stringify(data);
+    // Verifichiamo che i dati siano serializzabili
+    if (data === undefined || data === null) {
+      console.warn('Tentativo di salvare dati nulli o undefined in localStorage:', key);
+      return;
+    }
+    
+    // Converti le date in ISO string per evitare problemi di serializzazione
+    const processedData = JSON.parse(JSON.stringify(data, (key, value) => {
+      // Converti le date in ISO strings
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      return value;
+    }));
+    
+    // Serializza e salva
+    const serializedData = JSON.stringify(processedData);
+    if (!serializedData) {
+      throw new Error('Serializzazione fallita');
+    }
+    
     localStorage.setItem(key, serializedData);
+    console.log(`Dati salvati in localStorage: ${key}`);
   } catch (error) {
-    console.error('Errore nel salvataggio dei dati:', error);
+    console.error('Errore nel salvataggio dei dati in localStorage:', error);
+    
     // Se c'è un errore di quota, prova a salvare in IndexedDB
     if (error instanceof DOMException && error.name === 'QuotaExceededError') {
       console.log('Quota localStorage esaurita, salvo in IndexedDB');
@@ -148,6 +170,15 @@ const loadFromLocalStorage = (key: string): any => {
 
 const saveToIndexedDB = async (key: string, data: any) => {
   try {
+    // Pre-processiamo i dati per assicurarci che siano serializzabili
+    const processedData = JSON.parse(JSON.stringify(data, (key, value) => {
+      // Converti le date in ISO strings
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      return value;
+    }));
+    
     const db = await openDB('tracksDB', 1, {
       upgrade(db) {
         if (!db.objectStoreNames.contains('tracks')) {
@@ -158,9 +189,9 @@ const saveToIndexedDB = async (key: string, data: any) => {
 
     const tx = db.transaction('tracks', 'readwrite');
     const store = tx.objectStore('tracks');
-    await store.put(data, key);
+    await store.put(processedData, key);
     await tx.done;
-    console.log('Dati salvati con successo in IndexedDB');
+    console.log(`Dati salvati con successo in IndexedDB: ${key}`);
   } catch (error) {
     console.error('Errore nel salvataggio in IndexedDB:', error);
   }
@@ -405,6 +436,19 @@ export const useTrackStore = create<TrackState>()(
               saveToLocalStorage('tracks', updatedTracks);
               await saveToIndexedDB('tracks', updatedTracks);
               
+              // Esegui un'operazione esplicita di pulizia
+              localStorage.removeItem('currentTrack');
+              try {
+                const db = await openDB('tracksDB', 1);
+                const tx = db.transaction('tracks', 'readwrite');
+                const store = tx.objectStore('tracks');
+                await store.delete('currentTrack');
+                await tx.done;
+                console.log('Pulizia del currentTrack completata');
+              } catch (e) {
+                console.error('Errore nella pulizia del currentTrack:', e);
+              }
+              
               return completedTrack;
             } catch (error) {
               console.error('Errore durante il salvataggio della traccia:', error);
@@ -582,12 +626,13 @@ export const useTrackStore = create<TrackState>()(
             };
 
             // Aggiorna la traccia corrente con il nuovo ritrovamento
-            set(state => ({
-              currentTrack: state.currentTrack ? {
-                ...state.currentTrack,
-                findings: [...state.currentTrack.findings, newFinding]
-              } : null
-            }));
+            const updatedTrack = {
+              ...currentTrack,
+              findings: [...currentTrack.findings, newFinding]
+            };
+
+            // Aggiorna lo stato
+            set({ currentTrack: updatedTrack });
 
             // Prova a salvare le tracce
             try {
@@ -601,8 +646,13 @@ export const useTrackStore = create<TrackState>()(
             }
 
             // Salva sia in localStorage che in IndexedDB
-            saveToLocalStorage('currentTrack', state.currentTrack);
-            await saveToIndexedDB('currentTrack', state.currentTrack);
+            try {
+              // Usa updatedTrack invece di state.currentTrack
+              saveToLocalStorage('currentTrack', updatedTrack);
+              await saveToIndexedDB('currentTrack', updatedTrack);
+            } catch (error) {
+              console.error('Errore nel salvataggio del currentTrack:', error);
+            }
 
             return newFinding;
           } catch (error) {
@@ -773,50 +823,81 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
       },
 
       loadTracks: async () => {
+        console.log('🔄 Inizio caricamento tracce...');
         try {
-          console.log('Inizio caricamento tracce da IndexedDB...');
+          console.log('📂 Tentativo di caricamento da IndexedDB...');
           
           // Prima prova a caricare da IndexedDB
-          const db = await openDB('tracksDB', 1);
-          const tx = db.transaction('tracks', 'readonly');
-          const store = tx.objectStore('tracks');
-          const tracks = await store.getAll();
-          await tx.done;
-          
-          console.log('Tracce caricate da IndexedDB:', tracks);
-          
-          if (tracks && tracks.length > 0) {
-            set({ tracks });
-            return;
+          try {
+            const db = await openDB('tracksDB', 1);
+            const tx = db.transaction('tracks', 'readonly');
+            const store = tx.objectStore('tracks');
+            const tracksFromDB = await store.get('tracks');
+            await tx.done;
+            
+            if (Array.isArray(tracksFromDB) && tracksFromDB.length > 0) {
+              console.log(`✅ Caricate ${tracksFromDB.length} tracce da IndexedDB`);
+              
+              // Valida le tracce
+              const validTracks = tracksFromDB.filter(track => {
+                if (!track || typeof track !== 'object') return false;
+                if (!track.id || !track.startTime) return false;
+                return true;
+              });
+              
+              set({ tracks: validTracks });
+              return;
+            } else {
+              console.log('❌ Nessuna traccia trovata in IndexedDB o formato non valido');
+            }
+          } catch (dbError) {
+            console.error('❌ Errore durante il caricamento da IndexedDB:', dbError);
           }
           
           // Se non ci sono tracce in IndexedDB, prova a caricare da localStorage
-          console.log('Nessuna traccia in IndexedDB, provo a caricare da localStorage...');
-          const savedTracks = localStorage.getItem('tracks');
-          if (savedTracks) {
-            try {
-              const parsedTracks = JSON.parse(savedTracks);
-              console.log('Tracce caricate da localStorage:', parsedTracks);
-              set({ tracks: parsedTracks });
-              
-              // Salva le tracce anche in IndexedDB per il futuro
-              await saveToIndexedDB('tracks', parsedTracks);
-            } catch (error) {
-              console.error('Errore nel parsing delle tracce da localStorage:', error);
-            }
-          }
-        } catch (error) {
-          console.error('Errore nel caricamento delle tracce:', error);
-          // In caso di errore, prova a caricare da localStorage come fallback
+          console.log('📂 Tentativo di caricamento da localStorage...');
           try {
             const savedTracks = localStorage.getItem('tracks');
             if (savedTracks) {
               const parsedTracks = JSON.parse(savedTracks);
-              set({ tracks: parsedTracks });
+              
+              if (Array.isArray(parsedTracks) && parsedTracks.length > 0) {
+                console.log(`✅ Caricate ${parsedTracks.length} tracce da localStorage`);
+                
+                // Valida le tracce
+                const validTracks = parsedTracks.filter(track => {
+                  if (!track || typeof track !== 'object') return false;
+                  if (!track.id || !track.startTime) return false;
+                  return true;
+                });
+                
+                set({ tracks: validTracks });
+                
+                // Salva le tracce anche in IndexedDB per il futuro
+                if (validTracks.length > 0) {
+                  console.log('💾 Backup delle tracce in IndexedDB...');
+                  await saveToIndexedDB('tracks', validTracks);
+                }
+                
+                return;
+              } else {
+                console.log('❌ Nessuna traccia valida trovata in localStorage');
+              }
+            } else {
+              console.log('❌ Nessuna traccia trovata in localStorage');
             }
-          } catch (e) {
-            console.error('Errore nel caricamento delle tracce da localStorage:', e);
+          } catch (lsError) {
+            console.error('❌ Errore durante il caricamento da localStorage:', lsError);
           }
+          
+          // Se siamo arrivati qui, non abbiamo trovato tracce valide
+          console.log('⚠️ Nessuna traccia trovata in nessuna fonte di storage');
+          set({ tracks: [] });
+          
+        } catch (error) {
+          console.error('❌ Errore generale nel caricamento delle tracce:', error);
+          // In caso di errore critico, inizializziamo con un array vuoto
+          set({ tracks: [] });
         }
       },
 
