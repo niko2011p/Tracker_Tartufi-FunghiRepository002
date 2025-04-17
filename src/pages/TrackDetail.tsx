@@ -197,7 +197,7 @@ const TrackDetail: React.FC = () => {
                       animation: pulse 2s infinite;
                     "></div>
                     <img 
-                      src={finding.type === 'Fungo' ? icons.mushroomTagIcon : icons.truffleTagIcon}
+                      src={finding.type === 'Fungo' ? icons.mushroom : icons.truffle}
                       style="
                         width: 32px;
                         height: 32px;
