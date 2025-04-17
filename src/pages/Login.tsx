@@ -3,9 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useTrackStore } from '../store/trackStore';
 
-// Import logo and background
-import logoUrl from '../assets/icons/LogoFTL.svg';
-import backgroundUrl from '../assets/icons/SfondoAPP.svg';
+// Import from new icons utility
+import { icons } from '../utils/icons';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -60,7 +59,7 @@ const Login: React.FC = () => {
     <div 
       className="min-h-screen flex flex-col items-center justify-start pt-16 px-4 sm:px-6 lg:px-8 relative"
       style={{ 
-        backgroundImage: `url(${backgroundUrl})`,
+        backgroundImage: `url(${icons.sfondo})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -73,7 +72,7 @@ const Login: React.FC = () => {
         {/* Logo con animazione */}
         <div className="mb-8 transform transition-all duration-500 hover:scale-105">
           <img 
-            src={logoUrl} 
+            src={icons.logo} 
             alt="Funghi Tracker Logger" 
             className="h-32 w-auto mx-auto animate-pulse-slow" 
             style={{ 

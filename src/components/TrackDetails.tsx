@@ -10,7 +10,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { icons } from '../assets/icons';
+import { icons } from '../utils/icons';
 
 interface TrackingData {
   totalTime: number;

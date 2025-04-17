@@ -2,12 +2,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation, FileText } from 'lucide-react';
 
-// Import background image
-import backgroundUrl from '../assets/icons/SfondoAPP.svg';
+// Import from new icons utility
+import { icons } from '../utils/icons';
 
 // Stile per il contenitore principale
 const naviContainerStyle = {
-  backgroundImage: 'url(/icon/SfondoAPP.svg)',
+  backgroundImage: `url(${icons.sfondo})`,
   backgroundSize: 'cover',
   backgroundPosition: 'center',
   backgroundRepeat: 'no-repeat',
@@ -67,7 +67,7 @@ const Navi: React.FC = () => {
     <div 
       className="min-h-screen bg-cover bg-center"
       style={{ 
-        backgroundImage: `url(${backgroundUrl})`,
+        backgroundImage: `url(${icons.sfondo})`,
         ...naviContainerStyle
       }}
     >

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Finding } from '../types';
+import { icons } from '../utils/icons';
 
 // Base64 encoded fallback icons
 const FALLBACK_ICONS = {
@@ -12,22 +13,22 @@ const FALLBACK_ICONS = {
   poi: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxMiIgZmlsbD0iI2Y1YTE0OSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4='
 };
 
-// Define icon configurations with direct URLs
+// Define icon configurations with our utility icons
 const ICON_CONFIG = {
   fungo: {
-    iconUrl: '/assets/icons/mushroom-tag-icon.svg',
+    iconUrl: icons.mushroom,
     fallbackUrl: FALLBACK_ICONS.fungo,
     color: '#8eaa36',
     fallbackChar: '🍄'
   },
   tartufo: {
-    iconUrl: '/assets/icons/truffle-tag-icon.svg',
+    iconUrl: icons.truffle,
     fallbackUrl: FALLBACK_ICONS.tartufo,
     color: '#8B4513',
     fallbackChar: '🥔'
   },
   poi: {
-    iconUrl: '/assets/icons/point-of-interest-tag-icon.svg',
+    iconUrl: icons.poi,
     fallbackUrl: FALLBACK_ICONS.poi,
     color: '#f5a149',
     fallbackChar: '📍'

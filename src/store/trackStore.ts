@@ -5,11 +5,7 @@ import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
 import LZString from 'lz-string';
 import { openDB } from 'idb';
-import { icons } from '../assets/icons';
-
-// Import SVG icons
-import mushroomIconUrl from '@/assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '@/assets/icons/truffle-tag-icon.svg';
+import { icons } from '../utils/icons';
 
 // Update the Track interface to include historyData
 interface ExtendedTrack extends Track {

@@ -9,8 +9,7 @@ import { ArrowLeft, Share2, Download } from 'lucide-react';
 import LZString from 'lz-string';
 import Map from '../components/Map';
 import { formatDistance, formatDuration } from '../utils/formatUtils';
-import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
+import { icons } from '../utils/icons';
 
 // Fix per gli icon marker di Leaflet
 const defaultIcon = L.icon({
@@ -198,7 +197,7 @@ const TrackDetail: React.FC = () => {
                       animation: pulse 2s infinite;
                     "></div>
                     <img 
-                      src={finding.type === 'Fungo' ? mushroomIconUrl : truffleIconUrl}
+                      src={finding.type === 'Fungo' ? icons.mushroomTagIcon : icons.truffleTagIcon}
                       style="
                         width: 32px;
                         height: 32px;
