@@ -12,7 +12,7 @@ import ScrollToTop from './components/ScrollToTop';
 import { useTrackStore } from './store/trackStore';
 
 // Importazione dei componenti per l'autenticazione
-import { UserProvider } from './context/UserContext';
+import { UserProvider, useUser } from './context/UserContext';
 import PrivateRoute from './routes/PrivateRoute';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
@@ -23,44 +23,68 @@ import TrackDetail from './pages/TrackDetail';
 import { HomePage } from './pages/HomePage';
 import { TrackDetailsPage } from './pages/TrackDetailsPage';
 import { useToast } from './components/Toast';
+import { Toaster } from './components/ui/toaster';
 
-function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
-  const location = useLocation();
-  const isActive = location.pathname === to;
-  
-  return (
-    <Link
-      to={to}
-      className={`flex items-center px-3 sm:px-4 py-2 rounded-lg transition-colors ${
-        isActive
-          ? 'bg-green-100 text-green-700'
-          : 'text-gray-600 hover:bg-gray-100'
-      }`}
-    >
-      <Icon className="w-5 h-5 sm:mr-2" />
-      <span className="hidden sm:inline">{text}</span>
-    </Link>
-  );
-}
+// Protected Route component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useUser();
+  const { toast } = useToast();
 
-function MainApp() {
-  const { showFindingForm, setShowFindingForm, isRecording } = useTrackStore();
-  
-  // If track is recording (active navigation), show the navigation page
-  if (isRecording) {
-    return <NavigationPage />;
+  if (!user) {
+    toast({
+      title: "Accesso richiesto",
+      description: "Effettua l'accesso per continuare",
+      variant: "destructive",
+    });
+    return <Navigate to="/login" />;
   }
 
+  return <>{children}</>;
+};
+
+const MainApp: React.FC = () => {
   return (
-    <div className="relative h-screen w-full">
-      <Navi />
-      <MapLogo />
-      <FloatingMapButtons />
-      <TrackingControls />
-      {showFindingForm && <FindingForm onClose={() => setShowFindingForm(false)} />}
-    </div>
+    <MainLayout>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<HomePage />} />
+        <Route
+          path="/navigation"
+          element={
+            <ProtectedRoute>
+              <NavigationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/logger"
+          element={
+            <ProtectedRoute>
+              <Logger />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/track/:id"
+          element={
+            <ProtectedRoute>
+              <TrackDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/finding/:trackId"
+          element={
+            <ProtectedRoute>
+              <FindingForm onClose={() => {}} position={[0, 0]} />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+      <Toaster />
+    </MainLayout>
   );
-}
+};
 
 function App() {
   const { isAuthenticated, checkAuth, loadTracks } = useTrackStore();
