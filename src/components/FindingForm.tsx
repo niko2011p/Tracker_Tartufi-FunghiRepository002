@@ -5,7 +5,7 @@ import { species } from '../data/species';
 
 // Define icon URLs as constants
 const mushroomIconUrl = '/assets/icons/mushroom-tag-icon.svg';
-const truffleIconUrl = '/assets/icons/Truffle-tag-icon.svg';
+const truffleIconUrl = '/assets/icons/truffle-tag-icon.svg';
 
 export interface FindingFormProps {
   onClose: () => void;

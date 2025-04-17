@@ -7,7 +7,7 @@ import { Track, Finding } from '../types';
 import { formatDistance, formatDuration } from '../utils/formatUtils';
 import { useNavigate } from 'react-router-dom';
 import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
 
 // Funzione per creare un marker personalizzato
 const createCustomMarker = (finding: Finding) => {

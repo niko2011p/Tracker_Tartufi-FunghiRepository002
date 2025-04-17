@@ -3,7 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Track, Finding } from '../types';
 import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
 
 interface MapProps {
   track: Track;
