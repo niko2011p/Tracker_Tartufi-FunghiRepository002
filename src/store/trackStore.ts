@@ -38,10 +38,11 @@ export interface TrackState {
   autoSaveTrack: () => void;
 }
 
-// Aggiungi queste costanti all'inizio del file
+// Constants for storage
 const DB_NAME = 'trackerDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'tracks';
+const STORAGE_KEY = 'tracks-storage';
 
 // Funzione per inizializzare IndexedDB
 const initDB = async () => {
@@ -1051,10 +1052,12 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         getItem: async (name) => {
           console.log(`🔄 Tentativo di recupero dati da storage per ${name}...`);
           try {
-            const data = await loadFromIndexedDB(name);
+            const data = await loadFromIndexedDB(STORAGE_KEY);
             if (data) {
+              console.log('Dati recuperati con successo:', data);
               return JSON.stringify({ state: data });
             }
+            console.log('Nessun dato trovato');
             return null;
           } catch (error) {
             console.error('Errore critico nel recupero dei dati:', error);
@@ -1065,7 +1068,8 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           try {
             const parsed = JSON.parse(value);
             if (parsed.state) {
-              await saveToIndexedDB(name, parsed.state);
+              console.log('Salvataggio dati in IndexedDB:', parsed.state);
+              await saveToIndexedDB(STORAGE_KEY, parsed.state);
             }
           } catch (error) {
             console.error('Errore nel salvataggio dei dati:', error);
@@ -1078,7 +1082,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             const store = tx.objectStore(STORE_NAME);
             
             return new Promise<void>((resolve, reject) => {
-              const request = store.delete(name);
+              const request = store.delete(STORAGE_KEY);
               request.onsuccess = () => resolve();
               request.onerror = () => reject(request.error);
             });
@@ -1093,15 +1097,15 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
 
 // Aggiungiamo una funzione di inizializzazione che verrà chiamata all'avvio dell'app
 const initializeStore = () => {
-  // Carica il track corrente da IndexedDB e localStorage
+  // Carica il track corrente da IndexedDB
   (async () => {
     try {
-      const tracksFromIndexedDB = await loadFromIndexedDB('tracks');
-      if (tracksFromIndexedDB && Array.isArray(tracksFromIndexedDB) && tracksFromIndexedDB.length > 0) {
-        console.log(`⚡ Inizializzazione: caricate ${tracksFromIndexedDB.length} tracce da IndexedDB`);
+      const data = await loadFromIndexedDB(STORAGE_KEY);
+      if (data) {
+        console.log(`⚡ Inizializzazione: caricati dati da IndexedDB`);
         
         // Converti le date prima di impostare lo stato
-        const tracksWithDates = tracksFromIndexedDB.map(track => {
+        const tracksWithDates = data.tracks.map(track => {
           return {
             ...track,
             startTime: typeof track.startTime === 'string' ? new Date(track.startTime) : track.startTime,
@@ -1115,7 +1119,12 @@ const initializeStore = () => {
           };
         });
         
-        useTrackStore.setState({ tracks: tracksWithDates });
+        useTrackStore.setState({ 
+          tracks: tracksWithDates,
+          currentTrack: null,
+          loadedFindings: null,
+          isRecording: false
+        });
       } else {
         console.log('⚡ Inizializzazione: nessuna traccia trovata in IndexedDB');
       }
