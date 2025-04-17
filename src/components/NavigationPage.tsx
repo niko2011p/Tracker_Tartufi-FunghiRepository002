@@ -32,6 +32,14 @@ import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
 import poiIconUrl from '../assets/icons/point-of-interest-tag-icon.svg';
 import navigationIconUrl from '../assets/icons/map-navigation-orange-icon.svg';
 
+// Log imported icon URLs
+console.log('🔍 Imported Icon URLs:', {
+  mushroom: mushroomIconUrl,
+  truffle: truffleIconUrl,
+  poi: poiIconUrl,
+  navigation: navigationIconUrl
+});
+
 // Reuse icon creation functions from Map.tsx
 const createGpsArrowIcon = (direction = 0) => {
   return new L.DivIcon({
@@ -46,47 +54,48 @@ const createGpsArrowIcon = (direction = 0) => {
   });
 };
 
-const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean = false) => {
-  const iconUrl = type === 'Fungo'
+// Single function to create finding markers
+const createFindingMarker = (finding: Finding) => {
+  console.log('🎯 Creating marker for finding:', {
+    id: finding.id,
+    type: finding.type,
+    coordinates: finding.coordinates
+  });
+
+  const iconUrl = finding.type === 'Fungo'
     ? mushroomIconUrl
-    : type === 'Tartufo'
+    : finding.type === 'Tartufo'
       ? truffleIconUrl
       : poiIconUrl;
 
+  console.log('🔍 Using icon URL:', {
+    type: finding.type,
+    iconUrl,
+    iconUrlType: typeof iconUrl,
+    iconUrlExists: !!iconUrl
+  });
+
   return new L.DivIcon({
     html: `
-      <div class="finding-icon-wrapper ${type.toLowerCase()}-finding" style="
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 32px;
-        height: 32px;
-        position: relative;
-        cursor: pointer;
-      ">
-        <div class="finding-icon-pulse" style="
-          position: absolute;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: ${type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#8B4513' : '#f5a149'}40;
-          animation: pulse 2s infinite;
-        "></div>
-        <img 
-          src="${iconUrl}" 
-          width="24" 
-          height="24" 
-          alt="${type} Icon" 
-          style="
-            position: relative;
-            z-index: 1;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-            opacity: ${isLoaded ? '0.6' : '1'};
-            transition: transform 0.2s ease;
-          "
+      <div class="finding-icon-wrapper ${finding.type.toLowerCase()}-finding">
+        <div class="finding-icon-pulse"></div>
+        <img
+          src="${iconUrl}"
+          width="24"
+          height="24"
+          alt="${finding.type} Icon"
+          onerror="(function(e) {
+            console.error('[createFindingMarker] Image Load Error:', {
+              src: e.target.src,
+              type: '${finding.type}',
+              timestamp: new Date().toISOString()
+            });
+            e.target.style.display = 'none';
+            e.target.parentElement.style.backgroundColor = '${finding.type === 'Fungo' ? '#8eaa36' : finding.type === 'Tartufo' ? '#8B4513' : '#ff9800'}';
+          })(event)"
         />
-        </div>
-      `,
+      </div>
+    `,
     className: 'finding-icon',
     iconSize: [32, 32],
     iconAnchor: [16, 16],
@@ -605,7 +614,7 @@ const NavigationPage: React.FC = () => {
             <Marker
               key={`loaded-${finding.id}`}
               position={finding.coordinates}
-              icon={createFindingIcon(finding.type, true)}
+              icon={createFindingMarker(finding)}
             >
               <Popup>
                 <div className="p-2">

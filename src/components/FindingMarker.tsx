@@ -1,19 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { Finding } from '../types';
+import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+import poiIconUrl from '../assets/icons/point-of-interest-tag-icon.svg';
 import './FindingMarker.css';
 
 interface FindingMarkerProps {
   finding: Finding;
-  map: L.Map;
 }
-
-// Fallback marker colors
-const markerColors = {
-  'Fungo': '#8eaa36',
-  'Tartufo': '#8B4513',
-  'poi': '#ff9800'
-};
 
 // Funzione createFindingIcon aggiornata con LOG
 const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean = false) => {
@@ -81,7 +77,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
                   status: e.target.status
                 });
                 e.target.style.display = 'none';
-                e.target.parentElement.style.backgroundColor = '${markerColors[type] || '#ff0000'}';
+                e.target.parentElement.style.backgroundColor = '${finding.type === 'Fungo' ? '#8eaa36' : finding.type === 'Tartufo' ? '#8B4513' : '#ff9800'}';
               })(event)"
             />
           </div>
@@ -112,7 +108,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
       resolve(new L.DivIcon({
         html: `
           <div style="
-            background-color: ${markerColors[type] || '#ff0000'};
+            background-color: ${finding.type === 'Fungo' ? '#8eaa36' : finding.type === 'Tartufo' ? '#8B4513' : '#ff9800'};
             width: 24px;
             height: 24px;
             border-radius: 50%;
@@ -124,7 +120,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
             font-weight: bold;
             box-shadow: 0 0 4px rgba(0,0,0,0.5);
           ">
-            ${type.charAt(0)}
+            ${finding.type.charAt(0)}
           </div>
         `,
         className: 'error-finding-icon',
@@ -137,94 +133,95 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
   });
 };
 
-export const FindingMarker = ({ finding, map }: FindingMarkerProps) => {
-  const markerRef = useRef<L.Marker | null>(null);
+const createFindingMarker = (finding: Finding) => {
+  console.log('🎯 Creating marker for finding:', {
+    id: finding.id,
+    type: finding.type,
+    coordinates: finding.coordinates
+  });
 
-  useEffect(() => {
-    if (!finding.position || !map) return;
+  const iconUrl = finding.type === 'Fungo'
+    ? mushroomIconUrl
+    : finding.type === 'Tartufo'
+      ? truffleIconUrl
+      : poiIconUrl;
 
-    // Enhanced coordinate validation logging
-    console.group(`[FindingMarker] Marker Creation - ${finding.id}`);
-    console.log('📍 Coordinate Validation:', {
-      position: finding.position,
-      isValidArray: Array.isArray(finding.position),
-      arrayLength: finding.position?.length,
-      lat: finding.position[0],
-      lng: finding.position[1],
-      latType: typeof finding.position[0],
-      lngType: typeof finding.position[1],
-      latIsNaN: isNaN(finding.position[0]),
-      lngIsNaN: isNaN(finding.position[1])
-    });
+  console.log('🔍 Using icon URL:', {
+    type: finding.type,
+    iconUrl,
+    iconUrlType: typeof iconUrl,
+    iconUrlExists: !!iconUrl
+  });
 
-    if (!Array.isArray(finding.position) || finding.position.length !== 2) {
-      console.error('❌ Invalid coordinates format:', finding.position);
-      console.groupEnd();
-      return;
-    }
-
-    const [lat, lng] = finding.position;
-    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
-      console.error('❌ Invalid coordinate values:', { lat, lng });
-      console.groupEnd();
-      return;
-    }
-
-    console.log('🎯 Marker Creation:', {
-      id: finding.id,
-      type: finding.type,
-      coordinates: finding.position,
-      timestamp: new Date().toISOString()
-    });
-
-    // Create marker with async icon loading
-    createFindingIcon(finding.type).then(icon => {
-      const marker = L.marker([lat, lng], { icon });
-      markerRef.current = marker;
-
-      // Add popup
-      marker.bindPopup(`
-        <div class="finding-popup">
-          <h3>${finding.name || finding.type}</h3>
-          <p>${new Date(finding.timestamp).toLocaleString()}</p>
-        </div>
-      `);
-
-      // Add to map
-      marker.addTo(map);
-
-      // Enhanced position verification
-      const actualPos = marker.getLatLng();
-      console.log('📐 Position Verification:', {
-        intended: { lat, lng },
-        actual: actualPos,
-        difference: {
-          lat: Math.abs(actualPos.lat - lat),
-          lng: Math.abs(actualPos.lng - lng)
-        },
-        verificationTime: new Date().toISOString()
-      });
-    });
-
-    return () => {
-      console.log('🧹 Cleanup:', {
-        id: finding.id,
-        type: finding.type,
-        position: finding.position,
-        cleanupTime: new Date().toISOString()
-      });
-      if (markerRef.current) {
-        markerRef.current.remove();
-        markerRef.current = null;
-      }
-      console.groupEnd();
-    };
-  }, [finding, map]);
-
-  return null;
+  return new L.DivIcon({
+    html: `
+      <div class="finding-icon-wrapper ${finding.type.toLowerCase()}-finding">
+        <div class="finding-icon-pulse"></div>
+        <img
+          src="${iconUrl}"
+          width="24"
+          height="24"
+          alt="${finding.type} Icon"
+          onerror="(function(e) {
+            console.error('[createFindingMarker] Image Load Error:', {
+              src: e.target.src,
+              type: '${finding.type}',
+              timestamp: new Date().toISOString()
+            });
+            e.target.style.display = 'none';
+            e.target.parentElement.style.backgroundColor = '${finding.type === 'Fungo' ? '#8eaa36' : finding.type === 'Tartufo' ? '#8B4513' : '#ff9800'}';
+          })(event)"
+        />
+      </div>
+    `,
+    className: 'finding-icon',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  });
 };
 
-// Funzione di utilità per creare marker
-export const createFindingMarker = (finding: Finding) => {
-  return createFindingIcon(finding.type);
+export const FindingMarker: React.FC<FindingMarkerProps> = ({ finding }) => {
+  const [marker, setMarker] = useState<L.Marker | null>(null);
+
+  useEffect(() => {
+    console.log('📍 FindingMarker mounted:', {
+      id: finding.id,
+      type: finding.type,
+      coordinates: finding.coordinates
+    });
+
+    if (!finding.coordinates || !Array.isArray(finding.coordinates) || finding.coordinates.length !== 2) {
+      console.error('❌ Invalid coordinates:', finding.coordinates);
+      return;
+    }
+
+    const newMarker = L.marker(finding.coordinates, {
+      icon: createFindingMarker(finding)
+    });
+
+    newMarker.bindPopup(`
+      <div class="p-2">
+        <h3 class="font-semibold">${finding.name || finding.type}</h3>
+        ${finding.description ? `<p class="text-sm mt-1">${finding.description}</p>` : ''}
+        <p class="text-xs text-gray-500 mt-1">
+          ${new Date(finding.timestamp).toLocaleString('it-IT')}
+        </p>
+      </div>
+    `);
+
+    setMarker(newMarker);
+
+    return () => {
+      if (newMarker) {
+        newMarker.remove();
+      }
+    };
+  }, [finding]);
+
+  if (!marker) {
+    return null;
+  }
+
+  return <Marker position={finding.coordinates} icon={marker.getIcon()} />;
 }; 
