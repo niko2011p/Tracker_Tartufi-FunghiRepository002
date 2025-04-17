@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -17,26 +17,59 @@ L.Icon.Default.mergeOptions({
 });
 
 const Logger: React.FC = () => {
+  const navigate = useNavigate();
   const { tracks, loadTracks } = useTrackStore();
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([45.4642, 9.1900]);
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    console.log('Logger mounted, loading tracks...');
-    const loadData = async () => {
+    console.log('📋 Logger montato, caricamento tracce...');
+    
+    const loadAllTracks = async () => {
+      setIsLoading(true);
       try {
+        // Verifica se ci sono tracce già in memoria
+        if (tracks.length > 0) {
+          console.log(`✅ ${tracks.length} tracce già presenti in memoria`);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Carica tracce dallo storage
+        console.log('🔍 Nessuna traccia in memoria, carico da storage...');
         await loadTracks();
-        console.log('Tracks loaded successfully:', tracks);
+        console.log(`✅ Caricamento completato: ${tracks.length} tracce caricate`);
       } catch (error) {
-        console.error('Error loading tracks:', error);
+        console.error('❌ Errore nel caricamento delle tracce:', error);
+        // Prova a leggere direttamente da IndexedDB
+        console.log('🔍 Tentativo di lettura diretta da IndexedDB...');
+        try {
+          const { openDB } = await import('idb');
+          const db = await openDB('tracksDB', 1);
+          const tx = db.transaction('tracks', 'readonly');
+          const store = tx.objectStore('tracks');
+          const tracksFromDB = await store.get('tracks');
+          await tx.done;
+          
+          if (tracksFromDB && Array.isArray(tracksFromDB) && tracksFromDB.length > 0) {
+            console.log(`✅ Recuperate ${tracksFromDB.length} tracce direttamente da IndexedDB`);
+            
+            // Non è necessario chiamare set() qui, possiamo usare i dati localmente
+            console.log('Tracce disponibili:', tracksFromDB);
+          } else {
+            console.log('❌ Nessuna traccia trovata in IndexedDB');
+          }
+        } catch (dbError) {
+          console.error('❌ Errore nella lettura diretta da IndexedDB:', dbError);
+        }
       } finally {
         setIsLoading(false);
       }
     };
-    loadData();
-  }, [loadTracks]);
+    
+    loadAllTracks();
+  }, [loadTracks, tracks.length]);
 
   const handleTrackSelect = (track: Track) => {
     setSelectedTrack(track.id);
@@ -100,6 +133,12 @@ const Logger: React.FC = () => {
         {tracks.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-600">Nessuna traccia salvata</p>
+            <button 
+              onClick={() => loadTracks()} 
+              className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+            >
+              Riprova a caricare
+            </button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -111,14 +150,14 @@ const Logger: React.FC = () => {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-lg font-semibold">{track.name}</h2>
+                    <h2 className="text-lg font-semibold">{track.name || `Traccia del ${new Date(track.startTime).toLocaleDateString('it-IT')}`}</h2>
                     <p className="text-sm text-gray-600">
-                      {formatDistance(track.distance)} • {formatDuration(track.duration)}
+                      {track.distance ? formatDistance(track.distance) : '0 km'} • {track.duration ? formatDuration(track.duration) : '0 min'}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-600">
-                      {track.findings.length} ritrovamenti
+                      {track.findings ? track.findings.length : 0} ritrovamenti
                     </p>
                     <p className="text-xs text-gray-500">
                       {new Date(track.startTime).toLocaleDateString('it-IT')}
