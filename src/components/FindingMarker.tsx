@@ -13,12 +13,12 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
   const markerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
-    if (!finding.coordinates || !Array.isArray(finding.coordinates) || finding.coordinates.length !== 2) {
-      console.error('Invalid coordinates for finding:', finding);
+    if (!finding.position || !Array.isArray(finding.position) || finding.position.length !== 2) {
+      console.error('Invalid position for finding:', finding);
       return;
     }
 
-    const [lat, lng] = finding.coordinates;
+    const [lat, lng] = finding.position;
     if (isNaN(lat) || isNaN(lng)) {
       console.error('Invalid coordinates for finding:', finding);
       return;
@@ -64,12 +64,12 @@ export default FindingMarker;
 
 // Utility function to create a finding marker
 export const createFindingMarker = (finding: Finding, map: L.Map): L.Marker | null => {
-  if (!finding.coordinates || !Array.isArray(finding.coordinates) || finding.coordinates.length !== 2) {
-    console.error('Invalid coordinates for finding:', finding);
+  if (!finding.position || !Array.isArray(finding.position) || finding.position.length !== 2) {
+    console.error('Invalid position for finding:', finding);
     return null;
   }
 
-  const [lat, lng] = finding.coordinates;
+  const [lat, lng] = finding.position;
   if (isNaN(lat) || isNaN(lng)) {
     console.error('Invalid coordinates for finding:', finding);
     return null;

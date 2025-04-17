@@ -1099,7 +1099,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
                           : track.endTime,
                         findings: Array.isArray(track.findings)
                           ? track.findings.map(finding => ({
-                              ...finding,
+                ...finding,
                               timestamp: finding.timestamp instanceof Date
                                 ? finding.timestamp.toISOString()
                                 : finding.timestamp
