@@ -774,11 +774,49 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
 
       loadTracks: async () => {
         try {
-          const tracks = await loadTracksFromDB();
-          set({ tracks });
-          console.log('Tracce caricate con successo da IndexedDB');
+          console.log('Inizio caricamento tracce da IndexedDB...');
+          
+          // Prima prova a caricare da IndexedDB
+          const db = await openDB('tracksDB', 1);
+          const tx = db.transaction('tracks', 'readonly');
+          const store = tx.objectStore('tracks');
+          const tracks = await store.getAll();
+          await tx.done;
+          
+          console.log('Tracce caricate da IndexedDB:', tracks);
+          
+          if (tracks && tracks.length > 0) {
+            set({ tracks });
+            return;
+          }
+          
+          // Se non ci sono tracce in IndexedDB, prova a caricare da localStorage
+          console.log('Nessuna traccia in IndexedDB, provo a caricare da localStorage...');
+          const savedTracks = localStorage.getItem('tracks');
+          if (savedTracks) {
+            try {
+              const parsedTracks = JSON.parse(savedTracks);
+              console.log('Tracce caricate da localStorage:', parsedTracks);
+              set({ tracks: parsedTracks });
+              
+              // Salva le tracce anche in IndexedDB per il futuro
+              await saveToIndexedDB('tracks', parsedTracks);
+            } catch (error) {
+              console.error('Errore nel parsing delle tracce da localStorage:', error);
+            }
+          }
         } catch (error) {
           console.error('Errore nel caricamento delle tracce:', error);
+          // In caso di errore, prova a caricare da localStorage come fallback
+          try {
+            const savedTracks = localStorage.getItem('tracks');
+            if (savedTracks) {
+              const parsedTracks = JSON.parse(savedTracks);
+              set({ tracks: parsedTracks });
+            }
+          } catch (e) {
+            console.error('Errore nel caricamento delle tracce da localStorage:', e);
+          }
         }
       },
 

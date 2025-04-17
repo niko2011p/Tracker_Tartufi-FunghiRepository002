@@ -6,6 +6,7 @@ import { useTrackHistoryStore } from '../store/trackHistoryStore';
 import { formatDistance, formatDuration } from '../utils/formatUtils';
 import { useNavigate } from 'react-router-dom';
 import { useTrackStore } from '../store/trackStore';
+import { Track } from '../types';
 
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -20,18 +21,30 @@ const Logger: React.FC = () => {
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([45.4642, 9.1900]);
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Carica le tracce all'avvio
-    loadTracks();
+    console.log('Logger mounted, loading tracks...');
+    const loadData = async () => {
+      try {
+        await loadTracks();
+        console.log('Tracks loaded successfully:', tracks);
+      } catch (error) {
+        console.error('Error loading tracks:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, [loadTracks]);
 
-  const handleTrackSelect = (trackId: string) => {
-    setSelectedTrack(trackId);
-    const track = tracks.find((t) => t.id === trackId);
-    if (track && track.coordinates.length > 0) {
-      setMapCenter(track.coordinates[0]);
+  const handleTrackSelect = (track: Track) => {
+    setSelectedTrack(track.id);
+    const trackObj = tracks.find((t) => t.id === track.id);
+    if (trackObj && trackObj.coordinates.length > 0) {
+      setMapCenter(trackObj.coordinates[0]);
     }
+    navigate(`/track/${track.id}`);
   };
 
   const renderTrackStats = (track: any) => (
@@ -68,36 +81,54 @@ const Logger: React.FC = () => {
     </div>
   );
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Caricamento tracce...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex">
       {/* Lista tracce */}
       <div className="w-1/3 bg-gray-100 p-4 overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Tracce Salvate</h2>
-        <div className="space-y-2">
-          {tracks.map((track) => (
-            <div
-              key={track.id}
-              className={`p-3 rounded-lg cursor-pointer ${
-                selectedTrack === track.id ? 'bg-blue-100' : 'bg-white'
-              }`}
-              onClick={() => handleTrackSelect(track.id)}
-            >
-              <h3 className="font-semibold">{track.name}</h3>
-              <p className="text-sm text-gray-600">
-                {new Date(track.startTime).toLocaleString()}
-              </p>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/track/${track.id}`);
-                }}
-                className="px-4 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors"
+        {tracks.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">Nessuna traccia salvata</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {tracks.map((track) => (
+              <div
+                key={track.id}
+                className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => handleTrackSelect(track)}
               >
-                Visualizza dettagli
-              </button>
-            </div>
-          ))}
-        </div>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-lg font-semibold">{track.name}</h2>
+                    <p className="text-sm text-gray-600">
+                      {formatDistance(track.distance)} • {formatDuration(track.duration)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">
+                      {track.findings.length} ritrovamenti
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(track.startTime).toLocaleDateString('it-IT')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Mappa e statistiche */}
