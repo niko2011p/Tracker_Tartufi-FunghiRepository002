@@ -815,7 +815,6 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
     </trkseg>
   </trk>
   ${track.findings.map(finding => {
-    // Aggiorna i riferimenti alle icone
     const iconUrl = finding.type === 'Fungo' 
       ? mushroomIconUrl 
       : truffleIconUrl;
@@ -829,7 +828,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
     </link>` : ''}
     <sym>${finding.name.startsWith('Fungo') ? 'Mushroom' : 'Flag, Blue'}</sym>
   </wpt>`;
-  }).join('')}
+  }).join('')}`).join('')}
 </gpx>`;
         return gpx;
       },
