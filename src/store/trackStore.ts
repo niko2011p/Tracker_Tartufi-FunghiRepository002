@@ -44,7 +44,7 @@ const DB_VERSION = 1;
 const STORE_NAME = 'tracks';
 
 // Funzione per inizializzare IndexedDB
-const initDB = () => {
+const initDB = async () => {
   return new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     
@@ -54,7 +54,7 @@ const initDB = () => {
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        db.createObjectStore(STORE_NAME);
       }
     };
   });
@@ -172,27 +172,11 @@ const saveToIndexedDB = async (key: string, data: any) => {
   try {
     console.log('Tentativo di salvataggio in IndexedDB', { key, data });
     
-    // Pre-processiamo i dati per assicurarci che siano serializzabili
-    const processedData = JSON.stringify(data, (key, value) => {
-      // Converti le date in ISO strings
-      if (value instanceof Date) {
-        return value.toISOString();
-      }
-      return value;
-    });
+    const db = await initDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
     
-    const db = await openDB('tracksDB', 1, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('tracks')) {
-          db.createObjectStore('tracks');
-        }
-      },
-    });
-
-    const tx = db.transaction('tracks', 'readwrite');
-    const store = tx.objectStore('tracks');
-    
-    await store.put(processedData, key);
+    await store.put(data, key);
     await tx.done;
     
     console.log(`Dati salvati con successo in IndexedDB: ${key}`);
@@ -233,16 +217,9 @@ const loadFromIndexedDB = async (key: string): Promise<any> => {
   try {
     console.log('Tentativo di caricamento da IndexedDB', { key });
     
-    const db = await openDB('tracksDB', 1, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('tracks')) {
-          db.createObjectStore('tracks');
-        }
-      },
-    });
-
-    const tx = db.transaction('tracks', 'readonly');
-    const store = tx.objectStore('tracks');
+    const db = await initDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
     
     const data = await store.get(key);
     await tx.done;
