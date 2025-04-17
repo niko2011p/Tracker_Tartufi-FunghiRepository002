@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Finding } from '../types';
+import { getIconUrl } from '../assets/icons';
 import './FindingMarker.css';
 
 interface FindingMarkerProps {
@@ -39,13 +40,16 @@ export const FindingMarker = ({ finding, map }: FindingMarkerProps) => {
       coordinates: finding.position
     });
 
-    // Create custom icon with fallback color
-    const color = markerColors[finding.type] || '#ff9800';
+    // Get icon URL using the helper
+    const iconUrl = getIconUrl(finding.type);
+    console.log('Icon URL:', iconUrl);
+
+    // Create custom icon
     const customIcon = L.divIcon({
       className: 'custom-marker',
       html: `
         <div class="marker-container">
-          <div class="marker-icon ${finding.type.toLowerCase()}" style="background-color: ${color}"></div>
+          <img src="${iconUrl}" alt="${finding.type} icon" class="marker-icon" />
         </div>
       `,
       iconSize: [32, 32],
@@ -96,14 +100,14 @@ export const FindingMarker = ({ finding, map }: FindingMarkerProps) => {
 
 // Funzione di utilità per creare marker
 export const createFindingMarker = (finding: Finding) => {
-  const color = markerColors[finding.type] || '#ff9800';
-  console.log(`🎯 Creating marker for ${finding.type}`);
+  const iconUrl = getIconUrl(finding.type);
+  console.log(`🎯 Creating marker for ${finding.type} with icon: ${iconUrl}`);
 
   const customIcon = L.divIcon({
     className: 'custom-marker',
     html: `
       <div class="marker-container">
-        <div class="marker-icon ${finding.type.toLowerCase()}" style="background-color: ${color}"></div>
+        <img src="${iconUrl}" alt="${finding.type} icon" class="marker-icon" />
       </div>
     `,
     iconSize: [32, 32],

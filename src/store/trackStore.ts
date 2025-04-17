@@ -43,15 +43,15 @@ export interface TrackState {
 }
 
 // Aggiungi queste costanti all'inizio del file
-const DB_NAME = 'trackerDB';
-const DB_VERSION = 1;
+const DB_NAME = 'tracksDB';
+const DB_VERSION = 2;
 const STORE_NAME = 'tracks';
 
 // Funzione per inizializzare IndexedDB
 const initDB = async () => {
   console.log('🔄 Inizializzazione IndexedDB...');
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open('tracksDB', 2); // Incremento versione per forzare l'upgrade
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
     
     request.onerror = () => {
       console.error('❌ Errore apertura IndexedDB:', request.error);
