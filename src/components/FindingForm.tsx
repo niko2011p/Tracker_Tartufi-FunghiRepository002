@@ -3,6 +3,10 @@ import { X, Camera, Upload } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
 import { species } from '../data/species';
 
+// Import SVG icons
+import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+
 export interface FindingFormProps {
   onClose: () => void;
   position: [number, number];
@@ -286,7 +290,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <img src="/assets/icons/mushroom-tag-icon.svg" alt="Fungo" className="w-8 h-8" />
+                <img src={mushroomIconUrl} alt="Fungo" className="w-8 h-8" />
                 Fungo
               </button>
               <button
@@ -302,7 +306,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <img src="/assets/icons/Truffle-tag-icon.svg" alt="Tartufo" className="w-8 h-8" />
+                <img src={truffleIconUrl} alt="Tartufo" className="w-8 h-8" />
                 Tartufo
               </button>
             </div>

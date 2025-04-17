@@ -6,6 +6,10 @@ import { format } from 'date-fns';
 import LZString from 'lz-string';
 import { openDB } from 'idb';
 
+// Import SVG icons
+import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+
 export interface TrackState {
   currentTrack: Track | null;
   currentLocation: Location | null;
@@ -810,7 +814,12 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
       </trkpt>`).join('')}
     </trkseg>
   </trk>
-  ${track.findings.map(finding => `
+  ${track.findings.map(finding => {
+    // Aggiorna i riferimenti alle icone
+    const iconUrl = finding.type === 'Fungo' 
+      ? mushroomIconUrl 
+      : truffleIconUrl;
+    return `
   <wpt lat="${finding.coordinates[0]}" lon="${finding.coordinates[1]}">
     <name>${finding.name}</name>
     <desc>${finding.description || ''}</desc>
@@ -819,7 +828,8 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
       <text>Photo</text>
     </link>` : ''}
     <sym>${finding.name.startsWith('Fungo') ? 'Mushroom' : 'Flag, Blue'}</sym>
-  </wpt>`).join('')}`).join('')}
+  </wpt>`;
+  }).join('')}
 </gpx>`;
         return gpx;
       },
@@ -1135,9 +1145,9 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
 // Funzione per creare un marker personalizzato
 const createCustomMarker = (finding: Finding) => {
   // Determina l'icona in base al tipo
-  const iconUrl = finding.type === 'Fungo' ? 
-    '/assets/icons/mushroom-tag-icon.svg' : 
-    '/assets/icons/Truffle-tag-icon.svg';
+  const iconUrl = finding.type === 'Fungo' 
+    ? mushroomIconUrl 
+    : truffleIconUrl;
   
   console.log(`🎯 Creazione marker per ${finding.type} con icona: ${iconUrl}`);
 

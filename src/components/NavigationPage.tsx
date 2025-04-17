@@ -26,13 +26,18 @@ const GEOLOCATION_OPTIONS = {
   maximumAge: 5000 // Ridotto da 30000 a 5000 per aggiornamenti più frequenti
 };
 
+// Import SVG icons
+import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+import poiIconUrl from '../assets/icons/point-of-interest-tag-icon.svg';
+import navigationIconUrl from '../assets/icons/map-navigation-orange-icon.svg';
+
 // Reuse icon creation functions from Map.tsx
 const createGpsArrowIcon = (direction = 0) => {
-  // Riduzione del 30% delle dimensioni dell'icona (da 32x32 a 22x22)
-  return new DivIcon({
+  return new L.DivIcon({
     html: `
       <div class="gps-arrow-wrapper navigation-gps-cursor" style="transform: rotate(${direction}deg);">
-        <img src="/assets/icons/map-navigation-orange-icon.svg" width="22" height="22" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
+        <img src="${navigationIconUrl}" width="22" height="22" alt="Navigation Icon" style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));" />
       </div>
     `,
     className: 'gps-arrow-icon',
@@ -42,14 +47,14 @@ const createGpsArrowIcon = (direction = 0) => {
 };
 
 const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean = false) => {
-  const iconUrl = type === 'Fungo' 
-    ? '/assets/icons/mushroom-tag-icon.svg'
+  const iconUrl = type === 'Fungo'
+    ? mushroomIconUrl
     : type === 'Tartufo'
-      ? '/assets/icons/Truffle-tag-icon.svg'
-      : '/assets/icons/point-of-interest-tag-icon.svg';
+      ? truffleIconUrl
+      : poiIconUrl;
 
   return new L.DivIcon({
-      html: `
+    html: `
       <div class="finding-icon-wrapper ${type.toLowerCase()}-finding" style="
         display: flex;
         justify-content: center;

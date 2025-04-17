@@ -1,5 +1,9 @@
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation, FileText } from 'lucide-react';
+
+// Import background image
+import backgroundUrl from '../assets/icons/SfondoAPP.svg';
 
 // Stile per il contenitore principale
 const naviContainerStyle = {
@@ -56,11 +60,17 @@ const loggerStyle = {
   height: '126px',
 };
 
-export default function Navi() {
+const Navi: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div style={naviContainerStyle}>
+    <div 
+      className="min-h-screen bg-cover bg-center"
+      style={{ 
+        backgroundImage: `url(${backgroundUrl})`,
+        ...naviContainerStyle
+      }}
+    >
       <button 
         style={startNaviStyle}
         onClick={() => navigate('/NavigationPage')}
@@ -77,4 +87,6 @@ export default function Navi() {
       </button>
     </div>
   );
-}
+};
+
+export default Navi;

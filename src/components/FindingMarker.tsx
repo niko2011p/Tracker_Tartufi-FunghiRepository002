@@ -3,6 +3,10 @@ import L from 'leaflet';
 import { Finding } from '../types';
 import './FindingMarker.css';
 
+// Import SVG icons
+import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
+import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
+
 interface FindingMarkerProps {
   finding: Finding;
   map: L.Map;
@@ -35,11 +39,8 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
       coordinates: finding.coordinates
     });
 
-    // Create icon
-    const iconUrl = finding.type === 'Fungo' 
-      ? '/assets/icons/mushroom-tag-icon.svg'
-      : '/assets/icons/Truffle-tag-icon.svg';
-
+    // Use imported icon URLs
+    const iconUrl = finding.type === 'Fungo' ? mushroomIconUrl : truffleIconUrl;
     console.log('🎨 Using icon:', iconUrl);
 
     const icon = new L.Icon({
@@ -121,10 +122,7 @@ export default FindingMarker;
 
 // Funzione di utilità per creare marker
 export const createFindingMarker = (finding: Finding) => {
-  const iconUrl = finding.type === 'Fungo' 
-    ? '/assets/icons/mushroom-tag-icon.svg'
-    : '/assets/icons/Truffle-tag-icon.svg';
-
+  const iconUrl = finding.type === 'Fungo' ? mushroomIconUrl : truffleIconUrl;
   console.log(`🎯 Creating marker for ${finding.type} with icon: ${iconUrl}`);
 
   const icon = new L.Icon({
