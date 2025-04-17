@@ -8,47 +8,52 @@ import { formatDistance, formatDuration } from '../utils/formatUtils';
 import { useNavigate } from 'react-router-dom';
 import { icons } from '../utils/icons';
 
-// Funzione per creare un marker personalizzato
+// Funzione per creare un marker personalizzato con CSS invece di immagini
 const createCustomMarker = (finding: Finding) => {
-  const iconUrl = finding.type === 'Fungo' ? icons.mushroom : icons.truffle;
-  console.log(`🎯 Creazione marker per ${finding.type} con icona: ${iconUrl}`);
-
+  console.log(`🎯 Logger: Creazione marker per finding di tipo ${finding.type}`);
+  
+  const type = finding.type.toLowerCase();
+  const color = type === 'fungo' ? '#8eaa36' : '#8B4513';
+  const emoji = type === 'fungo' ? '🍄' : '🥔';
+  
   const iconHtml = `
-    <div class="finding-marker" style="
+    <div class="finding-marker ${type}-marker" style="
       width: 40px;
       height: 40px;
       position: relative;
       display: flex;
       justify-content: center;
       align-items: center;
+      background-color: ${color}40;
+      border-radius: 50%;
+      border: 2px solid ${color};
     ">
       <div class="finding-pulse" style="
         position: absolute;
         width: 100%;
         height: 100%;
         border-radius: 50%;
-        background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+        background-color: ${color}30;
         animation: pulse 2s infinite;
       "></div>
-      <img 
-        src="${iconUrl}" 
-        style="
-          width: 32px;
-          height: 32px;
-          position: relative;
-          z-index: 1000;
-          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-        "
-        alt="${finding.type}"
-        onerror="console.error('❌ Errore caricamento icona:', this.src)"
-        onload="console.log('✅ Icona caricata:', this.src)"
-      />
+      <div style="
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+        color: ${color};
+      ">${emoji}</div>
     </div>
   `;
 
+  console.log('✅ Logger: Marker creato con successo usando approccio CSS');
+
   return L.divIcon({
     html: iconHtml,
-    className: 'finding-icon',
+    className: `finding-icon ${type}-icon`,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
     popupAnchor: [0, -20]

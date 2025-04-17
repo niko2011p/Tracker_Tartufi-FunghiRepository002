@@ -180,33 +180,35 @@ const TrackDetail: React.FC = () => {
               position={finding.coordinates}
               icon={L.divIcon({
                 html: `
-                  <div class="finding-marker" style="
+                  <div class="finding-marker ${finding.type.toLowerCase()}-marker" style="
                     width: 40px;
                     height: 40px;
                     position: relative;
                     display: flex;
                     justify-content: center;
                     align-items: center;
+                    background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+                    border-radius: 50%;
+                    border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
                   ">
                     <div class="finding-pulse" style="
                       position: absolute;
                       width: 100%;
                       height: 100%;
                       border-radius: 50%;
-                      background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+                      background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}30;
                       animation: pulse 2s infinite;
                     "></div>
-                    <img 
-                      src={finding.type === 'Fungo' ? icons.mushroom : icons.truffle}
-                      style="
-                        width: 32px;
-                        height: 32px;
-                        position: relative;
-                        z-index: 1000;
-                        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-                      "
-                      alt="${finding.type}"
-                    />
+                    <div style="
+                      width: 24px;
+                      height: 24px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 16px;
+                      font-weight: bold;
+                      color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+                    ">${finding.type === 'Fungo' ? '🍄' : '🥔'}</div>
                   </div>
                 `,
                 className: 'finding-icon',
