@@ -19,7 +19,16 @@ interface RealTimeData {
   speed: number;
 }
 
-const TrackingDataPanel: React.FC<{ realTimeData?: RealTimeData }> = ({ realTimeData }) => {
+interface TrackingDataPanelProps {
+  realTimeData: {
+    lat: number;
+    lng: number;
+    speed: number;
+    alt: number;
+  };
+}
+
+const TrackingDataPanel: React.FC<TrackingDataPanelProps> = ({ realTimeData }) => {
   // Stato locale per i dati di tracciamento
   const [trackingData, setTrackingData] = useState<TrackingDataState>({
     distance: 0,
