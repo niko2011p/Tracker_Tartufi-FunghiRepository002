@@ -4,107 +4,117 @@ import { Finding } from '../types';
 import './FindingMarker.css';
 
 interface FindingMarkerProps {
-  position: [number, number];
-  type: 'Fungo' | 'Tartufo' | 'poi';
+  finding: Finding;
   map: L.Map;
-  onTakePhoto?: () => void;
 }
 
-const FindingMarker: React.FC<FindingMarkerProps> = ({ position, type, map, onTakePhoto }) => {
+const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
   const markerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
-    if (!map) return;
+    // Validate coordinates
+    if (!finding.coordinates || 
+        !Array.isArray(finding.coordinates) || 
+        finding.coordinates.length !== 2 ||
+        typeof finding.coordinates[0] !== 'number' || 
+        typeof finding.coordinates[1] !== 'number' ||
+        isNaN(finding.coordinates[0]) || 
+        isNaN(finding.coordinates[1])) {
+      console.error('❌ Invalid coordinates for finding:', {
+        id: finding.id,
+        coordinates: finding.coordinates
+      });
+      return;
+    }
 
-    // Crea l'icona personalizzata in base al tipo
-    const iconUrl = type === 'Fungo' 
-      ? '/icon/mushroom-tag-icon.svg'
-      : type === 'Tartufo'
-        ? '/icon/Truffle-tag-icon.svg'
-        : '/icon/point-of-interest-tag-icon.svg';
-
-    const customIcon = L.divIcon({
-      className: `custom-div-icon ${type.toLowerCase()}-finding`,
-      html: `
-        <div class="finding-icon-wrapper" style="
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          width: 32px;
-          height: 32px;
-          position: relative;
-        ">
-          <div class="finding-icon-pulse" style="
-            position: absolute;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: ${type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#8B4513' : '#f5a149'}40;
-            animation: pulse 2s infinite;
-          "></div>
-          <img 
-            src="${iconUrl}" 
-            alt="${type}" 
-            style="
-              width: 24px;
-              height: 24px;
-              position: relative;
-              z-index: 1;
-              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-              transition: transform 0.2s ease;
-            "
-            onmouseover="this.style.transform='scale(1.1)'"
-            onmouseout="this.style.transform='scale(1)'"
-          />
-        </div>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16]
+    console.log('📍 Creating marker for finding:', {
+      id: finding.id,
+      type: finding.type,
+      coordinates: finding.coordinates
     });
 
-    // Crea il marker
-    markerRef.current = L.marker(position, { icon: customIcon });
+    // Determine icon type and create icon HTML
+    const iconUrl = `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+    console.log('🎨 Using icon:', iconUrl);
 
-    // Aggiungi il popup
-    const popupContent = `
-      <div class="p-2">
-        <h3 class="font-semibold">${type}</h3>
-        <div class="mt-2 flex flex-col gap-2">
-          ${onTakePhoto ? `
-            <button 
-              onclick="window.dispatchEvent(new CustomEvent('takePhoto', { detail: { type: '${type}' } }))"
-              class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-            >
-              Scatta foto
-            </button>
-          ` : ''}
-        </div>
+    const iconHtml = `
+      <div class="finding-marker" style="
+        width: 40px;
+        height: 40px;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      ">
+        <div class="finding-pulse" style="
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+          animation: pulse 2s infinite;
+        "></div>
+        <img 
+          src="${iconUrl}" 
+          style="
+            width: 32px;
+            height: 32px;
+            position: relative;
+            z-index: 1000;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+          "
+          alt="${finding.type}"
+          onload="console.log('✅ Icon loaded successfully')"
+          onerror="console.error('❌ Failed to load icon:', this.src)"
+        />
       </div>
     `;
 
-    markerRef.current.bindPopup(popupContent);
+    // Create marker with validated coordinates
+    const marker = L.marker(finding.coordinates, {
+      icon: L.divIcon({
+        html: iconHtml,
+        className: 'finding-marker-container',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      })
+    });
 
-    // Aggiungi il marker alla mappa
-    markerRef.current.addTo(map);
+    // Add marker to map and store reference
+    marker.addTo(map);
+    markerRef.current = marker;
 
-    // Gestisci l'evento personalizzato per scattare la foto
-    const handleTakePhoto = (event: CustomEvent) => {
-      if (event.detail.type === type && onTakePhoto) {
-        onTakePhoto();
+    // Verify actual marker position
+    const actualPosition = marker.getLatLng();
+    console.log('✅ Marker placed at:', {
+      intended: finding.coordinates,
+      actual: [actualPosition.lat, actualPosition.lng],
+      difference: {
+        lat: Math.abs(actualPosition.lat - finding.coordinates[0]),
+        lng: Math.abs(actualPosition.lng - finding.coordinates[1])
       }
-    };
+    });
 
-    window.addEventListener('takePhoto', handleTakePhoto as EventListener);
+    // Add popup with finding details
+    marker.bindPopup(`
+      <div class="finding-popup">
+        <h3>${finding.name || finding.type}</h3>
+        <p>${new Date(finding.timestamp).toLocaleString('it-IT')}</p>
+      </div>
+    `);
 
-    // Cleanup
+    // Cleanup function
     return () => {
+      console.log('🧹 Removing marker for finding:', {
+        id: finding.id,
+        coordinates: finding.coordinates
+      });
       if (markerRef.current) {
         markerRef.current.remove();
+        markerRef.current = null;
       }
-      window.removeEventListener('takePhoto', handleTakePhoto as EventListener);
     };
-  }, [map, position, type, onTakePhoto]);
+  }, [finding, map]);
 
   return null;
 };
@@ -139,12 +149,19 @@ document.head.appendChild(style);
 
 export default FindingMarker;
 
+// Funzione di utilità per creare marker
 export const createFindingMarker = (finding: Finding) => {
   const iconUrl = finding.type === 'Fungo' 
     ? '/icon/mushroom-tag-icon.svg'
     : '/icon/Truffle-tag-icon.svg';
 
   console.log(`🎯 Creating marker for ${finding.type} with icon: ${iconUrl}`);
+
+  // Test di caricamento dell'immagine
+  const testImage = new Image();
+  testImage.onload = () => console.log(`✅ Icon loaded successfully: ${iconUrl}`);
+  testImage.onerror = (e) => console.error(`❌ Failed to load icon: ${iconUrl}`, e);
+  testImage.src = iconUrl;
 
   const iconHtml = `
     <div class="finding-marker" style="
@@ -175,32 +192,9 @@ export const createFindingMarker = (finding: Finding) => {
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
       "></div>
     </div>
-    <style>
-      @keyframes pulse {
-        0% {
-          transform: scale(1);
-          box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7);
-        }
-        70% {
-          transform: scale(1.05);
-          box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
-        }
-        100% {
-          transform: scale(1);
-          box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
-        }
-      }
-    </style>
   `;
 
-  // Log per debug
-  console.log('Generated HTML:', iconHtml);
-
-  // Test di caricamento dell'immagine
-  const img = new Image();
-  img.onload = () => console.log(`✅ Icon loaded successfully: ${iconUrl}`);
-  img.onerror = (e) => console.error(`❌ Failed to load icon: ${iconUrl}`, e);
-  img.src = iconUrl;
+  console.log('Generated marker HTML:', iconHtml);
 
   return L.divIcon({
     html: iconHtml,

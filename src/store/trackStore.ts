@@ -674,60 +674,76 @@ export const useTrackStore = create<TrackState>()(
         const { currentTrack } = get();
         if (currentTrack && navigator.geolocation) {
           try {
+            // Ottieni la posizione con alta precisione
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
+              const geoOptions = {
+                enableHighAccuracy: true,
                 timeout: 10000,
                 maximumAge: 0
-              });
+              };
+
+              console.log('📍 Acquisizione posizione GPS per nuovo ritrovamento...');
+              navigator.geolocation.getCurrentPosition(resolve, reject, geoOptions);
             });
 
-                const coordinates: [number, number] = [
+            // Valida e formatta le coordinate con 6 decimali di precisione
+            const coordinates: [number, number] = [
               Number(position.coords.latitude.toFixed(6)),
               Number(position.coords.longitude.toFixed(6))
-                ];
-                
-                const newFinding: Finding = {
-                  ...finding,
-                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  trackId: currentTrack.id,
-                  coordinates,
-                  timestamp: new Date()
-                };
-                
-            // Aggiorna la traccia corrente con il nuovo ritrovamento
-            const updatedTrack = {
-                    ...currentTrack,
-                    findings: [...currentTrack.findings, newFinding]
-            };
-                
-            // Aggiorna lo stato
-            set({ currentTrack: updatedTrack });
-                
-            // Prova a salvare le tracce
-                try {
-              get().saveTracks();
-                } catch (error) {
-              console.error('Errore nel salvataggio delle tracce:', error);
-              if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-                console.warn('Quota localStorage superata, il ritrovamento è stato aggiunto ma non salvato');
-                alert('Attenzione: lo spazio di archiviazione è pieno. Il ritrovamento è stato aggiunto ma potrebbe non essere salvato permanentemente.');
-              }
+            ];
+
+            // Verifica che le coordinate siano valide
+            if (isNaN(coordinates[0]) || isNaN(coordinates[1]) ||
+                coordinates[0] === 0 || coordinates[1] === 0) {
+              throw new Error('Coordinate GPS non valide');
             }
 
-            // Salva sia in localStorage che in IndexedDB
+            console.log(`✅ Coordinate acquisite: [${coordinates[0]}, ${coordinates[1]}]`);
+            console.log(`📊 Precisione GPS: ${position.coords.accuracy}m`);
+
+            const newFinding: Finding = {
+              ...finding,
+              id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              trackId: currentTrack.id,
+              coordinates,
+              timestamp: new Date()
+            };
+
+            console.log('🎯 Nuovo ritrovamento creato:', {
+              id: newFinding.id,
+              type: newFinding.type,
+              coordinates: newFinding.coordinates
+            });
+
+            // Aggiorna la traccia corrente con il nuovo ritrovamento
+            const updatedTrack = {
+              ...currentTrack,
+              findings: [...currentTrack.findings, newFinding]
+            };
+
+            // Aggiorna lo stato
+            set({ currentTrack: updatedTrack });
+
+            // Salva immediatamente in IndexedDB
             try {
-              // Usa updatedTrack invece di state.currentTrack
-              saveToLocalStorage('currentTrack', updatedTrack);
               await saveToIndexedDB('currentTrack', updatedTrack);
+              console.log('💾 Ritrovamento salvato in IndexedDB');
             } catch (error) {
-              console.error('Errore nel salvataggio del currentTrack:', error);
+              console.error('❌ Errore nel salvataggio in IndexedDB:', error);
+            }
+
+            // Backup in localStorage
+            try {
+              saveToLocalStorage('currentTrack', updatedTrack);
+              console.log('💾 Backup ritrovamento in localStorage');
+            } catch (error) {
+              console.error('❌ Errore nel backup in localStorage:', error);
             }
 
             return newFinding;
           } catch (error) {
-            console.error('Errore nell\'acquisizione della posizione:', error);
-            throw error;
+            console.error('❌ Errore nell\'acquisizione della posizione GPS:', error);
+            throw new Error('Impossibile acquisire la posizione GPS. Assicurati che il GPS sia attivo e riprova.');
           }
         }
       },
@@ -999,43 +1015,70 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         currentTrack: state.currentTrack,
         loadedFindings: state.loadedFindings
       }),
-      onRehydrateStorage: () => {
-        return (rehydratedState, error) => {
-          if (error) {
-            console.error('❌ Errore durante la reidratazione:', error);
-          } else if (rehydratedState) {
-            console.log('✅ Reidratazione completata:', rehydratedState);
-            useTrackStore.setState(rehydratedState);
-          }
-        };
-      },
       storage: {
         getItem: async (name) => {
           console.log(`🔄 Recupero dati da storage per ${name}...`);
           try {
+            // Prima prova a caricare da IndexedDB
             const data = await loadFromIndexedDB(name);
             if (data) {
-              return JSON.stringify(data);
+              console.log('📦 Dati recuperati da IndexedDB:', data);
+              return JSON.stringify({
+                state: {
+                  ...data.state,
+                  tracks: Array.isArray(data.state?.tracks) ? data.state.tracks : []
+                },
+                version: 0
+              });
             }
-            return localStorage.getItem(name);
+
+            // Fallback su localStorage
+            const localData = localStorage.getItem(name);
+            if (localData) {
+              console.log('📦 Dati recuperati da localStorage');
+              return localData;
+            }
+
+            console.log('❌ Nessun dato trovato');
+            return null;
           } catch (error) {
             console.error('❌ Errore nel recupero dei dati:', error);
             return null;
           }
         },
         setItem: async (name, valueStr) => {
-          console.log(`🔄 Salvataggio dati in storage per ${name}...`);
+          console.log(`💾 Salvataggio dati per ${name}...`);
           try {
             let dataToStore;
             try {
               dataToStore = JSON.parse(valueStr);
+              console.log('📦 Dati da salvare:', dataToStore);
             } catch (e) {
               console.warn('⚠️ Errore nel parsing JSON, uso valore originale');
               dataToStore = valueStr;
             }
-            
-            await saveToIndexedDB(name, dataToStore);
-            localStorage.setItem(name, valueStr);
+
+            // Assicurati che i dati siano in un formato valido
+            if (dataToStore?.state) {
+              // Salva in IndexedDB
+              await saveToIndexedDB(name, {
+                ...dataToStore,
+                state: {
+                  ...dataToStore.state,
+                  tracks: Array.isArray(dataToStore.state.tracks) ? dataToStore.state.tracks : []
+                }
+              });
+
+              // Backup in localStorage (solo se i dati non sono troppo grandi)
+              try {
+                const serialized = JSON.stringify(dataToStore);
+                if (serialized.length < 5000000) { // ~5MB limit
+                  localStorage.setItem(name, serialized);
+                }
+              } catch (e) {
+                console.warn('⚠️ Fallback su localStorage non riuscito:', e);
+              }
+            }
           } catch (error) {
             console.error('❌ Errore nel salvataggio dei dati:', error);
           }
@@ -1045,13 +1088,24 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             localStorage.removeItem(name);
             const db = await initDB();
             const tx = db.transaction(['state', 'tracks'], 'readwrite');
-            const store = tx.objectStore('state');
-            await store.delete(name);
+            await Promise.all([
+              tx.objectStore('state').delete(name),
+              tx.objectStore('tracks').clear()
+            ]);
             await tx.done;
             console.log(`✅ Dati rimossi per ${name}`);
           } catch (error) {
             console.error('❌ Errore nella rimozione dei dati:', error);
           }
+        }
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          console.log('✅ Stato reidratato:', state);
+          // Forza il caricamento delle tracce
+          setTimeout(() => {
+            useTrackStore.getState().loadTracks();
+          }, 0);
         }
       }
     }
