@@ -10,11 +10,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-
-// Import SVG icons
-import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
-import poiIconUrl from '../assets/icons/point-of-interest-tag-icon.svg';
+import { icons } from '../assets/icons';
 
 interface TrackingData {
   totalTime: number;
@@ -97,11 +93,11 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
   const getFindingIcon = (type: string) => {
     switch (type) {
       case 'Fungo':
-        return <img src={mushroomIconUrl} alt="Fungo" className="w-6 h-6" />;
+        return <img src={icons.mushroom} alt="Fungo" className="w-6 h-6" />;
       case 'Tartufo':
-        return <img src={truffleIconUrl} alt="Tartufo" className="w-6 h-6" />;
+        return <img src={icons.truffle} alt="Tartufo" className="w-6 h-6" />;
       case 'poi':
-        return <img src={poiIconUrl} alt="Punto di interesse" className="w-6 h-6" />;
+        return <img src={icons.poi} alt="Punto di interesse" className="w-6 h-6" />;
       default:
         return null;
     }
