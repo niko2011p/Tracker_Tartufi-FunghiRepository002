@@ -201,8 +201,8 @@ export default FindingMarker;
 // Funzione di utilità per creare marker
 export const createFindingMarker = (finding: Finding) => {
   const iconUrl = finding.type === 'Fungo' 
-    ? '/icon/mushroom-tag-icon.svg'
-    : '/icon/Truffle-tag-icon.svg';
+    ? '/assets/icons/mushroom-tag-icon.svg'
+    : '/assets/icons/Truffle-tag-icon.svg';
 
   console.log(`🎯 Creating marker for ${finding.type} with icon: ${iconUrl}`);
 
