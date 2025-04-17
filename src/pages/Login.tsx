@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useTrackStore } from '../store/trackStore';
 
-// Import logo
+// Import logo and background
 import logoUrl from '../assets/icons/LogoFTL.svg';
+import backgroundUrl from '../assets/icons/SfondoAPP.svg';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -56,100 +57,113 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      {/* Logo con animazione */}
-      <div className="mb-8 transform transition-all duration-500 hover:scale-105">
-        <img 
-          src={logoUrl} 
-          alt="Funghi Tracker Logger" 
-          className="h-64 w-auto animate-pulse-slow" 
-          style={{ 
-            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))',
-            animation: 'pulse-slow 3s infinite'
-          }}
-        />
-      </div>
+    <div 
+      className="min-h-screen flex flex-col items-center justify-start pt-16 px-4 sm:px-6 lg:px-8 relative"
+      style={{ 
+        backgroundImage: `url(${backgroundUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Overlay semi-trasparente */}
+      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>
 
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Accedi al tuo account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Inserisci le tue credenziali per accedere
-          </p>
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo con animazione */}
+        <div className="mb-8 transform transition-all duration-500 hover:scale-105">
+          <img 
+            src={logoUrl} 
+            alt="Funghi Tracker Logger" 
+            className="h-32 w-auto mx-auto animate-pulse-slow" 
+            style={{ 
+              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))',
+              animation: 'pulse-slow 3s infinite'
+            }}
+          />
         </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="flex">
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Indirizzo Email
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-[#8eaa36] focus:border-[#8eaa36] focus:z-10 sm:text-sm"
-                placeholder="Indirizzo Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-[#8eaa36] focus:border-[#8eaa36] focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
 
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-xl p-8">
           <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-[#8eaa36] hover:bg-[#7d9830] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8eaa36] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02]"
-            >
-              {isLoading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Accesso in corso...
-                </span>
-              ) : 'Accedi'}
-            </button>
-          </div>
-          
-          <div className="text-sm text-center">
-            <p className="text-gray-600">
-              Per scopi di test, qualsiasi email e password (min. 6 caratteri) funzioneranno
+            <h2 className="text-center text-3xl font-extrabold text-gray-900">
+              Accedi al tuo account
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              Inserisci le tue credenziali per accedere
             </p>
           </div>
-        </form>
+          
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="rounded-md bg-red-50 p-4">
+                <div className="flex">
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="rounded-md shadow-sm -space-y-px">
+              <div>
+                <label htmlFor="email-address" className="sr-only">
+                  Indirizzo Email
+                </label>
+                <input
+                  id="email-address"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-[#8eaa36] focus:border-[#8eaa36] focus:z-10 sm:text-sm"
+                  placeholder="Indirizzo Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="sr-only">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-[#8eaa36] focus:border-[#8eaa36] focus:z-10 sm:text-sm"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-[#8eaa36] hover:bg-[#7d9830] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8eaa36] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02]"
+              >
+                {isLoading ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Accesso in corso...
+                  </span>
+                ) : 'Accedi'}
+              </button>
+            </div>
+            
+            <div className="text-sm text-center">
+              <p className="text-gray-600">
+                Per scopi di test, qualsiasi email e password (min. 6 caratteri) funzioneranno
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
 
       {showTrackDialog && (

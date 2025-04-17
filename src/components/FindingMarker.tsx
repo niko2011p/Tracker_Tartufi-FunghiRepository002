@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { Finding } from '../types';
 import './FindingMarker.css';
@@ -25,10 +24,10 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
       return;
     }
 
-    // Create custom icon using CSS class
+    // Create custom icon
     const customIcon = L.divIcon({
       className: `finding-marker ${finding.type.toLowerCase()}-marker`,
-      html: `<div class="marker-icon"></div>`,
+      html: '<div class="marker-icon"></div>',
       iconSize: [32, 32],
       iconAnchor: [16, 32],
       popupAnchor: [0, -32]
@@ -38,7 +37,7 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
     const marker = L.marker([lat, lng], { icon: customIcon });
     markerRef.current = marker;
 
-    // Add popup with finding details
+    // Add popup
     marker.bindPopup(`
       <div class="finding-popup">
         <h3>${finding.type}</h3>
@@ -50,6 +49,7 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
     // Add to map
     marker.addTo(map);
 
+    // Cleanup
     return () => {
       if (markerRef.current) {
         markerRef.current.remove();
@@ -77,7 +77,7 @@ export const createFindingMarker = (finding: Finding, map: L.Map): L.Marker | nu
 
   const customIcon = L.divIcon({
     className: `finding-marker ${finding.type.toLowerCase()}-marker`,
-    html: `<div class="marker-icon"></div>`,
+    html: '<div class="marker-icon"></div>',
     iconSize: [32, 32],
     iconAnchor: [16, 32],
     popupAnchor: [0, -32]
