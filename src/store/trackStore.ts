@@ -978,13 +978,15 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         currentTrack: state.currentTrack,
         loadedFindings: state.loadedFindings
       }),
-      onRehydrateStorage: (state) => {
+      onRehydrateStorage: () => {
+        // Closure per mantenere il riferimento a set
         return (rehydratedState, error) => {
           if (error) {
             console.error('❌ Errore durante la reidratazione:', error);
           } else if (rehydratedState) {
             console.log('✅ Reidratazione completata:', rehydratedState);
-            set(rehydratedState);
+            // Usa il set dallo scope esterno
+            useTrackStore.setState(rehydratedState);
           }
         };
       },
@@ -1013,17 +1015,29 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             return null;
           }
         },
-        setItem: async (name, value) => {
+        setItem: async (name, valueStr) => {
           console.log(`🔄 Salvataggio dati in storage per ${name}...`);
           try {
-            // Salva in localStorage
-            localStorage.setItem(name, value);
+            // Salva in localStorage come stringa
+            localStorage.setItem(name, valueStr);
             
-            // Salva anche in IndexedDB
-            const parsed = JSON.parse(value);
-            if (parsed.state) {
-              await saveToIndexedDB(name, parsed.state);
-              console.log(`✅ Dati salvati in IndexedDB per ${name}`);
+            // Per IndexedDB, prima verifica che valueStr sia una stringa JSON valida
+            let parsed;
+            try {
+              parsed = JSON.parse(valueStr);
+            } catch (parseError) {
+              console.error('❌ Errore nel parsing JSON:', parseError);
+              // Se non è JSON valido, prova a salvare direttamente l'oggetto
+              parsed = { state: valueStr };
+            }
+            
+            if (parsed && parsed.state) {
+              try {
+                await saveToIndexedDB(name, parsed.state);
+                console.log(`✅ Dati salvati in IndexedDB per ${name}`);
+              } catch (idbError) {
+                console.error('❌ Errore nel salvataggio in IndexedDB:', idbError);
+              }
             }
           } catch (error) {
             console.error('❌ Errore nel salvataggio dei dati:', error);
