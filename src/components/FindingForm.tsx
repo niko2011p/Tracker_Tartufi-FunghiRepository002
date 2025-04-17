@@ -280,10 +280,10 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setFindingType('Fungo');
-                  setSpeciesName('');
-                  setShowSuggestions(false);
-                }}
+                    setFindingType('Fungo');
+                    setSpeciesName('');
+                    setShowSuggestions(false);
+                  }}
                 className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
                   findingType === 'Fungo'
                     ? 'bg-[#8eaa36] text-white shadow-md'
@@ -296,10 +296,10 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setFindingType('Tartufo');
-                  setSpeciesName('');
-                  setShowSuggestions(false);
-                }}
+                    setFindingType('Tartufo');
+                    setSpeciesName('');
+                    setShowSuggestions(false);
+                  }}
                 className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
                   findingType === 'Tartufo'
                     ? 'bg-[#8B4513] text-white shadow-md'
@@ -309,29 +309,29 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                 <img src={truffleIconUrl} alt="Tartufo" className="w-8 h-8" />
                 Tartufo
               </button>
-            </div>
+          </div>
 
-            <div className="relative">
-              <input
-                type="text"
-                value={speciesName}
-                onChange={(e) => {
-                  setSpeciesName(e.target.value);
-                  setShowSuggestions(true);
-                }}
+          <div className="relative">
+            <input
+              type="text"
+              value={speciesName}
+              onChange={(e) => {
+                setSpeciesName(e.target.value);
+                setShowSuggestions(true);
+              }}
                 placeholder="Nome specie *"
                 className="w-full px-4 py-3 border-2 border-[#8eaa36] rounded-lg focus:ring-2 focus:ring-[#8eaa36] focus:border-[#8eaa36] bg-gray-50 text-lg"
-                required
-              />
+              required
+            />
               {showSuggestions && (
-                <div 
-                  ref={suggestionsRef}
+              <div 
+                ref={suggestionsRef}
                   className="absolute bottom-full left-0 right-0 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto mb-2"
-                >
+              >
                   {filteredSpecies.map((suggestion) => (
-                    <button
+                  <button
                       key={suggestion.commonName}
-                      type="button"
+                    type="button"
                       onClick={() => {
                         setSpeciesName(`${suggestion.commonName} (${suggestion.scientificName})`);
                         setShowSuggestions(false);
@@ -340,11 +340,11 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     >
                       <div className="font-medium">{suggestion.commonName}</div>
                       <div className="text-sm text-gray-600">{suggestion.scientificName}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
             <div className="flex gap-4">
               <button
@@ -362,20 +362,20 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                 onChange={handlePhotoUpload}
                 className="hidden"
               />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
                 className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
               >
                 <Upload className="w-6 h-6" />
                 Carica Foto
-              </button>
-            </div>
+                  </button>
+                </div>
 
             {photoUrl && (
               <div className="relative w-full">
-                <img
-                  src={photoUrl}
+                  <img 
+                    src={photoUrl} 
                   alt="Preview"
                   className="w-full h-auto max-h-[300px] object-contain rounded-lg"
                   onLoad={(e) => {
@@ -392,15 +392,15 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     }
                   }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setPhotoUrl(null)}
+                    <button
+                      type="button"
+                      onClick={() => setPhotoUrl(null)}
                   className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                >
+                    >
                   <X size={16} />
-                </button>
-              </div>
-            )}
+                    </button>
+                </div>
+              )}
           </div>
         </form>
       </div>

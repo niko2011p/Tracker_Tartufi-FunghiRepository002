@@ -13,45 +13,6 @@ import useButtonConfigStore from '../store/buttonConfigStore';
 import TagButton from '../components/TagButton';
 import StopButton from '../components/StopButton';
 
-// Import SVG icons
-import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/Truffle-tag-icon.svg';
-import poiIconUrl from '../assets/icons/point-of-interest-tag-icon.svg';
-
-// Create icon instances
-const mushroomIcon = L.icon({
-  iconUrl: mushroomIconUrl,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16]
-});
-
-const truffleIcon = L.icon({
-  iconUrl: truffleIconUrl,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16]
-});
-
-const poiIcon = L.icon({
-  iconUrl: poiIconUrl,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16]
-});
-
-// Function to get the appropriate icon based on finding type
-const getFindingIcon = (type: string): L.Icon => {
-  console.log('[DEBUG] Getting icon for type:', type);
-  const icon = type === 'Fungo' 
-    ? mushroomIcon 
-    : type === 'Tartufo'
-      ? truffleIcon
-      : poiIcon;
-  console.log('[DEBUG] Selected icon:', icon.options.iconUrl);
-  return icon;
-};
-
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -73,6 +34,27 @@ const pulseAnimation = `
 const style = document.createElement('style');
 style.innerHTML = pulseAnimation;
 document.head.appendChild(style);
+
+const createFindingIcon = (type: string, isLoaded = false) => {
+  const size: [number, number] = [32, 32];
+  const color = type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#a0522d' : '#f5a149';
+  
+  return L.divIcon({
+    html: `
+      <div class="marker-container">
+        <div class="marker-pulse"></div>
+        <div class="marker-inner">
+          <div class="marker-dot"></div>
+          <div class="marker-ring"></div>
+        </div>
+      </div>
+    `,
+    className: `custom-icon ${isLoaded ? 'loaded' : ''}`,
+    iconSize: size,
+    iconAnchor: [size[0] / 2, size[1] / 2],
+    popupAnchor: [0, -size[1] / 2]
+  });
+};
 
 // Componente per aggiornare il centro della mappa con effetto volo
 const MapCenterUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
@@ -265,7 +247,7 @@ const NavigationPage: React.FC = () => {
       } else {
         gpsMarkerRef.current = L.marker(
           [gpsData.latitude, gpsData.longitude],
-          { icon: getFindingIcon('Fungo') }
+          { icon: createFindingIcon('Fungo') }
         ).addTo(mapRef.current);
       }
     }
@@ -390,7 +372,7 @@ const NavigationPage: React.FC = () => {
         {gpsData.latitude !== 0 && gpsData.longitude !== 0 && (
           <Marker
             position={[gpsData.latitude, gpsData.longitude]}
-            icon={getFindingIcon('Fungo')}
+            icon={createFindingIcon('Fungo')}
           >
             <Popup>
               <div className="p-2">
