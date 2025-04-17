@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 
 // Funzione per creare un marker personalizzato
 const createCustomMarker = (finding: Finding) => {
-  const iconUrl = `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+  const iconUrl = `/assets/icons/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
   console.log(`🎯 Creazione marker per ${finding.type} con icona: ${iconUrl}`);
 
   const iconHtml = `

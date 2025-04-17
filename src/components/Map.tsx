@@ -80,7 +80,7 @@ const Map: React.FC<MapProps> = ({ track, onTakePhoto }) => {
           }
 
           // Create the icon HTML
-          const iconUrl = `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+          const iconUrl = `/assets/icons/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
           console.log('Using icon URL:', iconUrl);
 
           const iconHtml = `

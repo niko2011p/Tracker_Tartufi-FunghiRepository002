@@ -286,7 +286,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-8 h-8" />
+                <img src="/assets/icons/mushroom-tag-icon.svg" alt="Fungo" className="w-8 h-8" />
                 Fungo
               </button>
               <button
@@ -302,7 +302,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-8 h-8" />
+                <img src="/assets/icons/Truffle-tag-icon.svg" alt="Tartufo" className="w-8 h-8" />
                 Tartufo
               </button>
             </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Finding } from '../types';
 import './FindingMarker.css';
@@ -10,6 +10,8 @@ interface FindingMarkerProps {
 
 const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
   const markerRef = useRef<L.Marker | null>(null);
+  const [iconLoaded, setIconLoaded] = useState(false);
+  const [iconError, setIconError] = useState(false);
 
   useEffect(() => {
     // Validate coordinates
@@ -37,20 +39,8 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
     const iconUrl = `/assets/icons/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
     console.log('🎨 Using icon:', iconUrl);
 
-    // Preload the icon
-    const preloadIcon = new Image();
-    preloadIcon.onload = () => {
-      console.log('✅ Icon preloaded successfully:', iconUrl);
-      createMarker();
-    };
-    preloadIcon.onerror = (e) => {
-      console.error('❌ Failed to preload icon:', iconUrl, e);
-      // Fallback to a default marker
-      createMarker(true);
-    };
-    preloadIcon.src = iconUrl;
-
-    const createMarker = (useFallback = false) => {
+    // Create marker with validated coordinates
+    const createMarker = () => {
       const iconHtml = `
         <div class="finding-marker" style="
           width: 40px;
@@ -68,7 +58,7 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
             background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
             animation: pulse 2s infinite;
           "></div>
-          ${useFallback ? `
+          ${iconError ? `
             <div style="
               width: 32px;
               height: 32px;
@@ -94,12 +84,27 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
                 filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
               "
               alt="${finding.type}"
+              onload="this.style.display='block'"
+              onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-icon').style.display='block'"
             />
+            <div class="fallback-icon" style="
+              width: 32px;
+              height: 32px;
+              position: relative;
+              z-index: 1000;
+              background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+              border-radius: 50%;
+              display: none;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-weight: bold;
+              font-size: 16px;
+            ">${finding.type === 'Fungo' ? 'F' : 'T'}</div>
           `}
         </div>
       `;
 
-      // Create marker with validated coordinates
       const marker = L.marker(finding.coordinates, {
         icon: L.divIcon({
           html: iconHtml,
@@ -133,6 +138,20 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
       `);
     };
 
+    // Preload the icon
+    const preloadIcon = new Image();
+    preloadIcon.onload = () => {
+      console.log('✅ Icon preloaded successfully:', iconUrl);
+      setIconLoaded(true);
+      createMarker();
+    };
+    preloadIcon.onerror = (e) => {
+      console.error('❌ Failed to preload icon:', iconUrl, e);
+      setIconError(true);
+      createMarker();
+    };
+    preloadIcon.src = iconUrl;
+
     // Cleanup function
     return () => {
       console.log('🧹 Removing marker for finding:', {
@@ -144,7 +163,7 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
         markerRef.current = null;
       }
     };
-  }, [finding, map]);
+  }, [finding, map, iconLoaded, iconError]);
 
   return null;
 };

@@ -88,9 +88,9 @@ const TrackDetails: React.FC<TrackDetailsProps> = ({ track, onClose }) => {
   const getFindingIcon = (type: string) => {
     switch (type) {
       case 'Fungo':
-        return <img src="/icon/mushroom-tag-icon.svg" alt="Fungo" className="w-6 h-6" />;
+        return <img src="/assets/icons/mushroom-tag-icon.svg" alt="Fungo" className="w-6 h-6" />;
       case 'Tartufo':
-        return <img src="/icon/Truffle-tag-icon.svg" alt="Tartufo" className="w-6 h-6" />;
+        return <img src="/assets/icons/Truffle-tag-icon.svg" alt="Tartufo" className="w-6 h-6" />;
       case 'poi':
         return <img src="/icon/point-of-interest-tag-icon.svg" alt="Punto di interesse" className="w-6 h-6" />;
       default:

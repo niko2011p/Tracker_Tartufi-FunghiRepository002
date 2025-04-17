@@ -43,9 +43,9 @@ const createGpsArrowIcon = (direction = 0) => {
 
 const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean = false) => {
   const iconUrl = type === 'Fungo' 
-    ? '/icon/mushroom-tag-icon.svg'
+    ? '/assets/icons/mushroom-tag-icon.svg'
     : type === 'Tartufo'
-      ? '/icon/Truffle-tag-icon.svg'
+      ? '/assets/icons/Truffle-tag-icon.svg'
       : '/icon/point-of-interest-tag-icon.svg';
 
   return new L.DivIcon({

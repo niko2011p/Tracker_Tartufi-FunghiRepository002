@@ -1136,8 +1136,8 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
 const createCustomMarker = (finding: Finding) => {
   // Determina l'icona in base al tipo
   const iconUrl = finding.type === 'Fungo' ? 
-    '/icon/mushroom-tag-icon.svg' : 
-    '/icon/Truffle-tag-icon.svg';
+    '/assets/icons/mushroom-tag-icon.svg' : 
+    '/assets/icons/Truffle-tag-icon.svg';
   
   console.log(`🎯 Creazione marker per ${finding.type} con icona: ${iconUrl}`);
 
