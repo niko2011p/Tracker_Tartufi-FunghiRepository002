@@ -184,12 +184,20 @@ const saveToIndexedDB = async (key: string, data: any) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     
-    await store.put(serializedData, key);
-    await tx.done;
-    
-    console.log(`Dati salvati con successo in IndexedDB: ${key}`);
+    return new Promise<void>((resolve, reject) => {
+      const request = store.put(serializedData, key);
+      request.onsuccess = () => {
+        console.log(`Dati salvati con successo in IndexedDB: ${key}`);
+        resolve();
+      };
+      request.onerror = () => {
+        console.error('Errore nel salvataggio in IndexedDB:', request.error);
+        reject(request.error);
+      };
+    });
   } catch (error) {
     console.error('Errore nel salvataggio in IndexedDB:', error);
+    throw error;
   }
 };
 
@@ -229,24 +237,39 @@ const loadFromIndexedDB = async (key: string): Promise<any> => {
     const tx = db.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
     
-    const serializedData = await store.get(key);
-    await tx.done;
-    
-    if (!serializedData) {
-      console.log(`Nessun dato trovato in IndexedDB per la chiave: ${key}`);
-      return null;
-    }
-    
-    // Parse the serialized data and convert ISO strings back to Date objects
-    const parsedData = JSON.parse(serializedData, (key, value) => {
-      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
-        return new Date(value);
-      }
-      return value;
+    return new Promise((resolve, reject) => {
+      const request = store.get(key);
+      request.onsuccess = () => {
+        const serializedData = request.result;
+        
+        if (!serializedData) {
+          console.log(`Nessun dato trovato in IndexedDB per la chiave: ${key}`);
+          resolve(null);
+          return;
+        }
+        
+        try {
+          // Parse the serialized data and convert ISO strings back to Date objects
+          const parsedData = JSON.parse(serializedData, (key, value) => {
+            if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+              return new Date(value);
+            }
+            return value;
+          });
+          
+          console.log(`Dati caricati con successo da IndexedDB: ${key}`);
+          resolve(parsedData);
+        } catch (parseError) {
+          console.error('Errore nel parsing dei dati:', parseError);
+          reject(parseError);
+        }
+      };
+      
+      request.onerror = () => {
+        console.error('Errore nel caricamento da IndexedDB:', request.error);
+        reject(request.error);
+      };
     });
-    
-    console.log(`Dati caricati con successo da IndexedDB: ${key}`);
-    return parsedData;
   } catch (error) {
     console.error('Errore nel caricamento da IndexedDB:', error);
     return null;
@@ -1053,8 +1076,12 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             const db = await initDB();
             const tx = db.transaction(STORE_NAME, 'readwrite');
             const store = tx.objectStore(STORE_NAME);
-            await store.delete(name);
-            await tx.done;
+            
+            return new Promise<void>((resolve, reject) => {
+              const request = store.delete(name);
+              request.onsuccess = () => resolve();
+              request.onerror = () => reject(request.error);
+            });
           } catch (error) {
             console.error('Errore nella rimozione dei dati:', error);
           }
