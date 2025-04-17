@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Finding } from '../types';
 import './FindingMarker.css';
@@ -10,8 +10,6 @@ interface FindingMarkerProps {
 
 const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
   const markerRef = useRef<L.Marker | null>(null);
-  const [iconLoaded, setIconLoaded] = useState(false);
-  const [iconError, setIconError] = useState(false);
 
   useEffect(() => {
     // Validate coordinates
@@ -35,135 +33,52 @@ const FindingMarker: React.FC<FindingMarkerProps> = ({ finding, map }) => {
       coordinates: finding.coordinates
     });
 
-    // Determine icon type and create icon HTML
-    const iconUrl = `/assets/icons/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
-    console.log('🎨 Using icon:', iconUrl);
-
-    // Create marker with validated coordinates
-    const createMarker = () => {
-      const iconHtml = `
-        <div class="finding-marker" style="
+    // Create a simple div icon with text
+    const icon = L.divIcon({
+      html: `
+        <div style="
           width: 40px;
           height: 40px;
-          position: relative;
+          background-color: ${finding.type === 'Fungo' ? 'rgba(142, 170, 54, 0.9)' : 'rgba(139, 69, 19, 0.9)'};
+          border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+          border-radius: 50%;
           display: flex;
-          justify-content: center;
           align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: bold;
+          font-size: 16px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         ">
-          <div class="finding-pulse" style="
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
-            animation: pulse 2s infinite;
-          "></div>
-          ${iconError ? `
-            <div style="
-              width: 32px;
-              height: 32px;
-              position: relative;
-              z-index: 1000;
-              background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              color: white;
-              font-weight: bold;
-              font-size: 16px;
-            ">${finding.type === 'Fungo' ? 'F' : 'T'}</div>
-          ` : `
-            <img 
-              src="${iconUrl}" 
-              style="
-                width: 32px;
-                height: 32px;
-                position: relative;
-                z-index: 1000;
-                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-              "
-              alt="${finding.type}"
-              onload="this.style.display='block'"
-              onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-icon').style.display='block'"
-            />
-            <div class="fallback-icon" style="
-              width: 32px;
-              height: 32px;
-              position: relative;
-              z-index: 1000;
-              background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
-              border-radius: 50%;
-              display: none;
-              align-items: center;
-              justify-content: center;
-              color: white;
-              font-weight: bold;
-              font-size: 16px;
-            ">${finding.type === 'Fungo' ? 'F' : 'T'}</div>
-          `}
+          ${finding.type === 'Fungo' ? 'F' : 'T'}
         </div>
-      `;
+      `,
+      className: 'finding-marker',
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
 
-      const marker = L.marker(finding.coordinates, {
-        icon: L.divIcon({
-          html: iconHtml,
-          className: 'finding-marker-container',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20]
-        })
-      });
+    // Create and add marker to map
+    const marker = L.marker(finding.coordinates, { icon });
+    marker.addTo(map);
+    markerRef.current = marker;
 
-      // Add marker to map and store reference
-      marker.addTo(map);
-      markerRef.current = marker;
-
-      // Verify actual marker position
-      const actualPosition = marker.getLatLng();
-      console.log('✅ Marker placed at:', {
-        intended: finding.coordinates,
-        actual: [actualPosition.lat, actualPosition.lng],
-        difference: {
-          lat: Math.abs(actualPosition.lat - finding.coordinates[0]),
-          lng: Math.abs(actualPosition.lng - finding.coordinates[1])
-        }
-      });
-
-      // Add popup with finding details
-      marker.bindPopup(`
-        <div class="finding-popup">
-          <h3>${finding.name || finding.type}</h3>
-          <p>${new Date(finding.timestamp).toLocaleString('it-IT')}</p>
-        </div>
-      `);
-    };
-
-    // Preload the icon
-    const preloadIcon = new Image();
-    preloadIcon.onload = () => {
-      console.log('✅ Icon preloaded successfully:', iconUrl);
-      setIconLoaded(true);
-      createMarker();
-    };
-    preloadIcon.onerror = (e) => {
-      console.error('❌ Failed to preload icon:', iconUrl, e);
-      setIconError(true);
-      createMarker();
-    };
-    preloadIcon.src = iconUrl;
+    // Add popup with finding details
+    marker.bindPopup(`
+      <div style="padding: 8px;">
+        <h3 style="margin: 0 0 4px 0;">${finding.name || finding.type}</h3>
+        <p style="margin: 0;">${new Date(finding.timestamp).toLocaleString('it-IT')}</p>
+      </div>
+    `);
 
     // Cleanup function
     return () => {
-      console.log('🧹 Removing marker for finding:', {
-        id: finding.id,
-        coordinates: finding.coordinates
-      });
       if (markerRef.current) {
         markerRef.current.remove();
         markerRef.current = null;
       }
     };
-  }, [finding, map, iconLoaded, iconError]);
+  }, [finding, map]);
 
   return null;
 };
