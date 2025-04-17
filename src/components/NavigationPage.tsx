@@ -46,7 +46,7 @@ const createFindingIcon = (type: 'Fungo' | 'Tartufo' | 'poi', isLoaded: boolean 
     ? '/assets/icons/mushroom-tag-icon.svg'
     : type === 'Tartufo'
       ? '/assets/icons/Truffle-tag-icon.svg'
-      : '/icon/point-of-interest-tag-icon.svg';
+      : '/assets/icons/point-of-interest-tag-icon.svg';
 
   return new L.DivIcon({
     html: `
