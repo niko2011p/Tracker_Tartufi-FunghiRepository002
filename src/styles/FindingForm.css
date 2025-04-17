@@ -1,0 +1,14 @@
+.finding-icon {
+  display: inline-block;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.mushroom-icon {
+  background-image: url('/assets/icons/mushroom-tag-icon.svg');
+}
+
+.truffle-icon {
+  background-image: url('/assets/icons/truffle-tag-icon.svg');
+} 

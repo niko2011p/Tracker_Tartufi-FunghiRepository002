@@ -287,9 +287,19 @@ const WeatherForecast: React.FC = () => {
       // Dobbiamo assicurarci che l'URL sia completo con https:
       const iconUrl = weather.conditionIcon.startsWith('//') 
         ? `https:${weather.conditionIcon}` 
-        : weather.conditionIcon;
+        : weather.conditionIcon.startsWith('http') 
+          ? weather.conditionIcon 
+          : `https:${weather.conditionIcon}`;
       
-      return <img src={iconUrl} alt={weather.condition} className="w-8 h-8" />;
+      console.log('Weather icon URL:', iconUrl);
+      return <img src={iconUrl} alt={weather.condition || 'Weather condition'} className="w-8 h-8" onError={(e) => {
+        console.error('Error loading weather icon:', e);
+        // Fallback to default icon on error
+        e.currentTarget.style.display = 'none';
+        e.currentTarget.parentElement?.appendChild(
+          document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        );
+      }} />;
     }
     
     // Fallback alle icone locali se non abbiamo l'icona dall'API

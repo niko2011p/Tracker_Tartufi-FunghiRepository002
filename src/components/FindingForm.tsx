@@ -2,10 +2,11 @@ import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { X, Camera, Upload } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
 import { species } from '../data/species';
+import '../styles/FindingForm.css'; // Make sure this CSS file exists
 
-// Define icon URLs as constants
-const mushroomIconUrl = '/assets/icons/mushroom-tag-icon.svg';
-const truffleIconUrl = '/assets/icons/truffle-tag-icon.svg';
+// Define icon URLs as constants - using relative paths that match CSS
+const mushroomIconUrl = 'src/assets/icons/mushroom-tag-icon.svg';
+const truffleIconUrl = 'src/assets/icons/truffle-tag-icon.svg';
 
 export interface FindingFormProps {
   onClose: () => void;
@@ -258,7 +259,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               </div>
             )}
             <button
-              type="submit"
+              type="button"
               onClick={handleSubmit}
               disabled={isLoading}
               className="px-6 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors text-lg font-medium"
@@ -280,35 +281,36 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               <button
                 type="button"
                 onClick={() => {
-                    setFindingType('Fungo');
-                    setSpeciesName('');
-                    setShowSuggestions(false);
-                  }}
+                  setFindingType('Fungo');
+                  setSpeciesName('');
+                  setShowSuggestions(false);
+                }}
                 className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
                   findingType === 'Fungo'
                     ? 'bg-[#8eaa36] text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <img src={mushroomIconUrl} alt="Fungo" className="w-8 h-8" />
+                <div className="finding-icon mushroom-icon w-8 h-8"></div>
                 Fungo
               </button>
               <button
                 type="button"
                 onClick={() => {
-                    setFindingType('Tartufo');
-                    setSpeciesName('');
-                    setShowSuggestions(false);
-                  }}
+                  setFindingType('Tartufo');
+                  setSpeciesName('');
+                  setShowSuggestions(false);
+                }}
                 className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
                   findingType === 'Tartufo'
                     ? 'bg-[#8B4513] text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <img src={truffleIconUrl} alt="Tartufo" className="w-8 h-8" />
+                <div className="finding-icon truffle-icon w-8 h-8"></div>
                 Tartufo
               </button>
+            </div>
           </div>
 
           <div className="relative">
@@ -319,89 +321,88 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                 setSpeciesName(e.target.value);
                 setShowSuggestions(true);
               }}
-                placeholder="Nome specie *"
-                className="w-full px-4 py-3 border-2 border-[#8eaa36] rounded-lg focus:ring-2 focus:ring-[#8eaa36] focus:border-[#8eaa36] bg-gray-50 text-lg"
+              placeholder="Nome specie *"
+              className="w-full px-4 py-3 border-2 border-[#8eaa36] rounded-lg focus:ring-2 focus:ring-[#8eaa36] focus:border-[#8eaa36] bg-gray-50 text-lg"
               required
             />
-              {showSuggestions && (
+            {showSuggestions && (
               <div 
                 ref={suggestionsRef}
-                  className="absolute bottom-full left-0 right-0 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto mb-2"
+                className="absolute bottom-full left-0 right-0 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto mb-2"
               >
-                  {filteredSpecies.map((suggestion) => (
+                {filteredSpecies.map((suggestion) => (
                   <button
-                      key={suggestion.commonName}
+                    key={suggestion.commonName}
                     type="button"
-                      onClick={() => {
-                        setSpeciesName(`${suggestion.commonName} (${suggestion.scientificName})`);
-                        setShowSuggestions(false);
-                      }}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-100"
-                    >
-                      <div className="font-medium">{suggestion.commonName}</div>
-                      <div className="text-sm text-gray-600">{suggestion.scientificName}</div>
+                    onClick={() => {
+                      setSpeciesName(`${suggestion.commonName} (${suggestion.scientificName})`);
+                      setShowSuggestions(false);
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                  >
+                    <div className="font-medium">{suggestion.commonName}</div>
+                    <div className="text-sm text-gray-600">{suggestion.scientificName}</div>
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-            <div className="flex gap-4">
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={handleTakePhoto}
+              className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
+            >
+              <Camera className="w-6 h-6" />
+              Scatta Foto
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
+            >
+              <Upload className="w-6 h-6" />
+              Carica Foto
+            </button>
+          </div>
+
+          {photoUrl && (
+            <div className="relative w-full">
+              <img 
+                src={photoUrl} 
+                alt="Preview"
+                className="w-full h-auto max-h-[300px] object-contain rounded-lg"
+                onLoad={(e) => {
+                  const img = e.target as HTMLImageElement;
+                  const aspectRatio = img.naturalWidth / img.naturalHeight;
+                  if (aspectRatio > 1) {
+                    // Immagine orizzontale
+                    img.style.width = '100%';
+                    img.style.height = 'auto';
+                  } else {
+                    // Immagine verticale
+                    img.style.width = 'auto';
+                    img.style.height = '300px';
+                  }
+                }}
+              />
               <button
                 type="button"
-                onClick={handleTakePhoto}
-                className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
+                onClick={() => setPhotoUrl(null)}
+                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
               >
-                <Camera className="w-6 h-6" />
-                Scatta Foto
+                <X size={16} />
               </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
-              >
-                <Upload className="w-6 h-6" />
-                Carica Foto
-                  </button>
-                </div>
-
-            {photoUrl && (
-              <div className="relative w-full">
-                  <img 
-                    src={photoUrl} 
-                  alt="Preview"
-                  className="w-full h-auto max-h-[300px] object-contain rounded-lg"
-                  onLoad={(e) => {
-                    const img = e.target as HTMLImageElement;
-                    const aspectRatio = img.naturalWidth / img.naturalHeight;
-                    if (aspectRatio > 1) {
-                      // Immagine orizzontale
-                      img.style.width = '100%';
-                      img.style.height = 'auto';
-                    } else {
-                      // Immagine verticale
-                      img.style.width = 'auto';
-                      img.style.height = '300px';
-                    }
-                  }}
-                />
-                    <button
-                      type="button"
-                      onClick={() => setPhotoUrl(null)}
-                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                    >
-                  <X size={16} />
-                    </button>
-                </div>
-              )}
-          </div>
+            </div>
+          )}
         </form>
       </div>
     </div>

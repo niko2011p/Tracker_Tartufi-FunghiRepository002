@@ -521,16 +521,16 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
       // Crea l'oggetto currentWeather con controlli di sicurezza per ogni proprietà
       setCurrentWeather({
         date: new Date().toISOString(),
-        temp_c: weatherData.current.temp_c,
-        temp_min: weatherData.current.temp_c, // WeatherAPI non fornisce min/max nel current
-        temp_max: weatherData.current.temp_c,
-        humidity: weatherData.current.humidity,
-        precip_mm: weatherData.current.precip_mm,
+        temp_c: weatherData.current.temp_c ?? 0,
+        temp_min: weatherData.current.temp_c ?? 0, // WeatherAPI non fornisce min/max nel current
+        temp_max: weatherData.current.temp_c ?? 0,
+        humidity: weatherData.current.humidity ?? 0,
+        precip_mm: weatherData.current.precip_mm ?? 0,
         precip_chance: 0, // Non disponibile nel meteo attuale
-        wind_kph: weatherData.current.wind_kph,
-        wind_dir: weatherData.current.wind_dir,
-        cloud_cover: weatherData.current.cloud,
-        condition: weatherData.current.condition.text,
+        wind_kph: weatherData.current.wind_kph ?? 0,
+        wind_dir: weatherData.current.wind_dir ?? 'N/A',
+        cloud_cover: weatherData.current.cloud ?? 0,
+        condition: weatherData.current.condition?.text ?? 'Sconosciuto',
         // Aggiungi i dati astronomici con controlli di sicurezza più rigorosi
         // Verifica che astroData sia un oggetto valido prima di accedere alle sue proprietà
         moonPhase: (astroData && typeof astroData === 'object' && 'moon_phase' in astroData) ? astroData.moon_phase : 'N/A',
@@ -886,21 +886,25 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
             `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&aqi=no&lang=it`
           );
           
-          if (!weatherData) throw new Error('Dati meteo non disponibili');
+          // Verifica rigorosa dei dati meteo
+          if (!weatherData || !weatherData.current) {
+            console.error('Dati meteo incompleti o non validi:', weatherData);
+            throw new Error('Dati meteo non disponibili o incompleti');
+          }
           
-          // Formatta i dati meteo
+          // Formatta i dati meteo con valori di default in caso di dati mancanti
           const formattedWeather = {
             date: new Date().toISOString(),
-            temp_c: weatherData.current.temp_c,
-            temp_min: weatherData.current.temp_c, // WeatherAPI non fornisce min/max nel current
-            temp_max: weatherData.current.temp_c,
-            humidity: weatherData.current.humidity,
-            precip_mm: weatherData.current.precip_mm,
+            temp_c: weatherData.current.temp_c ?? 0,
+            temp_min: weatherData.current.temp_c ?? 0, // WeatherAPI non fornisce min/max nel current
+            temp_max: weatherData.current.temp_c ?? 0,
+            humidity: weatherData.current.humidity ?? 0,
+            precip_mm: weatherData.current.precip_mm ?? 0,
             precip_chance: 0, // Non disponibile nel meteo attuale
-            wind_kph: weatherData.current.wind_kph,
-            wind_dir: weatherData.current.wind_dir,
-            cloud_cover: weatherData.current.cloud,
-            condition: weatherData.current.condition.text
+            wind_kph: weatherData.current.wind_kph ?? 0,
+            wind_dir: weatherData.current.wind_dir ?? 'N/A',
+            cloud_cover: weatherData.current.cloud ?? 0,
+            condition: weatherData.current.condition?.text ?? 'Sconosciuto'
           };
           
           setCurrentWeather(formattedWeather);

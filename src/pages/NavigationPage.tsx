@@ -42,14 +42,14 @@ const createFindingIcon = (type: string, isLoaded = false) => {
   return L.divIcon({
     html: `
       <div class="marker-container">
-        <div class="marker-pulse"></div>
+        <div class="marker-pulse" style="background-color: ${color};"></div>
         <div class="marker-inner">
-          <div class="marker-dot"></div>
-          <div class="marker-ring"></div>
+          <div class="marker-dot" style="background-color: ${color};"></div>
+          <div class="marker-ring" style="border-color: ${color};"></div>
         </div>
       </div>
     `,
-    className: `custom-icon ${isLoaded ? 'loaded' : ''}`,
+    className: `custom-icon ${type.toLowerCase()}-icon ${isLoaded ? 'loaded' : ''}`,
     iconSize: size,
     iconAnchor: [size[0] / 2, size[1] / 2],
     popupAnchor: [0, -size[1] / 2]
@@ -241,17 +241,64 @@ const NavigationPage: React.FC = () => {
 
   // Aggiorna il marker GPS
   useEffect(() => {
-    if (mapRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
-      if (gpsMarkerRef.current) {
-        gpsMarkerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
-      } else {
-        gpsMarkerRef.current = L.marker(
-          [gpsData.latitude, gpsData.longitude],
-          { icon: createFindingIcon('Fungo') }
-        ).addTo(mapRef.current);
-      }
+    if (!mapRef.current || gpsData.latitude === 0 || gpsData.longitude === 0) return;
+    
+    // Create or update the GPS marker
+    if (gpsMarkerRef.current) {
+      // Update existing marker position
+      gpsMarkerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
+      
+      // Update the icon to reflect current GPS signal
+      const newIcon = createFindingIcon('Fungo', true);
+      gpsMarkerRef.current.setIcon(newIcon);
+      
+      // Update popup content
+      const popupContent = `
+        <div class="p-2">
+          <h3 class="font-bold text-sm mb-1">${locationName}</h3>
+          <div class="text-xs space-y-1">
+            <p>Lat: ${gpsData.latitude.toFixed(6)}°</p>
+            <p>Lon: ${gpsData.longitude.toFixed(6)}°</p>
+            <p>Alt: ${gpsData.altitude.toFixed(1)}m</p>
+            <p>Precisione: ${gpsData.accuracy.toFixed(1)}m</p>
+          </div>
+        </div>
+      `;
+      gpsMarkerRef.current.bindPopup(popupContent);
+    } else {
+      // Create new marker
+      console.log("Creating new GPS marker");
+      const marker = L.marker(
+        [gpsData.latitude, gpsData.longitude],
+        { icon: createFindingIcon('Fungo', true) }
+      );
+      
+      // Add popup
+      marker.bindPopup(`
+        <div class="p-2">
+          <h3 class="font-bold text-sm mb-1">${locationName}</h3>
+          <div class="text-xs space-y-1">
+            <p>Lat: ${gpsData.latitude.toFixed(6)}°</p>
+            <p>Lon: ${gpsData.longitude.toFixed(6)}°</p>
+            <p>Alt: ${gpsData.altitude.toFixed(1)}m</p>
+            <p>Precisione: ${gpsData.accuracy.toFixed(1)}m</p>
+          </div>
+        </div>
+      `);
+      
+      // Add to map
+      marker.addTo(mapRef.current);
+      gpsMarkerRef.current = marker;
     }
-  }, [gpsData.latitude, gpsData.longitude]);
+
+    return () => {
+      // Clean up marker when component unmounts
+      if (gpsMarkerRef.current && mapRef.current) {
+        mapRef.current.removeLayer(gpsMarkerRef.current);
+        gpsMarkerRef.current = null;
+      }
+    };
+  }, [gpsData.latitude, gpsData.longitude, gpsSignal, locationName, gpsData.altitude, gpsData.accuracy]);
 
   const handleCenterMap = () => {
     if (mapRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
@@ -369,24 +416,6 @@ const NavigationPage: React.FC = () => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        {gpsData.latitude !== 0 && gpsData.longitude !== 0 && (
-          <Marker
-            position={[gpsData.latitude, gpsData.longitude]}
-            icon={createFindingIcon('Fungo')}
-          >
-            <Popup>
-              <div className="p-2">
-                <h3 className="font-bold text-sm mb-1">{locationName}</h3>
-                <div className="text-xs space-y-1">
-                  <p>Lat: {gpsData.latitude.toFixed(6)}°</p>
-                  <p>Lon: {gpsData.longitude.toFixed(6)}°</p>
-                  <p>Alt: {gpsData.altitude.toFixed(1)}m</p>
-                  <p>Precisione: {gpsData.accuracy.toFixed(1)}m</p>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        )}
         {path.length > 0 && (
           <Polyline
             positions={path}
