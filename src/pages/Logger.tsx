@@ -2,19 +2,57 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useTrackHistoryStore } from '../store/trackHistoryStore';
+import { useTrackStore } from '../store/trackStore';
+import { Track, Finding } from '../types';
 import { formatDistance, formatDuration } from '../utils/formatUtils';
 import { useNavigate } from 'react-router-dom';
-import { useTrackStore } from '../store/trackStore';
-import { Track } from '../types';
 
-// Fix per le icone di Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+// Funzione per creare un marker personalizzato
+const createCustomMarker = (finding: Finding) => {
+  const iconUrl = `/icon/${finding.type === 'Fungo' ? 'mushroom-tag-icon.svg' : 'Truffle-tag-icon.svg'}`;
+  console.log(`🎯 Creazione marker per ${finding.type} con icona: ${iconUrl}`);
+
+  const iconHtml = `
+    <div class="finding-marker" style="
+      width: 40px;
+      height: 40px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    ">
+      <div class="finding-pulse" style="
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+        animation: pulse 2s infinite;
+      "></div>
+      <img 
+        src="${iconUrl}" 
+        style="
+          width: 32px;
+          height: 32px;
+          position: relative;
+          z-index: 1000;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        "
+        alt="${finding.type}"
+        onerror="console.error('❌ Errore caricamento icona:', this.src)"
+        onload="console.log('✅ Icona caricata:', this.src)"
+      />
+    </div>
+  `;
+
+  return L.divIcon({
+    html: iconHtml,
+    className: 'finding-icon',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20]
+  });
+};
 
 const Logger: React.FC = () => {
   const navigate = useNavigate();
@@ -42,27 +80,6 @@ const Logger: React.FC = () => {
         console.log(`✅ Caricamento completato: ${tracks.length} tracce caricate`);
       } catch (error) {
         console.error('❌ Errore nel caricamento delle tracce:', error);
-        // Prova a leggere direttamente da IndexedDB
-        console.log('🔍 Tentativo di lettura diretta da IndexedDB...');
-        try {
-          const { openDB } = await import('idb');
-          const db = await openDB('tracksDB', 1);
-          const tx = db.transaction('tracks', 'readonly');
-          const store = tx.objectStore('tracks');
-          const tracksFromDB = await store.get('tracks');
-          await tx.done;
-          
-          if (tracksFromDB && Array.isArray(tracksFromDB) && tracksFromDB.length > 0) {
-            console.log(`✅ Recuperate ${tracksFromDB.length} tracce direttamente da IndexedDB`);
-            
-            // Non è necessario chiamare set() qui, possiamo usare i dati localmente
-            console.log('Tracce disponibili:', tracksFromDB);
-          } else {
-            console.log('❌ Nessuna traccia trovata in IndexedDB');
-          }
-        } catch (dbError) {
-          console.error('❌ Errore nella lettura diretta da IndexedDB:', dbError);
-        }
       } finally {
         setIsLoading(false);
       }
@@ -73,46 +90,11 @@ const Logger: React.FC = () => {
 
   const handleTrackSelect = (track: Track) => {
     setSelectedTrack(track.id);
-    const trackObj = tracks.find((t) => t.id === track.id);
-    if (trackObj && trackObj.coordinates.length > 0) {
-      setMapCenter(trackObj.coordinates[0]);
+    if (track.coordinates && track.coordinates.length > 0) {
+      setMapCenter(track.coordinates[0]);
     }
     navigate(`/track/${track.id}`);
   };
-
-  const renderTrackStats = (track: any) => (
-    <div className="bg-white p-4 rounded-lg shadow-md">
-      <h3 className="text-lg font-bold mb-2">{track.name}</h3>
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <span className="font-semibold">Distanza:</span>
-          <span className="ml-2">{formatDistance(track.stats.distanceKm)}</span>
-        </div>
-        <div>
-          <span className="font-semibold">Durata:</span>
-          <span className="ml-2">{formatDuration(track.stats.durationMin)}</span>
-        </div>
-        <div>
-          <span className="font-semibold">Velocità media:</span>
-          <span className="ml-2">{track.stats.speedAvgKmh.toFixed(1)} km/h</span>
-        </div>
-        <div>
-          <span className="font-semibold">Altitudine:</span>
-          <span className="ml-2">
-            {track.stats.altitudeMin.toFixed(0)} - {track.stats.altitudeMax.toFixed(0)} m
-          </span>
-        </div>
-        <div>
-          <span className="font-semibold">Temperatura media:</span>
-          <span className="ml-2">{track.stats.temperatureAvg.toFixed(1)}°C</span>
-        </div>
-        <div>
-          <span className="font-semibold">Umidità media:</span>
-          <span className="ml-2">{track.stats.humidityAvg.toFixed(0)}%</span>
-        </div>
-      </div>
-    </div>
-  );
 
   if (isLoading) {
     return (
@@ -150,9 +132,12 @@ const Logger: React.FC = () => {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-lg font-semibold">{track.name || `Traccia del ${new Date(track.startTime).toLocaleDateString('it-IT')}`}</h2>
+                    <h2 className="text-lg font-semibold">
+                      {track.name || `Traccia del ${new Date(track.startTime).toLocaleDateString('it-IT')}`}
+                    </h2>
                     <p className="text-sm text-gray-600">
-                      {track.distance ? formatDistance(track.distance) : '0 km'} • {track.duration ? formatDuration(track.duration) : '0 min'}
+                      {track.distance ? formatDistance(track.distance) : '0 km'} • 
+                      {track.duration ? formatDuration(track.duration) : '0 min'}
                     </p>
                   </div>
                   <div className="text-right">
@@ -170,7 +155,7 @@ const Logger: React.FC = () => {
         )}
       </div>
 
-      {/* Mappa e statistiche */}
+      {/* Mappa e markers */}
       <div className="w-2/3 relative">
         <MapContainer
           center={mapCenter}
@@ -181,39 +166,55 @@ const Logger: React.FC = () => {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-          {selectedTrack && (
-            <>
-              <Polyline
-                positions={tracks.find((t) => t.id === selectedTrack)?.path || []}
-                color="#f5a149"
-                weight={3}
-                opacity={0.7}
-              />
-              {tracks
-                .find((t) => t.id === selectedTrack)
-                ?.tags.map((tag, index) => (
-                  <Marker key={index} position={tag.position}>
-                    <Popup>
-                      <div>
-                        <p className="font-semibold">
-                          {tag.type === 'finding' ? 'Ritrovamento' : 'POI'}
-                        </p>
-                        <p className="text-sm">
-                          {new Date(tag.timestamp).toLocaleString()}
-                        </p>
-                        {tag.notes && <p className="text-sm mt-1">{tag.notes}</p>}
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
-            </>
-          )}
+          {selectedTrack && tracks.map(track => {
+            if (track.id === selectedTrack) {
+              return (
+                <React.Fragment key={track.id}>
+                  {/* Traccia del percorso */}
+                  {track.coordinates && track.coordinates.length > 0 && (
+                    <Polyline
+                      positions={track.coordinates}
+                      color="#f5a149"
+                      weight={3}
+                      opacity={0.7}
+                    />
+                  )}
+                  
+                  {/* Markers dei ritrovamenti */}
+                  {track.findings && track.findings.map((finding) => (
+                    <Marker
+                      key={finding.id}
+                      position={finding.coordinates}
+                      icon={createCustomMarker(finding)}
+                    >
+                      <Popup>
+                        <div className="p-2">
+                          <h3 className="font-bold text-lg" style={{ color: finding.type === 'Fungo' ? '#8eaa36' : '#8B4513' }}>
+                            {finding.name}
+                          </h3>
+                          {finding.description && (
+                            <p className="text-gray-600 mt-1">{finding.description}</p>
+                          )}
+                          {finding.photoUrl && (
+                            <img 
+                              src={finding.photoUrl} 
+                              alt={finding.name}
+                              className="mt-2 rounded-lg max-w-[200px]"
+                            />
+                          )}
+                          <p className="text-xs text-gray-500 mt-2">
+                            {new Date(finding.timestamp).toLocaleString('it-IT')}
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                </React.Fragment>
+              );
+            }
+            return null;
+          })}
         </MapContainer>
-        {selectedTrack && (
-          <div className="absolute bottom-4 left-4 right-4">
-            {renderTrackStats(tracks.find((t) => t.id === selectedTrack)!)}
-          </div>
-        )}
       </div>
     </div>
   );
