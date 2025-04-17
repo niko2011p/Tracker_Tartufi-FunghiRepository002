@@ -3,9 +3,9 @@ import { X, Camera, Upload } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
 import { species } from '../data/species';
 
-// Import SVG icons
-import mushroomIconUrl from '../assets/icons/mushroom-tag-icon.svg';
-import truffleIconUrl from '../assets/icons/truffle-tag-icon.svg';
+// Define icon URLs as constants
+const mushroomIconUrl = '/assets/icons/mushroom-tag-icon.svg';
+const truffleIconUrl = '/assets/icons/Truffle-tag-icon.svg';
 
 export interface FindingFormProps {
   onClose: () => void;
