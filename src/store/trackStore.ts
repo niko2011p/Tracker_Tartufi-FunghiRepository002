@@ -1076,8 +1076,8 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
           try {
             let dataToStore;
             try {
-              // Parse the value string
-              const parsedValue = JSON.parse(valueStr);
+              // Parse the value string if it's a string
+              const parsedValue = typeof valueStr === 'string' ? JSON.parse(valueStr) : valueStr;
               
               // Ensure we have a valid state object
               if (!parsedValue?.state) {
@@ -1121,7 +1121,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
 
             // Backup in localStorage (solo se i dati non sono troppo grandi)
             try {
-              const serialized = JSON.stringify(dataToStore);
+              const serialized = typeof dataToStore === 'string' ? dataToStore : JSON.stringify(dataToStore);
               if (serialized.length < 5000000) { // ~5MB limit
                 localStorage.setItem(name, serialized);
               }
