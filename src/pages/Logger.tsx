@@ -9,6 +9,11 @@ import { Track, Finding } from '../types';
 import { openDB } from 'idb';
 import SearchBar from '../components/SearchBar';
 import { Calendar, MapPin, Clock, ArrowRight, Map, Trash2, Tag, ChevronDown, ChevronRight, Leaf } from 'lucide-react';
+import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
+import { FaMapMarkerAlt, FaCalendarAlt, FaRuler, FaClock, FaLeaf } from 'react-icons/fa';
+import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 // Fix per le icone di Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -31,28 +36,6 @@ const formatDate = (dateString: string | Date): string => {
     hour: '2-digit',
     minute: '2-digit'
   });
-};
-
-const formatDistance = (meters: number): string => {
-  if (meters < 1000) {
-    return `${meters.toFixed(0)} m`;
-  } else {
-    return `${(meters / 1000).toFixed(2)} km`;
-  }
-};
-
-const formatDuration = (milliseconds: number): string => {
-  const seconds = Math.floor(milliseconds / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
 };
 
 // Map view controller component

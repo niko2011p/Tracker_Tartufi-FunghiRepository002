@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Track, Finding } from '../types';
 import * as turf from '@turf/turf';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { format } from 'date-fns';
 import LZString from 'lz-string';
 import { openDB } from 'idb';
@@ -54,6 +54,7 @@ const initDB = async () => {
     
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      // Create object store without keyPath since we'll provide keys explicitly
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
       }
@@ -174,12 +175,7 @@ const saveToIndexedDB = async (key: string, data: any) => {
     console.log('Tentativo di salvataggio in IndexedDB', { key, data });
     
     // Serialize the data before saving
-    const serializedData = JSON.stringify(data, (key, value) => {
-      if (value instanceof Date) {
-        return value.toISOString();
-      }
-      return value;
-    });
+    const serializedData = JSON.stringify(data);
     
     const db = await initDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -187,10 +183,12 @@ const saveToIndexedDB = async (key: string, data: any) => {
     
     return new Promise<void>((resolve, reject) => {
       const request = store.put(serializedData, key);
+      
       request.onsuccess = () => {
         console.log(`Dati salvati con successo in IndexedDB: ${key}`);
         resolve();
       };
+      
       request.onerror = () => {
         console.error('Errore nel salvataggio in IndexedDB:', request.error);
         reject(request.error);
@@ -240,6 +238,7 @@ const loadFromIndexedDB = async (key: string): Promise<any> => {
     
     return new Promise((resolve, reject) => {
       const request = store.get(key);
+      
       request.onsuccess = () => {
         const serializedData = request.result;
         
@@ -250,14 +249,8 @@ const loadFromIndexedDB = async (key: string): Promise<any> => {
         }
         
         try {
-          // Parse the serialized data and convert ISO strings back to Date objects
-          const parsedData = JSON.parse(serializedData, (key, value) => {
-            if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
-              return new Date(value);
-            }
-            return value;
-          });
-          
+          // Parse the serialized data
+          const parsedData = JSON.parse(serializedData);
           console.log(`Dati caricati con successo da IndexedDB: ${key}`);
           resolve(parsedData);
         } catch (parseError) {
@@ -279,15 +272,15 @@ const loadFromIndexedDB = async (key: string): Promise<any> => {
 
 // Initial state definition
 const initialState: TrackState = {
-  nearbyFinding: null,
-  isAlertPlaying: false,
-  currentTrack: null,
+      nearbyFinding: null,
+      isAlertPlaying: false,
+      currentTrack: null,
   currentLocation: null,
-  tracks: [],
-  isRecording: false,
-  loadedFindings: null,
-  currentDirection: 0,
-  showFindingForm: false,
+      tracks: [],
+      isRecording: false,
+      loadedFindings: null,
+      currentDirection: 0,
+      showFindingForm: false,
   showPointOfInterestForm: false,
   showTagOptions: false,
   showStopConfirm: false,
@@ -621,7 +614,7 @@ export const useTrackStore = create<TrackState>()(
             request.onerror = () => reject(request.error);
           });
           
-          set({ tracks: [] });
+        set({ tracks: [] });
           console.log('Tutte le tracce sono state eliminate con successo da IndexedDB');
         } catch (error) {
           console.error('Errore durante l\'eliminazione delle tracce:', error);
@@ -714,38 +707,38 @@ export const useTrackStore = create<TrackState>()(
           try {
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
               navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
+            enableHighAccuracy: true,
                 timeout: 10000,
                 maximumAge: 0
               });
             });
 
-            const coordinates: [number, number] = [
+                const coordinates: [number, number] = [
               Number(position.coords.latitude.toFixed(6)),
               Number(position.coords.longitude.toFixed(6))
-            ];
-
-            const newFinding: Finding = {
-              ...finding,
-              id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              trackId: currentTrack.id,
-              coordinates,
-              timestamp: new Date()
-            };
-
+                ];
+                
+                const newFinding: Finding = {
+                  ...finding,
+                  id: `finding_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  trackId: currentTrack.id,
+                  coordinates,
+                  timestamp: new Date()
+                };
+                
             // Aggiorna la traccia corrente con il nuovo ritrovamento
             const updatedTrack = {
-              ...currentTrack,
-              findings: [...currentTrack.findings, newFinding]
+                    ...currentTrack,
+                    findings: [...currentTrack.findings, newFinding]
             };
-
+                
             // Aggiorna lo stato
             set({ currentTrack: updatedTrack });
-
+                
             // Prova a salvare le tracce
-            try {
+                try {
               get().saveTracks();
-            } catch (error) {
+                } catch (error) {
               console.error('Errore nel salvataggio delle tracce:', error);
               if (error instanceof DOMException && error.name === 'QuotaExceededError') {
                 console.warn('Quota localStorage superata, il ritrovamento è stato aggiunto ma non salvato');
@@ -1065,14 +1058,13 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
     }),
     {
       name: STORAGE_KEY,
-      storage: {
+      storage: createJSONStorage(() => ({
         getItem: async (name) => {
           console.log(`🔄 Tentativo di recupero dati da storage per ${name}...`);
           try {
-            const data = await loadFromIndexedDB(STORAGE_KEY);
+            const data = await loadFromIndexedDB(name);
             if (data) {
               console.log('Dati recuperati con successo:', data);
-              // Ensure we're returning a properly formatted state object
               return JSON.stringify({
                 state: {
                   ...initialState,
@@ -1093,13 +1085,8 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
         },
         setItem: async (name, value) => {
           try {
-            let dataToStore;
-            if (typeof value === 'string') {
-              const parsed = JSON.parse(value);
-              dataToStore = parsed.state;
-            } else {
-              dataToStore = value;
-            }
+            const parsed = JSON.parse(value);
+            const dataToStore = parsed.state;
             
             // Only store the data we want to persist
             const persistedData = {
@@ -1109,7 +1096,7 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             };
             
             console.log('Salvataggio dati in IndexedDB:', persistedData);
-            await saveToIndexedDB(STORAGE_KEY, persistedData);
+            await saveToIndexedDB(name, persistedData);
           } catch (error) {
             console.error('Errore nel salvataggio dei dati:', error);
           }
@@ -1120,8 +1107,8 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             const tx = db.transaction(STORE_NAME, 'readwrite');
             const store = tx.objectStore(STORE_NAME);
             
-            return new Promise<void>((resolve, reject) => {
-              const request = store.delete(STORAGE_KEY);
+            await new Promise<void>((resolve, reject) => {
+              const request = store.delete(name);
               request.onsuccess = () => {
                 console.log('Dati rimossi con successo');
                 resolve();
@@ -1132,9 +1119,9 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
             console.error('Errore nella rimozione dei dati:', error);
           }
         }
-      },
+      })),
       partialize: (state) => ({
-        tracks: state.tracks,
+        tracks: state.tracks || [],
         currentTrack: state.currentTrack,
         loadedFindings: state.loadedFindings
       })
@@ -1142,41 +1129,10 @@ ${track.endTime ? `End Time: ${track.endTime.toISOString()}` : ''}</desc>
   )
 );
 
-// Initialize the store
-const initializeStore = async () => {
-  try {
-    const data = await loadFromIndexedDB(STORAGE_KEY);
-    if (data) {
-      console.log(`⚡ Inizializzazione: caricati dati da IndexedDB`);
-      
-      // Converti le date prima di impostare lo stato
-      const tracksWithDates = (data.tracks || []).map(track => ({
-        ...track,
-        startTime: typeof track.startTime === 'string' ? new Date(track.startTime) : track.startTime,
-        endTime: track.endTime && typeof track.endTime === 'string' ? new Date(track.endTime) : track.endTime,
-        findings: Array.isArray(track.findings) 
-          ? track.findings.map(finding => ({
-              ...finding,
-              timestamp: typeof finding.timestamp === 'string' ? new Date(finding.timestamp) : finding.timestamp
-            }))
-          : []
-      }));
-      
-      useTrackStore.setState({
-        ...initialState,
-        tracks: tracksWithDates,
-        currentTrack: data.currentTrack,
-        loadedFindings: data.loadedFindings
-      });
-    } else {
-      console.log('⚡ Inizializzazione: nessuna traccia trovata in IndexedDB');
-      useTrackStore.setState(initialState);
-    }
-  } catch (error) {
-    console.error('⚡ Errore durante l\'inizializzazione del tracksStore:', error);
-    useTrackStore.setState(initialState);
-  }
-};
-
-// Initialize the store immediately
-initializeStore();
+// Initialize the store only in browser environment
+if (typeof window !== 'undefined') {
+  // Wrap in setTimeout to ensure React is fully initialized
+  setTimeout(() => {
+    initializeStore();
+  }, 0);
+}
