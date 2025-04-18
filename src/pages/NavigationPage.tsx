@@ -36,9 +36,17 @@ const style = document.createElement('style');
 style.innerHTML = pulseAnimation;
 document.head.appendChild(style);
 
-const createFindingIcon = (type: string, isLoaded = false) => {
+const createFindingIcon = (type: string, isLoaded = false, gpsSignal?: 'good' | 'medium' | 'weak') => {
   const size: [number, number] = [32, 32];
-  const color = type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#a0522d' : '#f5a149';
+  let color;
+  
+  // Se viene fornito gpsSignal, usa quello per determinare il colore
+  if (gpsSignal) {
+    color = gpsSignal === 'good' ? '#8eaa36' : gpsSignal === 'medium' ? '#f5a149' : '#ff4444';
+  } else {
+    // Comportamento originale basato sul tipo
+    color = type === 'Fungo' ? '#8eaa36' : type === 'Tartufo' ? '#a0522d' : '#f5a149';
+  }
   
   return L.divIcon({
     html: `
@@ -251,7 +259,7 @@ const NavigationPage: React.FC = () => {
         gpsMarkerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
         
         // Update the icon to reflect current GPS signal
-        const newIcon = createFindingIcon('Fungo', true);
+        const newIcon = createFindingIcon('Fungo', true, gpsSignal);
         gpsMarkerRef.current.setIcon(newIcon);
         
         // Update popup content
@@ -272,7 +280,7 @@ const NavigationPage: React.FC = () => {
         console.log("Creating new GPS marker");
         const marker = L.marker(
           [gpsData.latitude, gpsData.longitude],
-          { icon: createFindingIcon('Fungo', true) }
+          { icon: createFindingIcon('Fungo', true, gpsSignal) }
         );
         
         // Add popup
