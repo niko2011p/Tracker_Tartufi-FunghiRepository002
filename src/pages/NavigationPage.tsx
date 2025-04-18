@@ -36,6 +36,24 @@ const style = document.createElement('style');
 style.innerHTML = pulseAnimation;
 document.head.appendChild(style);
 
+// Stile per la polyline
+const trackLineOptions = {
+  color: '#ff6600',
+  weight: 4,
+  opacity: 0.7,
+  lineCap: 'round' as const,
+  lineJoin: 'round' as const
+};
+
+// Stile per i punti intermedi
+const trackPointOptions = {
+  radius: 5,
+  color: '#ff6600',
+  fillColor: '#ff6600',
+  fillOpacity: 0.7,
+  weight: 2
+};
+
 const createFindingIcon = (type: string, isLoaded = false, gpsSignal?: 'good' | 'medium' | 'weak') => {
   const size: [number, number] = [32, 32];
   let color;
@@ -171,11 +189,29 @@ const NavigationPage: React.FC = () => {
   useEffect(() => {
     console.log('Inizializzazione tracking...');
     startTrack();
+    
     return () => {
       console.log('Pulizia tracking...');
-      stopTrack();
+      // Assicurati che il percorso sia salvato correttamente
+      if (path.length > 0 && useTrackStore.getState().currentTrack) {
+        console.log('Stopping track and saving...', path.length, 'points');
+        // Salva direttamente le coordinate del percorso nel currentTrack
+        const currentTrack = useTrackStore.getState().currentTrack;
+        if (currentTrack) {
+          useTrackStore.setState({
+            currentTrack: {
+              ...currentTrack,
+              coordinates: path
+            }
+          });
+        }
+        // Poi ferma il tracking
+        stopTrack();
+      } else {
+        stopTrack();
+      }
     };
-  }, [startTrack, stopTrack]);
+  }, [startTrack, stopTrack, path]);
 
   // Gestione del GPS
   useEffect(() => {
@@ -185,9 +221,16 @@ const NavigationPage: React.FC = () => {
       const now = Date.now();
       const timeDiff = now - lastUpdateRef.current;
       
-      // Aggiorna solo se sono passati almeno 1000ms (1 secondo)
-      if (timeDiff >= 1000) {
+      // Aggiorna ogni 500ms (0.5 secondi) per una traccia più dettagliata
+      if (timeDiff >= 500) {
         const { latitude, longitude, altitude, speed, accuracy } = position.coords;
+        
+        // Ignora posizioni con coordinate 0,0 (normalmente invalide)
+        if (latitude === 0 && longitude === 0) {
+          console.warn('Posizione con coordinate 0,0 ignorata');
+          return;
+        }
+        
         console.log('Nuova posizione:', { latitude, longitude, altitude, speed, accuracy });
         
         // Aggiorna i dati GPS
@@ -204,13 +247,28 @@ const NavigationPage: React.FC = () => {
           if (isFollowingGPS) {
             setMapCenter([latitude, longitude]);
           }
-          setPath(prev => [...prev, [latitude, longitude]]);
+          
+          // Formatta le coordinate con 6 decimali per consistenza
+          const formattedPosition: [number, number] = [
+            Number(latitude.toFixed(6)),
+            Number(longitude.toFixed(6))
+          ];
+          
+          // Aggiorna il percorso e mostra nel log
+          setPath(prev => {
+            const newPath = [...prev, formattedPosition];
+            console.debug(`📍 Aggiunto punto al percorso: [${formattedPosition[0]}, ${formattedPosition[1]}], totale: ${newPath.length}`);
+            return newPath;
+          });
+          
+          // Aggiorna la posizione nello store
+          useTrackStore.getState().updateCurrentPosition(formattedPosition);
         }
         
         // Aggiorna lo stato del segnale GPS
         if (accuracy < 10) {
           setGpsSignal('good');
-        } else if (accuracy < 50) {
+        } else if (accuracy < 30) {
           setGpsSignal('medium');
         } else {
           setGpsSignal('weak');
@@ -541,32 +599,71 @@ const NavigationPage: React.FC = () => {
     <div className="fixed inset-0" style={{ zIndex: isRecording ? 1000 : 1 }}>
       <MapContainer
         center={mapCenter}
-        zoom={18}
-        style={{
-          height: '100%',
-          width: '100%',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1
-        }}
+        zoom={15}
+        style={{ height: "100%", width: "100%" }}
+        attributionControl={false}
+        zoomControl={false}
         ref={mapRef}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        {path.length > 0 && (
+        
+        {/* Aggiungi la polyline che mostra il percorso intero */}
+        {path.length > 1 && (
           <Polyline
             positions={path}
-            color="#f5a149"
-            weight={3}
-            opacity={0.7}
+            pathOptions={trackLineOptions}
           />
         )}
-        <MapCenterUpdater center={mapCenter} />
+        
+        {/* Mostra punti intermedi ogni 5 posizioni */}
+        {path.map((point, index) => {
+          if (index % 5 === 0 || index === path.length - 1) {
+            return (
+              <Marker
+                key={`point-${index}`}
+                position={point}
+                icon={L.divIcon({
+                  html: `<div style="
+                    width: 8px;
+                    height: 8px;
+                    background-color: #ff6600;
+                    border-radius: 50%;
+                    border: 1px solid white;
+                  "></div>`,
+                  className: 'track-point-marker',
+                  iconSize: [8, 8],
+                  iconAnchor: [4, 4]
+                })}
+              />
+            );
+          }
+          return null;
+        })}
+        
+        {currentPosition && (
+          <Marker 
+            position={currentPosition} 
+            icon={createFindingIcon('Fungo', false, gpsSignal)}
+          >
+            <Popup>
+              <div className="p-2">
+                <h3 className="font-bold text-sm mb-1">{locationName}</h3>
+                <div className="text-xs space-y-1">
+                  <p>Lat: {currentPosition[0].toFixed(6)}°</p>
+                  <p>Lon: {currentPosition[1].toFixed(6)}°</p>
+                  <p>Alt: {gpsData.altitude.toFixed(1)}m</p>
+                  <p>Precisione: {gpsData.accuracy.toFixed(1)}m</p>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+        
+        {isFollowingGPS && currentPosition && (
+          <MapCenterUpdater center={currentPosition} />
+        )}
       </MapContainer>
 
       {/* Bussola */}
