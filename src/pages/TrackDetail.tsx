@@ -164,17 +164,91 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     }
   }, [id, tracks, navigate, propTrackData]);
 
+  // Funzione per controllare la validità delle coordinate e mostrarle nella console per debug
+  const checkCoordinatesValidity = useCallback((track: Track | null) => {
+    if (!track) {
+      console.log('❌ Track non disponibile');
+      return false;
+    }
+    
+    console.log('🧐 Controllo coordinate della traccia:', track.id);
+    console.log('📏 Lunghezza array coordinates:', track.coordinates?.length);
+    console.log('📍 Primi 3 punti:', track.coordinates?.slice(0, 3));
+    
+    if (!track.coordinates || !Array.isArray(track.coordinates)) {
+      console.log('❌ Le coordinate non sono un array valido');
+      return false;
+    }
+    
+    if (track.coordinates.length === 0) {
+      console.log('❌ L\'array delle coordinate è vuoto');
+      return false;
+    }
+    
+    // Verifica che almeno il primo punto sia valido
+    const firstPoint = track.coordinates[0];
+    if (!Array.isArray(firstPoint) || firstPoint.length !== 2 ||
+        typeof firstPoint[0] !== 'number' || typeof firstPoint[1] !== 'number' ||
+        isNaN(firstPoint[0]) || isNaN(firstPoint[1])) {
+      console.log('❌ Il formato delle coordinate non è valido:', firstPoint);
+      return false;
+    }
+    
+    console.log('✅ Coordinate valide trovate:', 
+      track.coordinates.length, 
+      'punti. Primo punto:', 
+      track.coordinates[0]);
+    return true;
+  }, []);
+
+  // Effetto per verificare le coordinate dopo il caricamento della traccia
+  useEffect(() => {
+    if (track) {
+      const hasValidCoordinates = checkCoordinatesValidity(track);
+      
+      // Se necessario, si può tentare una normalizzazione
+      if (!hasValidCoordinates && track.path) {
+        console.log('🔄 Tentativo di recupero delle coordinate dal campo path');
+        try {
+          if (Array.isArray(track.path) && track.path.length > 0) {
+            track.coordinates = track.path;
+            checkCoordinatesValidity(track);
+          }
+        } catch (error) {
+          console.error('❌ Errore durante la normalizzazione delle coordinate:', error);
+        }
+      }
+    }
+  }, [track, checkCoordinatesValidity]);
+
   // Calcola i bounds della traccia + findings
   useEffect(() => {
     if (track?.coordinates?.length) {
       try {
+        console.log('🗺️ Calcolo bounds per', track.coordinates.length, 'coordinate');
+        
+        // Verifica se le coordinate sono nel formato corretto
+        const validCoordinates = track.coordinates.filter(coord => 
+          Array.isArray(coord) && coord.length === 2 && 
+          !isNaN(coord[0]) && !isNaN(coord[1]) &&
+          Math.abs(coord[0]) <= 90 && Math.abs(coord[1]) <= 180
+        );
+        
+        if (validCoordinates.length === 0) {
+          console.warn('⚠️ Nessuna coordinata valida trovata per calcolare i bounds');
+          return;
+        }
+        
+        console.log(`✅ Trovate ${validCoordinates.length} coordinate valide su ${track.coordinates.length}`);
+        
         // Crea un array con tutte le coordinate: traccia + ritrovamenti
-        const allPoints = [...track.coordinates];
+        const allPoints = [...validCoordinates];
         
         // Aggiungi le coordinate dei ritrovamenti
         if (track.findings && track.findings.length > 0) {
           track.findings.forEach((finding: Finding) => {
-            if (finding.coordinates && finding.coordinates.length === 2) {
+            if (finding.coordinates && finding.coordinates.length === 2 &&
+                !isNaN(finding.coordinates[0]) && !isNaN(finding.coordinates[1])) {
               allPoints.push(finding.coordinates);
             }
           });
@@ -182,16 +256,16 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         
         if (allPoints.length > 0) {
           const newBounds = L.latLngBounds(allPoints);
-          console.log('Bound box calcolato con', allPoints.length, 'punti');
+          console.log('📐 Bound box calcolato con', allPoints.length, 'punti:', newBounds.toBBoxString());
           setBounds(newBounds);
         }
         
         // Carica i dati meteo se abbiamo le coordinate
-        if (track.coordinates.length > 0) {
-          loadWeatherData(track.coordinates);
+        if (validCoordinates.length > 0) {
+          loadWeatherData(validCoordinates);
         }
       } catch (error) {
-        console.error('Errore nel calcolo dei bounds:', error);
+        console.error('❌ Errore nel calcolo dei bounds:', error);
       }
     }
   }, [track]);
@@ -201,11 +275,24 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     const fetchLocationName = async () => {
       if (track?.coordinates?.length) {
         try {
-          // Calcola la posizione media della traccia
-          const avgLat = track.coordinates.reduce((sum, coord) => sum + coord[0], 0) / track.coordinates.length;
-          const avgLng = track.coordinates.reduce((sum, coord) => sum + coord[1], 0) / track.coordinates.length;
+          // Verifica se ci sono coordinate valide
+          const validCoordinates = track.coordinates.filter(coord => 
+            Array.isArray(coord) && coord.length === 2 && 
+            !isNaN(coord[0]) && !isNaN(coord[1]) &&
+            Math.abs(coord[0]) <= 90 && Math.abs(coord[1]) <= 180
+          );
           
-          console.log('Ottengo località per coordinate:', avgLat, avgLng);
+          if (validCoordinates.length === 0) {
+            console.warn('⚠️ Nessuna coordinata valida per ottenere il nome località');
+            setLocationName('Posizione non disponibile');
+            return;
+          }
+          
+          // Calcola la posizione media della traccia
+          const avgLat = validCoordinates.reduce((sum, coord) => sum + coord[0], 0) / validCoordinates.length;
+          const avgLng = validCoordinates.reduce((sum, coord) => sum + coord[1], 0) / validCoordinates.length;
+          
+          console.log('🔍 Ottengo località per coordinate:', avgLat.toFixed(5), avgLng.toFixed(5));
           
           // Usa un timeout più lungo per Nominatim
           const controller = new AbortController();
@@ -221,25 +308,25 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             if (!response.ok) throw new Error(`Status: ${response.status}`);
             
             const data = await response.json();
-            console.log('Risposta nominatim:', data);
+            console.log('📍 Risposta nominatim:', data);
             
             if (data.address) {
               const { hamlet, village, town, city, municipality, county, state } = data.address;
               const location = hamlet || village || town || city || municipality || county || state || 'Posizione sconosciuta';
-              console.log('Nome località trovato:', location);
+              console.log('📍 Nome località trovato:', location);
               setLocationName(location);
             } else {
-              setLocationName('Posizione sconosciuta');
+              setLocationName(`Lat: ${avgLat.toFixed(5)}, Lon: ${avgLng.toFixed(5)}`);
             }
           } catch (e) {
             clearTimeout(timeoutId);
-            console.error('Errore API Nominatim:', e);
+            console.error('❌ Errore API Nominatim:', e);
             // Fallback: usa le coordinate formattate
             setLocationName(`Lat: ${avgLat.toFixed(5)}, Lon: ${avgLng.toFixed(5)}`);
           }
         } catch (error) {
-          console.error('Errore nel calcolo posizione media:', error);
-          setLocationName('Posizione sconosciuta');
+          console.error('❌ Errore nel calcolo posizione media:', error);
+          setLocationName('Posizione non disponibile');
         }
       }
     };
@@ -392,38 +479,56 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
   const getTrackStats = () => {
     if (!track) return null;
 
+    console.log('📊 Calcolo statistiche per traccia:', track.id);
+    console.log('📊 Dati track disponibili:', JSON.stringify({
+      coordinates: track.coordinates?.length || 0,
+      distance: track.distance,
+      startTime: track.startTime,
+      endTime: track.endTime,
+      altitude: track.averageAltitude
+    }));
+
     // Statistiche di base
     const duration = track.endTime 
-      ? Math.round((track.endTime.getTime() - track.startTime.getTime()) / (1000 * 60))
+      ? Math.round((new Date(track.endTime).getTime() - new Date(track.startTime).getTime()) / (1000 * 60))
       : 0;
+    
+    console.log('⏱️ Durata calcolata:', duration, 'minuti');
     
     // Calcola la distanza basata sulle coordinate se non è già definita
     let distance = 0;
     if (track.distance && track.distance > 0) {
       distance = track.distance;
-      console.log('Usando distanza predefinita:', distance);
+      console.log('📏 Usando distanza predefinita:', distance);
     } else if (track.coordinates && track.coordinates.length > 1) {
-      // Calcola la distanza basata sulle coordinate
-      for (let i = 1; i < track.coordinates.length; i++) {
-        const [lat1, lon1] = track.coordinates[i-1];
-        const [lat2, lon2] = track.coordinates[i];
-        
-        // Formula di Haversine per il calcolo della distanza
-        const R = 6371; // Raggio della Terra in km
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = 
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        distance += R * c; // Distanza in km
-      }
-      console.log('Distanza calcolata dalle coordinate:', distance);
+      // Filtra le coordinate valide
+      const validCoords = track.coordinates.filter(coord => 
+        Array.isArray(coord) && coord.length === 2 && 
+        !isNaN(coord[0]) && !isNaN(coord[1]));
       
-      // Aggiorna il track con la distanza calcolata (solo in memoria locale)
-      if (distance > 0) {
-        track.distance = distance;
+      if (validCoords.length > 1) {
+        // Calcola la distanza basata sulle coordinate
+        for (let i = 1; i < validCoords.length; i++) {
+          const [lat1, lon1] = validCoords[i-1];
+          const [lat2, lon2] = validCoords[i];
+          
+          // Formula di Haversine per il calcolo della distanza
+          const R = 6371; // Raggio della Terra in km
+          const dLat = (lat2 - lat1) * Math.PI / 180;
+          const dLon = (lon2 - lon1) * Math.PI / 180;
+          const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          distance += R * c; // Distanza in km
+        }
+        console.log('📏 Distanza calcolata dalle coordinate:', distance);
+        
+        // Aggiorna il track con la distanza calcolata (solo in memoria locale)
+        if (distance > 0) {
+          track.distance = distance;
+        }
       }
     }
     
@@ -432,26 +537,47 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       ? (distance / (duration / 60)).toFixed(1) 
       : '0';
     
-    // Usa i dati dell'elevazione media (mock o reali)
-    const elevation = {
-      avg: track.averageAltitude || Math.round(400 + Math.random() * 200)
-    };
+    console.log('🚀 Velocità media calcolata:', avgSpeed, 'km/h');
+    
+    // Calcola altitudine media dalle coordinate se disponibile
+    let avgAltitude = track.averageAltitude || 0;
+    if (!avgAltitude && track.coordinates && track.coordinates.length > 0) {
+      // Se le coordinate hanno anche l'altitudine (punto 3D)
+      const altitudes = track.coordinates
+        .filter(point => Array.isArray(point) && point.length >= 3 && !isNaN(point[2]))
+        .map(point => point[2]);
+      
+      if (altitudes.length > 0) {
+        avgAltitude = altitudes.reduce((sum, alt) => sum + alt, 0) / altitudes.length;
+        console.log('🏔️ Altitudine media calcolata da', altitudes.length, 'punti:', avgAltitude);
+      } else {
+        // Usa un valore predefinito se non c'è altitudine
+        avgAltitude = 200; // Default
+        console.log('⚠️ Nessun dato di altitudine disponibile, usando valore predefinito');
+      }
+    }
     
     // Usa i dati meteo reali se disponibili
     const weather = {
-      temp: currentWeather.temp !== undefined ? currentWeather.temp : Math.round(10 + Math.random() * 15),
-      humidity: currentWeather.humidity !== undefined ? currentWeather.humidity : Math.round(40 + Math.random() * 40)
+      temp: currentWeather.temp !== undefined ? currentWeather.temp : 15,
+      humidity: currentWeather.humidity !== undefined ? currentWeather.humidity : 50
     };
     
-    console.log('Statistiche calcolate:', { distance, avgSpeed, weather });
+    console.log('📊 Statistiche finali:', { 
+      duration, 
+      distance, 
+      avgSpeed, 
+      avgAltitude,
+      weather 
+    });
     
     return {
       duration,
       distance,
       avgSpeed,
-      elevation,
+      elevation: { avg: Math.round(avgAltitude) },
       weather,
-      findings: track.findings.length
+      findings: track.findings?.length || 0
     };
   };
 
@@ -571,7 +697,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       </div>
 
       <div ref={mapContainerRef} className="relative h-[78vh] min-h-[400px] bg-gray-100 overflow-hidden">
-        {isMapReady && track?.coordinates?.length > 0 && (
+        {isMapReady && track && checkCoordinatesValidity(track) && (
           <MapContainer
             center={[track.coordinates[0][0], track.coordinates[0][1]]}
             zoom={15}
@@ -668,11 +794,11 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         )}
         
         {/* Mostra messaggio informativo se non ci sono coordinate */}
-        {isMapReady && (!track?.coordinates || track.coordinates.length === 0) && (
+        {isMapReady && track && !checkCoordinatesValidity(track) && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
             <div className="text-center p-4">
-              <div className="text-gray-600 mb-2">⚠️ Questa traccia non contiene coordinate GPS</div>
-              <p className="text-gray-500 text-sm">Non è possibile visualizzare la mappa</p>
+              <div className="text-gray-600 mb-2">⚠️ Questa traccia non contiene coordinate GPS valide</div>
+              <p className="text-gray-500 text-sm">Formato coordinate non supportato</p>
             </div>
           </div>
         )}
