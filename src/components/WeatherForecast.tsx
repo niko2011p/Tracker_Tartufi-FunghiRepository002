@@ -151,51 +151,58 @@ const WeatherForecast: React.FC = () => {
         try {
           const locationQuery = `${selectedLocation.lat},${selectedLocation.lon}`;
           
-          // Carica previsioni a 3 giorni
-          const forecastData = await getForecast(locationQuery);
+          console.log('[WeatherForecast] Loading forecast, hourly, and historical data...');
+          // Load forecast, hourly, and historical data first
+          const [forecastData, hourlyData, historicalWeatherData] = await Promise.all([
+            getForecast(locationQuery),
+            getHourlyForecast(locationQuery),
+            getHistoricalWeather(locationQuery)
+          ]);
+          
           setForecast(forecastData);
-          console.log('Dati previsioni caricate:', forecastData);
-          
-          // Carica previsioni orarie
-          const hourlyData = await getHourlyForecast(locationQuery);
+          console.log('[WeatherForecast] Dati previsioni caricate:', forecastData);
           setHourlyForecast(hourlyData);
-          console.log('Dati previsioni orarie caricate:', hourlyData);
-          
-          // Carica dati storici (ultimi 7 giorni)
-          const historicalWeatherData = await getHistoricalWeather(locationQuery);
+          console.log('[WeatherForecast] Dati previsioni orarie caricate:', hourlyData);
           setHistoricalData(historicalWeatherData);
-          console.log('Dati storici caricati:', historicalWeatherData);
+          console.log('[WeatherForecast] Dati storici caricati:', historicalWeatherData);
           
-          // Simula la funzionalità di fetchCurrentWeather qui, in modo che il componente funzioni
-          // anche se useWeatherStore.fetchCurrentWeather fallisce
+          // Now, attempt to load current weather separately with specific error handling
           try {
-            // Tenta di recuperare i dati correnti
+            console.log('[WeatherForecast] Attempting to load current weather via store...');
             await useWeatherStore.getState().fetchCurrentWeather(locationQuery);
+             console.log('[WeatherForecast] Current weather loaded successfully via store.');
           } catch (currentWeatherError) {
-            console.warn('Impossibile caricare meteo corrente, utilizzo dei dati di previsione come fallback', currentWeatherError);
+            // Log the specific error received from the store/service
+            console.warn(`[WeatherForecast] Fallback: Failed to load current weather. Error: ${currentWeatherError instanceof Error ? currentWeatherError.message : String(currentWeatherError)}`);
+            setError(`Meteo corrente non disponibile (${currentWeatherError instanceof Error ? currentWeatherError.message : 'Errore sconosciuto'}). Vengono mostrati i dati di previsione.`); // Set a specific error message
             
-            // Se fallisce, usa i dati della prima previsione (oggi) come dati correnti
+            // Use forecast data as fallback (no state change needed here as fetchCurrentWeather in store handles setting currentWeather to null)
             if (forecastData && forecastData.length > 0) {
-              const todayForecast = forecastData[0];
-              console.log('Utilizzo dati previsione come fallback per meteo corrente:', todayForecast);
+              console.log('[WeatherForecast] Using forecast data as fallback for display.');
             }
           }
           
-          setLoading(false);
         } catch (error) {
-          console.error('Error fetching weather data:', error);
+          // This outer catch handles errors from getForecast, getHourly, getHistorical
+          console.error('[WeatherForecast] Error fetching forecast/hourly/historical data:', error);
           if (error instanceof Error) {
-            setError(error.message);
-          } else {
-            setError('Impossibile caricare i dati meteo. Verifica la configurazione API.');
+             // Avoid setting a generic error if a specific one was already set by the inner catch
+            if (!error) {
+                 setError(error.message); 
+            }
+          } else if (!error) {
+            setError('Impossibile caricare dati meteo principali. Verifica la configurazione API.');
           }
-          setLoading(false);
+        } finally {
+          setLoading(false); // Ensure loading is always set to false
         }
       } else {
+        console.log('[WeatherForecast] No selected location. Attempting default/GPS...');
         // Se non c'è una posizione selezionata, prova a usare Roma come default
         try {
           setLoading(true);
           const defaultLocation = { name: 'Roma', lat: 41.9028, lon: 12.4964, country: 'Italia' };
+          console.log('[WeatherForecast] Using default location: Roma');
           setSelectedLocation(defaultLocation);
           
           const locationQuery = `${defaultLocation.lat},${defaultLocation.lon}`;
@@ -214,18 +221,15 @@ const WeatherForecast: React.FC = () => {
           
           setLoading(false);
         } catch (error) {
-          console.error('Error fetching default weather data:', error);
-          if (error instanceof Error) {
-            setError(error.message);
-          } else {
-            setError('Impossibile caricare i dati meteo. Verifica la configurazione API.');
-          }
+          console.error('[WeatherForecast] Error setting default location:', error);
+          setError('Impossibile determinare la località predefinita.');
           setLoading(false);
         }
       }
     };
     loadWeatherData();
-  }, [selectedLocation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocation]); // Keep dependency array minimal
   
   // Filtra le previsioni orarie in base al giorno selezionato
   useEffect(() => {
