@@ -20,6 +20,7 @@ import Logger from './components/Logger';
 import Settings from './components/Settings';
 import MainLayout from './components/MainLayout';
 import TrackDetail from './pages/TrackDetail';
+import TrackDetailPage from './pages/TrackDetailPage';
 
 function NavLink({ to, icon: Icon, text }: { to: string; icon: React.ElementType; text: string }) {
   const location = useLocation();
@@ -74,6 +75,7 @@ function App() {
               <Route path="/" element={<MainApp />} />
               <Route path="/NavigationPage" element={<NavigationPage />} />
               <Route path="/logger" element={<Logger />} />
+              <Route path="/logger/:trackId" element={<TrackDetailPage />} />
               <Route path="/meteo" element={<Meteo />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />

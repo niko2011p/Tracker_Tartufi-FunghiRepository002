@@ -593,7 +593,7 @@ const Logger: React.FC = () => {
                   
                   <div className="flex gap-2 mt-4">
                     <button 
-                      onClick={() => setSelectedTrack(track)}
+                      onClick={() => navigate(`/logger/${track.id}`, { state: { trackData: track } })}
                       className="flex-1 bg-[#8eaa36]/10 text-[#8eaa36] py-2 rounded-lg hover:bg-[#8eaa36]/20 transition-colors duration-400"
                     >
                       Visualizza dettagli
@@ -698,7 +698,7 @@ const Logger: React.FC = () => {
                           
                           <div className="flex gap-2 mt-4">
                             <button 
-                              onClick={() => setSelectedTrack(track)}
+                              onClick={() => navigate(`/logger/${track.id}`, { state: { trackData: track } })}
                               className="flex-1 bg-[#8eaa36]/10 text-[#8eaa36] py-2 rounded-lg hover:bg-[#8eaa36]/20 transition-colors duration-400"
                             >
                               Visualizza dettagli

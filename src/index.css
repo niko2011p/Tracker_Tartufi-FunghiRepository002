@@ -359,3 +359,9 @@ img {
     opacity: 0.5;
   }
 }
+
+/* Hide map logo when body has no-header class */
+body.no-header .map-logo,
+body.no-header .maplogo-container {
+  display: none !important;
+}

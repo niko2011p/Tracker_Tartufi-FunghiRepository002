@@ -25,18 +25,31 @@ const defaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = defaultIcon;
 
-const TrackDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface TrackDetailProps {
+  trackId?: string;
+  trackData?: Track;
+}
+
+const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackData: propTrackData }) => {
+  const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { tracks, loadTracks } = useTrackStore();
-  const [track, setTrack] = useState<Track | null>(null);
+  const [track, setTrack] = useState<Track | null>(propTrackData || null);
   const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
+  
+  // Use the trackId prop if provided, otherwise use the id from the URL params
+  const id = propTrackId || params.id;
 
   useEffect(() => {
     loadTracks();
   }, [loadTracks]);
 
   useEffect(() => {
+    if (propTrackData) {
+      setTrack(propTrackData);
+      return;
+    }
+
     if (id) {
       const foundTrack = tracks.find(t => t.id === id);
       if (foundTrack) {
@@ -60,7 +73,7 @@ const TrackDetail: React.FC = () => {
         };
       }
     }
-  }, [id, tracks, navigate]);
+  }, [id, tracks, navigate, propTrackData]);
 
   useEffect(() => {
     if (track?.coordinates?.length) {
