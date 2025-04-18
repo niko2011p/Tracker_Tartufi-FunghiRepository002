@@ -3,10 +3,11 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
 import { MapPin } from 'lucide-react';
+import * as turf from '@turf/turf';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import './UnifiedButtons.css';
-import type { Finding } from '../types';
+import { Finding } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
 import GpsStatusIndicator from './GpsStatusIndicator';
@@ -14,6 +15,7 @@ import CompassIndicator from './CompassIndicator';
 import TrackingDataPanel from './TrackingDataPanel';
 import { useLocation } from 'react-router-dom';
 import { createFindingMarker } from './FindingMarker';
+import CompassWidget from './CompassWidget';
 
 // Constants
 const MIN_ZOOM = 4;
@@ -101,7 +103,8 @@ const NavigationPage: React.FC = () => {
     currentDirection: storeDirection, 
     loadedFindings, 
     updateCurrentPosition,
-    autoSaveTrack 
+    autoSaveTrack,
+    showGPSWaitingMessage
   } = useTrackStore();
   
   const location = useLocation();
@@ -153,7 +156,7 @@ const NavigationPage: React.FC = () => {
   };
   
   return (
-    <div className="fixed inset-0" style={{ zIndex: 1000 }}>
+    <div className="fixed inset-0" style={{ zIndex: showGPSWaitingMessage ? 1000 : 1 }}>
       <MapContainer
         center={currentPosition}
         zoom={18}
@@ -262,6 +265,36 @@ const NavigationPage: React.FC = () => {
           />
         </div>
       </MapContainer>
+
+      {/* Indicador de espera de GPS */}
+      {showGPSWaitingMessage && (
+        <div className="fixed inset-0 flex items-center justify-center z-[3000] bg-black/50">
+          <div className="bg-white rounded-lg p-6 max-w-xs shadow-xl">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 mb-4 relative">
+                <div className="absolute inset-0 rounded-full bg-yellow-500/30 animate-ping"></div>
+                <div className="absolute inset-2 rounded-full bg-yellow-500/50 animate-pulse"></div>
+                <div className="absolute inset-4 rounded-full bg-yellow-500 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="font-bold text-lg mb-2">Esperando GPS</h2>
+              <p className="text-sm text-center text-gray-600 mb-4">
+                Esperando señal GPS de buena calidad para comenzar la grabación.
+              </p>
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                <div className="bg-yellow-500 h-2.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              </div>
+              <p className="text-xs text-gray-500">Por favor, asegúrate de estar en un área abierta</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bussola */}
+      <CompassWidget direction={storeDirection} />
     </div>
   );
 };
