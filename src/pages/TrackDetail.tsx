@@ -34,17 +34,22 @@ const defaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = defaultIcon;
 
-// Componente per centrare la mappa sui bounds della traccia
+// Componente per centrare la mappa sui bounds della traccia e invalidare la size
 function MapBoundsHandler({ bounds, padding }: { bounds: L.LatLngBounds | null; padding: number[] }) {
   const map = useMap();
   
   useEffect(() => {
     if (bounds) {
-      map.fitBounds(bounds, {
-        padding: padding,
-        maxZoom: 18,  // Limita lo zoom massimo
-        animate: true
-      });
+      // Invalida la size della mappa per forzare il render
+      setTimeout(() => {
+        map.invalidateSize();
+        
+        map.fitBounds(bounds, {
+          padding: padding,
+          maxZoom: 18,  // Limita lo zoom massimo
+          animate: true
+        });
+      }, 100);
     }
   }, [bounds, map, padding]);
   
@@ -64,6 +69,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
   const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
   const [weatherData, setWeatherData] = useState<any[]>([]);
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+  const mapRef = useRef<L.Map | null>(null);
   
   // Use the trackId prop if provided, otherwise use the id from the URL params
   const id = propTrackId || params.id;
@@ -105,21 +111,78 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
 
   // Calcola i bounds della traccia
   useEffect(() => {
-    if (track?.coordinates?.length) {
+    if (track?.coordinates?.length && track.coordinates.length > 0) {
+      // Set bounds only when coordinates exist
       const newBounds = L.latLngBounds(track.coordinates);
       setBounds(newBounds);
       
-      // Carica i dati meteo se abbiamo le coordinate
-      if (track.coordinates.length > 0) {
-        loadWeatherData(track.coordinates);
+      // Invalidate map size after bounds are set
+      if (mapRef.current) {
+        setTimeout(() => {
+          mapRef.current?.invalidateSize();
+        }, 200);
       }
+      
+      // Carica i dati meteo se abbiamo le coordinate
+      loadWeatherData(track.coordinates);
     }
   }, [track]);
+
+  // Function to handle map initialization
+  const handleMapCreated = (map: L.Map) => {
+    mapRef.current = map;
+    
+    // Invalidate size to fix rendering issues
+    setTimeout(() => {
+      map.invalidateSize();
+      
+      if (bounds) {
+        map.fitBounds(bounds, {
+          padding: [50, 50],
+          maxZoom: 18
+        });
+      }
+    }, 300);
+  };
+
+  // Calcola la distanza totale usando la formula di Haversine
+  const calculateDistance = (coordinates: [number, number][]) => {
+    if (!coordinates || coordinates.length < 2) return 0;
+    
+    let totalDistance = 0;
+    
+    for (let i = 1; i < coordinates.length; i++) {
+      const [lat1, lon1] = coordinates[i-1];
+      const [lat2, lon2] = coordinates[i];
+      
+      // Haversine formula
+      const R = 6371; // Earth's radius in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+      
+      totalDistance += distance;
+    }
+    
+    return totalDistance;
+  };
 
   // Funzione per caricare i dati meteo
   const loadWeatherData = async (coordinates: [number, number][]) => {
     try {
       setIsLoadingWeather(true);
+      
+      // Se il track ha già i dati meteo salvati, usali direttamente
+      if (track?.weatherHistory && track.weatherHistory.length > 0) {
+        setWeatherData(track.weatherHistory);
+        setIsLoadingWeather(false);
+        return;
+      }
       
       // Calcola la posizione media della traccia
       const avgLat = coordinates.reduce((sum, coord) => sum + coord[0], 0) / coordinates.length;
@@ -159,28 +222,30 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
   const getTrackStats = () => {
     if (!track) return null;
 
+    // Calcola la distanza usando Haversine se il track non ha il valore
+    const distance = track.distance || calculateDistance(track.coordinates);
+    
     // Statistiche di base
     const duration = track.endTime 
       ? Math.round((track.endTime.getTime() - track.startTime.getTime()) / (1000 * 60))
       : 0;
     
-    const distance = track.distance || 0;
-    
-    // Statistiche aggiuntive (mock)
-    // Nella versione finale, questi dati dovrebbero provenire dal track
+    // Statistiche aggiuntive
     const avgSpeed = distance > 0 && duration > 0 
       ? (distance / (duration / 60)).toFixed(1) 
       : '0';
     
-    const elevation = {
+    // Usa i dati meteo salvati con il track se disponibili
+    const weather = track.weather || {
+      temp: Math.round(10 + Math.random() * 15),
+      humidity: Math.round(40 + Math.random() * 40)
+    };
+    
+    // Usa i dati di elevazione salvati con il track se disponibili
+    const elevation = track.elevation || {
       avg: Math.round(400 + Math.random() * 200),
       max: Math.round(600 + Math.random() * 300),
       min: Math.round(200 + Math.random() * 100)
-    };
-    
-    const weather = {
-      temp: Math.round(10 + Math.random() * 15),
-      humidity: Math.round(40 + Math.random() * 40)
     };
     
     return {
@@ -210,6 +275,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
   }
 
   const trackStats = getTrackStats();
+  const hasCoordinates = track.coordinates && track.coordinates.length > 0;
 
   const handleShare = async () => {
     try {
@@ -281,91 +347,98 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         </div>
       </div>
 
-      <div className="relative h-[60vh]">
-        <MapContainer
-          center={track.coordinates[0]}
-          zoom={15}
-          scrollWheelZoom={true}
-          className="w-full h-full z-0"
-        >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution="&copy; OpenStreetMap contributors"
-          />
-          <Polyline 
-            positions={track.coordinates} 
-            color="#8eaa36"
-            weight={4}
-            opacity={0.8}
-          />
-          
-          {track.findings?.map((finding: Finding) => (
-            <Marker
-              key={finding.id}
-              position={finding.coordinates}
-              icon={L.divIcon({
-                html: `
-                  <div class="finding-marker ${finding.type.toLowerCase()}-marker" style="
-                    width: 40px;
-                    height: 40px;
-                    position: relative;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
-                    border-radius: 50%;
-                    border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
-                  ">
-                    <div class="finding-pulse" style="
-                      position: absolute;
-                      width: 100%;
-                      height: 100%;
-                      border-radius: 50%;
-                      background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}30;
-                      animation: pulse 2s infinite;
-                    "></div>
-                    <div style="
-                      width: 24px;
-                      height: 24px;
+      <div className="relative" style={{ height: "60vh", minHeight: "400px" }}>
+        {hasCoordinates ? (
+          <MapContainer
+            center={track.coordinates[0]}
+            zoom={15}
+            scrollWheelZoom={true}
+            className="w-full h-full z-0"
+            whenCreated={handleMapCreated}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
+            />
+            <Polyline 
+              positions={track.coordinates} 
+              color="#8eaa36"
+              weight={4}
+              opacity={0.8}
+            />
+            
+            {track.findings?.map((finding: Finding) => (
+              <Marker
+                key={finding.id}
+                position={finding.coordinates}
+                icon={L.divIcon({
+                  html: `
+                    <div class="finding-marker ${finding.type.toLowerCase()}-marker" style="
+                      width: 40px;
+                      height: 40px;
+                      position: relative;
                       display: flex;
-                      align-items: center;
                       justify-content: center;
-                      font-size: 16px;
-                      font-weight: bold;
-                      color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
-                    ">${finding.type === 'Fungo' ? '🍄' : '🥔'}</div>
+                      align-items: center;
+                      background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+                      border-radius: 50%;
+                      border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+                    ">
+                      <div class="finding-pulse" style="
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        border-radius: 50%;
+                        background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}30;
+                        animation: pulse 2s infinite;
+                      "></div>
+                      <div style="
+                        width: 24px;
+                        height: 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 16px;
+                        font-weight: bold;
+                        color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+                      ">${finding.type === 'Fungo' ? '🍄' : '🥔'}</div>
+                    </div>
+                  `,
+                  className: 'finding-icon',
+                  iconSize: [40, 40],
+                  iconAnchor: [20, 20],
+                  popupAnchor: [0, -20]
+                })}
+              >
+                <Popup>
+                  <div className="p-2 min-w-[200px]">
+                    <h3 className="font-bold text-lg mb-1">{finding.name}</h3>
+                    {finding.description && (
+                      <p className="text-gray-600 mb-2">{finding.description}</p>
+                    )}
+                    {finding.photoUrl && (
+                      <img 
+                        src={finding.photoUrl} 
+                        alt={finding.name}
+                        className="w-full h-32 object-cover rounded mb-2"
+                      />
+                    )}
+                    <p className="text-sm text-gray-500">
+                      {new Date(finding.timestamp).toLocaleString('it-IT')}
+                    </p>
                   </div>
-                `,
-                className: 'finding-icon',
-                iconSize: [40, 40],
-                iconAnchor: [20, 20],
-                popupAnchor: [0, -20]
-              })}
-            >
-              <Popup>
-                <div className="p-2 min-w-[200px]">
-                  <h3 className="font-bold text-lg mb-1">{finding.name}</h3>
-                  {finding.description && (
-                    <p className="text-gray-600 mb-2">{finding.description}</p>
-                  )}
-                  {finding.photoUrl && (
-                    <img 
-                      src={finding.photoUrl} 
-                      alt={finding.name}
-                      className="w-full h-32 object-cover rounded mb-2"
-                    />
-                  )}
-                  <p className="text-sm text-gray-500">
-                    {new Date(finding.timestamp).toLocaleString('it-IT')}
-                  </p>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-          
-          {/* Componente per centrare la mappa sui bounds */}
-          {bounds && <MapBoundsHandler bounds={bounds} padding={[50, 50]} />}
-        </MapContainer>
+                </Popup>
+              </Marker>
+            ))}
+            
+            {/* Componente per centrare la mappa sui bounds */}
+            {bounds && <MapBoundsHandler bounds={bounds} padding={[30, 30]} />}
+          </MapContainer>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+            <p className="text-gray-500">Nessuna coordinata disponibile per questa traccia</p>
+          </div>
+        )}
       </div>
       
       {/* Statistiche del percorso */}
