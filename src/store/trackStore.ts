@@ -485,6 +485,17 @@ export const useTrackStore = create<TrackState>()(
                 return finding;
               });
               
+              // Log debug per coordinates prima di finalizzare la track
+              console.log(`🧐 DEBUG: Salvando traccia con ${currentTrack.coordinates.length} coordinate GPS`);
+              if (currentTrack.coordinates.length > 0) {
+                console.log(`🧐 DEBUG: Prime coordinate: ${JSON.stringify(currentTrack.coordinates[0])}`);
+                if (currentTrack.coordinates.length > 1) {
+                  console.log(`🧐 DEBUG: Ultime coordinate: ${JSON.stringify(currentTrack.coordinates[currentTrack.coordinates.length - 1])}`);
+                }
+              } else {
+                console.warn("⚠️ ATTENZIONE: Nessuna coordinata GPS da salvare nella traccia!");
+              }
+              
               const completedTrack: Track = {
                 ...currentTrack,
                 findings: validatedFindings,
