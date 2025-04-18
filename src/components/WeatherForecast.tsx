@@ -310,7 +310,6 @@ const WeatherForecast: React.FC = () => {
           ? weather.conditionIcon 
           : `https:${weather.conditionIcon}`;
       
-      console.log('Weather icon URL:', iconUrl);
       return <img src={iconUrl} alt={weather.condition || 'Weather condition'} className="w-8 h-8" onError={(e) => {
         console.error('Error loading weather icon:', e);
         // Fallback to default icon on error
