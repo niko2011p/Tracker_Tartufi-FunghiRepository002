@@ -166,61 +166,106 @@ export const getCurrentWeather = async (location: string): Promise<WeatherData> 
       throw new Error('Chiave API WeatherAPI non configurata. Controlla il file .env');
     }
 
-    const response = await fetch(
-      `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&aqi=no&lang=it`
-    );
+    console.log(`[getCurrentWeather] Tentativo recupero per: ${location}`);
+    const apiUrl = `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&aqi=no&lang=it`;
+    console.log(`[getCurrentWeather] URL: ${apiUrl.replace(WEATHER_API_KEY, '***')}`);
+
+    const response = await fetch(apiUrl);
+    const responseClone = response.clone(); // Clone for potential re-reading
     
     if (!response.ok) {
-      if (response.status === 401) {
-        console.error('Errore di autenticazione 401 - Unauthorized');
-        throw new Error('Errore di autenticazione: La chiave API non è valida o è scaduta. Verifica le impostazioni.');
-      }
-      
-      const error = await response.json();
-      handleWeatherAPIError(error.error);
+      let errorBody = 'N/A';
+      try {
+        errorBody = await responseClone.text();
+      } catch {}
+      console.error(`[getCurrentWeather] Errore HTTP: ${response.status} ${response.statusText}. Body: ${errorBody.substring(0, 200)}`);
+      throw new Error(`Errore API meteo: ${response.status} ${response.statusText}`);
     }
     
-    const data: WeatherAPIResponse = await response.json();
+    let responseText;
+    try {
+      responseText = await response.text();
+      console.log(`[getCurrentWeather] Risposta ricevuta (lunghezza: ${responseText.length})`);
+      if (responseText.length === 0) {
+        console.error('[getCurrentWeather] Risposta API vuota');
+        throw new Error('Risposta API vuota');
+      }
+      console.log(`[getCurrentWeather] Inizio risposta: ${responseText.substring(0, 150)}...`);
+    } catch (textError) {
+      console.error('[getCurrentWeather] Errore lettura testo risposta:', textError);
+      // Fallback: Prova a leggere JSON dal clone se la lettura testo fallisce
+      try {
+        const dataFromClone = await responseClone.json();
+        console.log('[getCurrentWeather] Dati JSON recuperati da clone (fallback):', dataFromClone);
+        // Se abbiamo dati validi dal clone, procedi con la formattazione
+        // NOTA: La formattazione richiede anche i dati astro, che non abbiamo qui.
+        // Potremmo dover adattare formatWeatherData o gestire questo caso.
+        // Per ora, rilanciamo un errore indicando che il percorso primario è fallito.
+        throw new Error('Errore lettura testo risposta primaria, fallback JSON riuscito ma non implementato.');
+      } catch (cloneJsonError) {
+        console.error('[getCurrentWeather] Errore lettura JSON da clone:', cloneJsonError);
+        throw new Error('Impossibile leggere la risposta API');
+      }
+    }
     
-    // Ottieni i dati astronomici per la data corrente
+    let data: WeatherAPIResponse;
+    try {
+      data = JSON.parse(responseText);
+      console.log('[getCurrentWeather] Payload JSON:', JSON.stringify(data).substring(0, 300) + '...');
+    } catch (jsonError) {
+      console.error('[getCurrentWeather] Errore parsing JSON:', jsonError);
+      console.error('[getCurrentWeather] Testo risposta (primi 200 char): ', responseText.substring(0, 200));
+      throw new Error('Risposta API non è un JSON valido');
+    }
+    
+    // Validazione struttura base
+    if (!data) {
+      console.error('[getCurrentWeather] Dati JSON parsati sono null o undefined');
+      throw new Error('Dati JSON non validi dopo parsing');
+    }
+    if (!data.location) {
+      console.error('[getCurrentWeather] Campo "location" mancante:', data);
+      throw new Error('Dati API mancano campo "location"');
+    }
+    if (!data.current) {
+      console.error('[getCurrentWeather] Campo "current" mancante:', data);
+      throw new Error('Dati API mancano campo "current"');
+    }
+    if (typeof data.current.temp_c !== 'number') {
+      console.error('[getCurrentWeather] Campo "current.temp_c" non è un numero:', data.current);
+      throw new Error('Temperatura mancante o non valida');
+    }
+    
+    // Ottieni i dati astronomici (mantenendo la logica esistente)
     let astroData = null;
     try {
-      // Verifica connessione internet prima di fare la richiesta
       if (!navigator.onLine) {
-        console.warn('Nessuna connessione internet disponibile per i dati astronomici');
-        // Continua senza dati astronomici invece di lanciare un'eccezione
+        console.warn('[getCurrentWeather] Nessuna connessione internet per dati astronomici');
       } else {
         const today = new Date().toISOString().split('T')[0];
-        // Aggiungiamo un timeout alla richiesta per evitare blocchi
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondi di timeout
-        
-        try {
-          astroData = await Promise.race([
-            getAstroData(location, today),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout nel recupero dei dati astronomici')), 5000))
-          ]);
-          clearTimeout(timeoutId);
-        } catch (timeoutErr) {
-          console.warn('Timeout durante il recupero dei dati astronomici:', timeoutErr);
-          // Continua senza dati astronomici
-        }
+        astroData = await getAstroData(location, today); // Non usiamo timeout qui ora, getAstroData ha il suo
+        console.log('[getCurrentWeather] Dati Astro recuperati:', astroData);
       }
     } catch (astroError) {
-      console.error('Errore nel recupero dei dati astronomici attuali:', astroError);
-      // Continua senza dati astronomici
+      console.error('[getCurrentWeather] Errore recupero dati astronomici (non bloccante):', astroError);
     }
     
-    // Verifica che astroData sia un oggetto valido prima di passarlo a formatWeatherData
     if (astroData && typeof astroData !== 'object') {
-      console.warn('Dati astronomici non validi, verranno ignorati');
+      console.warn('[getCurrentWeather] Dati astronomici non validi, ignorati');
       astroData = null;
     }
     
-    return formatWeatherData(data, astroData);
+    console.log('[getCurrentWeather] Formattazione dati...');
+    const formattedData = formatWeatherData(data, astroData);
+    console.log('[getCurrentWeather] Dati formattati:', formattedData);
+    return formattedData;
+
   } catch (error) {
+    // Logga l'errore finale catturato da questo blocco try
+    console.error('[getCurrentWeather] Errore finale:', error);
+    // Rilancia l'errore per permettere allo store chiamante di gestirlo
     if (error instanceof Error) throw error;
-    throw new Error('Errore nel recupero del meteo attuale');
+    throw new Error('Errore sconosciuto nel recupero del meteo attuale');
   }
 };
 
