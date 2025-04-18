@@ -38,14 +38,18 @@ export const useWeatherStore = create<WeatherState>()((set) => ({
   setSelectedLocation: (location: Location) => set({ selectedLocation: location }),
 
   fetchCurrentWeather: async (location: string) => {
+    console.log(`[useWeatherStore] Fetching current weather for: ${location}`);
     set({ isLoading: true, error: null });
     try {
       const data = await getCurrentWeather(location);
-      set({ currentWeather: data, isLoading: false });
+      console.log('[useWeatherStore] Data received from service:', data);
+      set({ currentWeather: data, isLoading: false, error: null });
     } catch (error) {
+      console.error('[useWeatherStore] Error fetching current weather:', error);
       set({ 
-        error: error instanceof Error ? error.message : 'Errore nel recupero del meteo attuale',
-        isLoading: false 
+        error: error instanceof Error ? error.message : 'Errore sconosciuto nel recupero del meteo attuale',
+        isLoading: false,
+        currentWeather: null
       });
     }
   },
