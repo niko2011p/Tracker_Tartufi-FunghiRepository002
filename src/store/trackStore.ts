@@ -394,34 +394,6 @@ export const useTrackStore = create<TrackState>()(
         if (currentTrack) {
           console.log('🛑 Stopping track:', currentTrack.id);
           
-          // Log per debug delle coordinate prima di finalizzare
-          console.log(`🧐 DEBUG: Traccia contiene ${currentTrack.coordinates?.length || 0} coordinate GPS`);
-          if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
-            console.log(`🧐 DEBUG: Prime coordinate: ${JSON.stringify(currentTrack.coordinates[0])}`);
-            if (currentTrack.coordinates.length > 1) {
-              console.log(`🧐 DEBUG: Ultime coordinate: ${JSON.stringify(currentTrack.coordinates[currentTrack.coordinates.length - 1])}`);
-            }
-          } else {
-            console.warn("⚠️ ATTENZIONE: Nessuna coordinata GPS da salvare nella traccia!");
-            
-            // Tenta di recuperare coordinate dal localStorage o IndexedDB
-            try {
-              const savedTrack = await loadFromIndexedDB('currentTrack');
-              if (savedTrack && savedTrack.coordinates && savedTrack.coordinates.length > 0) {
-                console.log(`🔄 Recuperate ${savedTrack.coordinates.length} coordinate da IndexedDB`);
-                currentTrack.coordinates = savedTrack.coordinates;
-              } else {
-                const localTrack = loadFromLocalStorage('currentTrack');
-                if (localTrack && localTrack.coordinates && localTrack.coordinates.length > 0) {
-                  console.log(`🔄 Recuperate ${localTrack.coordinates.length} coordinate da localStorage`);
-                  currentTrack.coordinates = localTrack.coordinates;
-                }
-              }
-            } catch (error) {
-              console.error('❌ Errore nel recupero delle coordinate di backup:', error);
-            }
-          }
-          
           // Calcola i dati finali del tracciamento
           const endTime = new Date();
           const durationMs = endTime.getTime() - currentTrack.startTime.getTime();
@@ -485,7 +457,7 @@ export const useTrackStore = create<TrackState>()(
               
               const avgAltitude = altitudePoints > 0 ? 
                 Math.round(totalAltitude / altitudePoints) : 
-                (currentTrack.coordinates && currentTrack.coordinates.length > 0 ? 500 : 0); // Fallback
+                (currentTrack.coordinates.length > 0 ? 500 : 0); // Fallback
               
               // Prepara i dati storici degli ultimi 7 giorni
               const sevenDaysAgo = new Date();
@@ -505,7 +477,7 @@ export const useTrackStore = create<TrackState>()(
                   console.warn(`Coordinate non valide per il ritrovamento ${finding.id}, utilizzo ultima posizione conosciuta`);
                   return {
                     ...finding,
-                    coordinates: currentTrack.coordinates && currentTrack.coordinates.length > 0 ? 
+                    coordinates: currentTrack.coordinates.length > 0 ? 
                       currentTrack.coordinates[currentTrack.coordinates.length - 1] : 
                       [0, 0] as [number, number]
                   };
@@ -514,32 +486,18 @@ export const useTrackStore = create<TrackState>()(
               });
               
               // Log debug per coordinates prima di finalizzare la track
-              console.log(`🧐 DEBUG: Salvando traccia con ${currentTrack.coordinates?.length || 0} coordinate GPS`);
-              if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
+              console.log(`🧐 DEBUG: Salvando traccia con ${currentTrack.coordinates.length} coordinate GPS`);
+              if (currentTrack.coordinates.length > 0) {
                 console.log(`🧐 DEBUG: Prime coordinate: ${JSON.stringify(currentTrack.coordinates[0])}`);
                 if (currentTrack.coordinates.length > 1) {
                   console.log(`🧐 DEBUG: Ultime coordinate: ${JSON.stringify(currentTrack.coordinates[currentTrack.coordinates.length - 1])}`);
-                  console.log(`🧐 DEBUG: Campionatura coordinate (ogni 10 punti):`);
-                  for (let i = 0; i < currentTrack.coordinates.length; i += 10) {
-                    if (i < currentTrack.coordinates.length) {
-                      console.log(`   Punto ${i}: ${JSON.stringify(currentTrack.coordinates[i])}`);
-                    }
-                  }
                 }
               } else {
                 console.warn("⚠️ ATTENZIONE: Nessuna coordinata GPS da salvare nella traccia!");
               }
               
-              // Assicurati che ci sia almeno un punto nella traccia (usa le coordinate della location come fallback)
-              let trackCoordinates = currentTrack.coordinates || [];
-              if (trackCoordinates.length === 0 && currentTrack.location && currentTrack.location.coordinates) {
-                console.log('🔄 Utilizzo coordinate della località come fallback:', currentTrack.location.coordinates);
-                trackCoordinates = [currentTrack.location.coordinates];
-              }
-              
               const completedTrack: Track = {
                 ...currentTrack,
-                coordinates: trackCoordinates,
                 findings: validatedFindings,
                 endTime,
                 duration: durationMs,
@@ -553,7 +511,6 @@ export const useTrackStore = create<TrackState>()(
               };
               
               console.log('✅ Track stopped and saved successfully. Total tracks:', tracks.length + 1);
-              console.log(`✅ Track contiene ${trackCoordinates.length} punti GPS`);
               
               const updatedTracks = [...tracks, completedTrack];
               
@@ -700,35 +657,38 @@ export const useTrackStore = create<TrackState>()(
 
         // Aggiorna il tracciamento solo se stiamo registrando
         if (currentTrack && isRecording) {
-          // Validazione delle coordinate
-          if (!position || position.length !== 2 || isNaN(position[0]) || isNaN(position[1])) {
-            console.warn('❌ Coordinate non valide ricevute:', position);
+          // Verifica se la posizione è valida
+          if (isNaN(position[0]) || isNaN(position[1]) || 
+              (position[0] === 0 && position[1] === 0)) {
+            console.warn('⚠️ Coordinate GPS non valide, ignoro aggiornamento');
             return;
           }
 
-          // Formatta le coordinate con precisione a 6 decimali per consistenza
-          const formattedPosition: [number, number] = [
-            Number(position[0].toFixed(6)),
-            Number(position[1].toFixed(6))
-          ];
-
           // Aggiungi la nuova posizione alle coordinate del tracciamento
-          const newCoordinates = [...(currentTrack.coordinates || []), formattedPosition];
+          const newCoordinates = [...currentTrack.coordinates, position];
           let distance = currentTrack.distance;
           let direction = get().currentDirection;
           
           // Calcola la distanza e la direzione solo se abbiamo almeno due punti
           if (newCoordinates.length > 1) {
             const lastPoint = turf.point(newCoordinates[newCoordinates.length - 2]);
-            const newPoint = turf.point(formattedPosition);
+            const newPoint = turf.point(position);
             
             // Calcola la distanza in chilometri e aggiungila alla distanza totale
             const segmentDistance = turf.distance(lastPoint, newPoint, { units: 'kilometers' });
+            
+            // Se la distanza è molto piccola (meno di 1 metro) e non siamo al primo punto,
+            // potrebbe trattarsi di rumore GPS, quindi non aggiorniamo la posizione
+            const movementDistance = turf.distance(lastPoint, newPoint, { units: 'meters' });
+            if (movementDistance < 0.5 && newCoordinates.length > 2) {
+              // Non aggiungiamo punti troppo vicini per evitare rumore
+              return;
+            }
+            
             distance += segmentDistance;
             
-            // Riduciamo la soglia a 1 metro per registrare punti più frequentemente
-            const movementDistance = turf.distance(lastPoint, newPoint, { units: 'meters' });
-            if (movementDistance > 1) { // Ridotto da 2 a 1 metro
+            // Calcola la direzione solo se la distanza è significativa per evitare fluttuazioni casuali
+            if (movementDistance > 2) {
               // Calcola l'angolo di direzione in gradi (0-360)
               direction = turf.bearing(lastPoint, newPoint);
               // Normalizza l'angolo a valori positivi (0-360)
@@ -743,37 +703,47 @@ export const useTrackStore = create<TrackState>()(
           }
           
           // Aggiorna lo stato del tracciamento con le nuove coordinate e la distanza
-          const updatedTrack = {
-            ...currentTrack,
-            coordinates: newCoordinates,
-            distance
-          };
-          
-          // Aggiorna lo stato
-          set({ currentTrack: updatedTrack });
-          
-          // Salviamo le coordinate anche in localStorage periodicamente come backup
-          if (newCoordinates.length % 5 === 0) { // Salva ogni 5 nuove coordinate
-            try {
-              saveToLocalStorage('currentTrack', updatedTrack);
-              console.debug(`💾 Backup coordinate (${newCoordinates.length} punti) in localStorage`);
-            } catch (error) {
-              console.error('❌ Errore nel backup in localStorage:', error);
+          set({
+            currentTrack: {
+              ...currentTrack,
+              coordinates: newCoordinates,
+              distance
             }
-            
-            // Salva anche in IndexedDB per maggiore robustezza
-            try {
-              saveToIndexedDB('currentTrack', updatedTrack);
-              console.debug(`💾 Backup coordinate (${newCoordinates.length} punti) in IndexedDB`);
-            } catch (error) {
-              console.error('❌ Errore nel backup in IndexedDB:', error);
-            }
+          });
+          
+          // Log più frequente per debug dell'aggiornamento della posizione
+          if (newCoordinates.length % 5 === 0 || newCoordinates.length === 1) { 
+            console.debug(`Tracciamento: ${newCoordinates.length} punti, distanza totale: ${distance.toFixed(3)}km`);
           }
           
-          // Log per debug dell'aggiornamento della posizione
-          console.debug(`📍 Punto aggiunto: [${formattedPosition[0]}, ${formattedPosition[1]}], totale: ${newCoordinates.length}`);
-          if (newCoordinates.length % 10 === 0 || newCoordinates.length === 1) { // Log ogni 10 aggiornamenti e al primo punto
-            console.debug(`Tracciamento: ${newCoordinates.length} punti, distanza totale: ${distance.toFixed(3)}km`);
+          // Auto-salvataggio periodico in localStorage e IndexedDB
+          if (newCoordinates.length % 10 === 0) {
+            console.log(`🔄 Auto-salvataggio traccia con ${newCoordinates.length} coordinate...`);
+            
+            // Backup veloce in localStorage
+            const trackToSave = {
+              ...currentTrack,
+              coordinates: newCoordinates,
+              distance
+            };
+            
+            try {
+              // Usa JSON.stringify per non avere problemi con Date objects
+              localStorage.setItem('currentTrack', JSON.stringify(trackToSave));
+              
+              // Salvataggio asincrono in IndexedDB - senza await per non bloccare l'esecuzione
+              // ma usiamo una IIFE per gestire il catch inline
+              (async () => {
+                try {
+                  await saveToIndexedDB('currentTrack', trackToSave);
+                  console.log(`✅ Salvataggio periodico completato: ${newCoordinates.length} coordinate`);
+                } catch (e) {
+                  console.error('❌ Errore nel salvataggio automatico in IndexedDB:', e);
+                }
+              })();
+            } catch (e) {
+              console.error('❌ Errore nel salvataggio automatico:', e);
+            }
           }
         }
       },
