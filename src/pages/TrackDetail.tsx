@@ -172,33 +172,88 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     }
     
     console.log('🧐 Controllo coordinate della traccia:', track.id);
-    console.log('📏 Lunghezza array coordinates:', track.coordinates?.length);
-    console.log('📍 Primi 3 punti:', track.coordinates?.slice(0, 3));
+    console.log('📊 Oggetto track completo:', JSON.stringify(track, null, 2).substring(0, 500) + '...');
     
-    if (!track.coordinates || !Array.isArray(track.coordinates)) {
-      console.log('❌ Le coordinate non sono un array valido');
-      return false;
+    // Controlla i possibili campi che potrebbero contenere coordinate
+    let coordinateFieldsToCheck = ['coordinates', 'path', 'gpsData', 'positions', 'points'];
+    let validCoordinates = null;
+    
+    for (const field of coordinateFieldsToCheck) {
+      if (track[field] && Array.isArray(track[field]) && track[field].length > 0) {
+        console.log(`✅ Trovate coordinate nel campo "${field}": ${track[field].length} punti`);
+        
+        // Verifica che sia un array di punti geografici
+        const samplePoint = track[field][0];
+        if (Array.isArray(samplePoint) && samplePoint.length >= 2 && 
+            typeof samplePoint[0] === 'number' && typeof samplePoint[1] === 'number') {
+          validCoordinates = track[field];
+          // Aggiorna il campo coordinates per compatibilità con il resto del codice
+          track.coordinates = validCoordinates;
+          break;
+        } else {
+          console.log(`⚠️ Il campo "${field}" non contiene coordinate in formato valido`);
+        }
+      }
     }
     
-    if (track.coordinates.length === 0) {
-      console.log('❌ L\'array delle coordinate è vuoto');
-      return false;
+    // Se non troviamo le coordinate nei campi standard, proviamo a recuperarle da campi annidati
+    if (!validCoordinates && track.rawData) {
+      console.log('🔍 Cercando coordinate in track.rawData...');
+      try {
+        for (const field of coordinateFieldsToCheck) {
+          if (track.rawData[field] && Array.isArray(track.rawData[field]) && track.rawData[field].length > 0) {
+            console.log(`✅ Trovate coordinate in track.rawData.${field}`);
+            track.coordinates = track.rawData[field];
+            validCoordinates = track.coordinates;
+            break;
+          }
+        }
+        
+        // Cerca anche in track.data se esiste
+        if (!validCoordinates && track.data) {
+          for (const field of coordinateFieldsToCheck) {
+            if (track.data[field] && Array.isArray(track.data[field]) && track.data[field].length > 0) {
+              console.log(`✅ Trovate coordinate in track.data.${field}`);
+              track.coordinates = track.data[field];
+              validCoordinates = track.coordinates;
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Errore nell\'accesso ai campi annidati:', error);
+      }
     }
     
-    // Verifica che almeno il primo punto sia valido
-    const firstPoint = track.coordinates[0];
-    if (!Array.isArray(firstPoint) || firstPoint.length !== 2 ||
-        typeof firstPoint[0] !== 'number' || typeof firstPoint[1] !== 'number' ||
-        isNaN(firstPoint[0]) || isNaN(firstPoint[1])) {
-      console.log('❌ Il formato delle coordinate non è valido:', firstPoint);
-      return false;
+    // Se ancora non abbiamo coordinate valide, proviamo a recuperarle dai findings
+    if (!validCoordinates && track.findings && Array.isArray(track.findings) && track.findings.length > 0) {
+      console.log('🔍 Tentativo di recupero coordinate dai ritrovamenti...');
+      try {
+        const foundCoordinates = track.findings
+          .filter(f => f.coordinates && Array.isArray(f.coordinates) && f.coordinates.length === 2)
+          .map(f => f.coordinates);
+        
+        if (foundCoordinates.length > 0) {
+          console.log(`✅ Recuperate ${foundCoordinates.length} coordinate dai ritrovamenti`);
+          track.coordinates = foundCoordinates;
+          validCoordinates = track.coordinates;
+        }
+      } catch (error) {
+        console.error('❌ Errore nel recupero coordinate dai findings:', error);
+      }
     }
     
-    console.log('✅ Coordinate valide trovate:', 
-      track.coordinates.length, 
-      'punti. Primo punto:', 
-      track.coordinates[0]);
-    return true;
+    // Se abbiamo trovato coordinate valide in qualsiasi campo
+    if (validCoordinates) {
+      console.log('✅ Coordinate valide trovate:', 
+        validCoordinates.length, 
+        'punti. Primo punto:', 
+        validCoordinates[0]);
+      return true;
+    }
+    
+    console.log('❌ Nessuna coordinata GPS valida trovata in alcun campo della traccia');
+    return false;
   }, []);
 
   // Effetto per verificare le coordinate dopo il caricamento della traccia
@@ -328,6 +383,54 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
           console.error('❌ Errore nel calcolo posizione media:', error);
           setLocationName('Posizione non disponibile');
         }
+      } else if (track && track.findings && track.findings.length > 0) {
+        // Fallback: usa le coordinate del primo ritrovamento per la località
+        try {
+          const firstFindingWithCoords = track.findings.find(f => 
+            f.coordinates && Array.isArray(f.coordinates) && f.coordinates.length === 2);
+            
+          if (firstFindingWithCoords) {
+            const [lat, lng] = firstFindingWithCoords.coordinates;
+            console.log('🔍 Utilizzo coordinate del ritrovamento per località:', lat, lng);
+            
+            // Usa un timeout più lungo per Nominatim
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            try {
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`,
+                { signal: controller.signal }
+              );
+              clearTimeout(timeoutId);
+              
+              if (!response.ok) throw new Error(`Status: ${response.status}`);
+              
+              const data = await response.json();
+              console.log('📍 Risposta nominatim:', data);
+              
+              if (data.address) {
+                const { hamlet, village, town, city, municipality, county, state } = data.address;
+                const location = hamlet || village || town || city || municipality || county || state || 'Posizione sconosciuta';
+                console.log('📍 Nome località trovato:', location);
+                setLocationName(location);
+              } else {
+                setLocationName(`Lat: ${lat.toFixed(5)}, Lon: ${lng.toFixed(5)}`);
+              }
+            } catch (e) {
+              clearTimeout(timeoutId);
+              console.error('❌ Errore API Nominatim:', e);
+              setLocationName(`Lat: ${lat.toFixed(5)}, Lon: ${lng.toFixed(5)}`);
+            }
+          } else {
+            setLocationName('Posizione non disponibile');
+          }
+        } catch (error) {
+          console.error('❌ Errore nell\'usare ritrovamento per posizione:', error);
+          setLocationName('Posizione non disponibile');
+        }
+      } else {
+        setLocationName('Posizione non disponibile');
       }
     };
     
@@ -482,6 +585,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     console.log('📊 Calcolo statistiche per traccia:', track.id);
     console.log('📊 Dati track disponibili:', JSON.stringify({
       coordinates: track.coordinates?.length || 0,
+      findings: track.findings?.length || 0,
       distance: track.distance,
       startTime: track.startTime,
       endTime: track.endTime,
@@ -505,7 +609,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       const validCoords = track.coordinates.filter(coord => 
         Array.isArray(coord) && coord.length === 2 && 
         !isNaN(coord[0]) && !isNaN(coord[1]));
-      
+        
       if (validCoords.length > 1) {
         // Calcola la distanza basata sulle coordinate
         for (let i = 1; i < validCoords.length; i++) {
@@ -529,6 +633,29 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         if (distance > 0) {
           track.distance = distance;
         }
+      }
+    } else if (track.findings && track.findings.length > 0) {
+      // Calcolo approssimativo della distanza basato sui ritrovamenti
+      try {
+        const validFindings = track.findings.filter(f => 
+          f.coordinates && Array.isArray(f.coordinates) && f.coordinates.length === 2);
+          
+        if (validFindings.length > 1) {
+          console.log('📏 Stimando distanza dai ritrovamenti');
+          // Calcola approssimativamente 100 metri tra un ritrovamento e l'altro
+          distance = (validFindings.length - 1) * 0.1;
+        } else if (validFindings.length === 1) {
+          // Se c'è un solo ritrovamento, supponiamo una breve distanza intorno ad esso
+          distance = 0.05; // 50 metri circa
+        }
+        
+        // Aggiorna il track con la distanza stimata
+        if (distance > 0) {
+          track.distance = distance;
+          console.log('📏 Distanza stimata dai ritrovamenti:', distance);
+        }
+      } catch (error) {
+        console.error('❌ Errore nel calcolo della distanza dai ritrovamenti:', error);
       }
     }
     
@@ -554,6 +681,20 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         // Usa un valore predefinito se non c'è altitudine
         avgAltitude = 200; // Default
         console.log('⚠️ Nessun dato di altitudine disponibile, usando valore predefinito');
+      }
+    } else if (!avgAltitude && track.findings && track.findings.length > 0) {
+      // Cerca dati di altitudine nei ritrovamenti
+      const findingsWithAltitude = track.findings
+        .filter(f => f.altitude && !isNaN(f.altitude));
+        
+      if (findingsWithAltitude.length > 0) {
+        const totalAlt = findingsWithAltitude.reduce((sum, f) => sum + f.altitude, 0);
+        avgAltitude = totalAlt / findingsWithAltitude.length;
+        console.log('🏔️ Altitudine media stimata dai ritrovamenti:', avgAltitude);
+      } else if (track.findings[0] && track.findings[0].coordinates) {
+        // Usa un valore predefinito basato sulla località se non abbiamo dati reali
+        avgAltitude = 400; // Valore tipico per molte zone in Italia
+        console.log('⚠️ Usando valore predefinito per altitudine');
       }
     }
     
