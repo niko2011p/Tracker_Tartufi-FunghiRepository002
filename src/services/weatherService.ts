@@ -89,27 +89,6 @@ interface ForecastResponse extends WeatherAPIResponse {
   };
 }
 
-interface WeatherCondition {
-  text: string;
-  icon: string | null;
-}
-
-interface HourlyForecast {
-  time: string;
-  temp: number;
-  condition: WeatherCondition;
-  chanceOfRain: number;
-  humidity: number;
-}
-
-interface ForecastData {
-  date: string;
-  maxTemp: number;
-  minTemp: number;
-  condition: WeatherCondition;
-  hourly: HourlyForecast[];
-}
-
 const handleWeatherAPIError = (error: WeatherAPIError) => {
   if (!WEATHER_API_KEY) {
     throw new Error('Chiave API WeatherAPI non configurata. Controlla il file .env');
@@ -191,68 +170,30 @@ export const getCurrentWeather = async (location: string): Promise<WeatherData> 
       `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&aqi=no&lang=it`
     );
     
-    // Clona la risposta per il debug
-    const responseClone = response.clone();
-    
     if (!response.ok) {
       if (response.status === 401) {
         console.error('Errore di autenticazione 401 - Unauthorized');
         throw new Error('Errore di autenticazione: La chiave API non è valida o è scaduta. Verifica le impostazioni.');
       }
       
-      // Prova a leggere l'errore come JSON
-      try {
-        const error = await response.json();
-        handleWeatherAPIError(error.error);
-      } catch (jsonError) {
-        // Se non riesce a leggere il JSON, usa il clone per il debug
-        const errorText = await responseClone.text();
-        console.error('Risposta non JSON ricevuta:', errorText);
-        throw new Error(`Errore nella richiesta: ${response.status} ${response.statusText}`);
-      }
+      const error = await response.json();
+      handleWeatherAPIError(error.error);
     }
     
-    // Leggi il testo della risposta prima del parsing JSON
-    let responseText;
-    try {
-      responseText = await response.text();
-      if (!responseText) {
-        throw new Error('Risposta vuota ricevuta dall\'API meteo');
-      }
-    } catch (textError) {
-      console.error('Errore nella lettura del testo della risposta:', textError);
-      throw new Error('Errore nella lettura della risposta dell\'API meteo');
-    }
-    
-    // Verifica se la risposta è un JSON valido
-    let data: WeatherAPIResponse;
-    try {
-      data = JSON.parse(responseText);
-    } catch (jsonError) {
-      console.error('Risposta non è un JSON valido:', responseText.substring(0, 200));
-      throw new Error('Risposta non è un JSON valido');
-    }
-    
-    // Validazione approfondita dei dati
-    if (!data || typeof data !== 'object') {
-      throw new Error('Dati meteo non disponibili o incompleti');
-    }
-    
-    if (!data.current || typeof data.current !== 'object') {
-      throw new Error('Dati meteo correnti mancanti o non validi');
-    }
-    
-    if (typeof data.current.temp_c !== 'number') {
-      throw new Error('Temperatura mancante o non valida nei dati meteo');
-    }
+    const data: WeatherAPIResponse = await response.json();
     
     // Ottieni i dati astronomici per la data corrente
     let astroData = null;
     try {
-      if (navigator.onLine) {
+      // Verifica connessione internet prima di fare la richiesta
+      if (!navigator.onLine) {
+        console.warn('Nessuna connessione internet disponibile per i dati astronomici');
+        // Continua senza dati astronomici invece di lanciare un'eccezione
+      } else {
         const today = new Date().toISOString().split('T')[0];
+        // Aggiungiamo un timeout alla richiesta per evitare blocchi
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondi di timeout
         
         try {
           astroData = await Promise.race([
@@ -262,74 +203,92 @@ export const getCurrentWeather = async (location: string): Promise<WeatherData> 
           clearTimeout(timeoutId);
         } catch (timeoutErr) {
           console.warn('Timeout durante il recupero dei dati astronomici:', timeoutErr);
+          // Continua senza dati astronomici
         }
       }
     } catch (astroError) {
       console.error('Errore nel recupero dei dati astronomici attuali:', astroError);
+      // Continua senza dati astronomici
     }
     
-    // Verifica che astroData sia un oggetto valido
+    // Verifica che astroData sia un oggetto valido prima di passarlo a formatWeatherData
     if (astroData && typeof astroData !== 'object') {
       console.warn('Dati astronomici non validi, verranno ignorati');
       astroData = null;
     }
     
-    const weatherData = formatWeatherData(data, astroData);
-    console.log('Dati meteo formattati:', weatherData);
-    return weatherData;
+    return formatWeatherData(data, astroData);
   } catch (error) {
-    console.error('Errore nel recupero del meteo attuale:', error);
     if (error instanceof Error) throw error;
     throw new Error('Errore nel recupero del meteo attuale');
   }
 };
 
-export const getForecast = async (location: string, days: number = 3): Promise<ForecastData[]> => {
+export const getForecast = async (location: string): Promise<WeatherData[]> => {
   try {
     if (!WEATHER_API_KEY) {
       throw new Error('Chiave API WeatherAPI non configurata. Controlla il file .env');
     }
 
     const response = await fetch(
-      `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=${days}&aqi=no&lang=it`
+      `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=3&aqi=no&alerts=no&lang=it`
     );
-
-    if (!response.ok) {
-      const errorData = await response.json() as WeatherAPIError;
-      handleWeatherAPIError(errorData);
-    }
-
-    const data = await response.json() as ForecastResponse;
     
-    if (!data.forecast?.forecastday) {
-      throw new Error('Dati previsioni non validi nella risposta API');
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.error('Errore di autenticazione 401 - Unauthorized');
+        throw new Error('Errore di autenticazione: La chiave API non è valida o è scaduta. Verifica le impostazioni.');
+      }
+      
+      const error = await response.json();
+      handleWeatherAPIError(error.error);
     }
-
-    const forecastData: ForecastData[] = data.forecast.forecastday.map(day => ({
-      date: day.date,
-      maxTemp: day.day.maxtemp_c,
-      minTemp: day.day.mintemp_c,
-      condition: {
-        text: day.day.condition.text,
-        icon: day.day.condition.icon.startsWith('//') ? `https:${day.day.condition.icon}` : day.day.condition.icon
-      },
-      hourly: day.hour.map(hour => ({
-        time: hour.time,
-        temp: hour.temp_c,
-        condition: {
-          text: hour.condition.text,
-          icon: hour.condition.icon.startsWith('//') ? `https:${hour.condition.icon}` : hour.condition.icon
-        },
-        chanceOfRain: hour.chance_of_rain ?? 0,
-        humidity: hour.humidity
-      }))
+    
+    const data: ForecastResponse = await response.json();
+    return await Promise.all(data.forecast.forecastday.map(async day => {
+      // Ottieni i dati astronomici per ogni giorno
+      let moonPhase = 'N/A';
+      let moonIllumination = 0;
+      let moonrise = 'N/A';
+      let moonset = 'N/A';
+      let sunrise = 'N/A';
+      let sunset = 'N/A';
+      
+      try {
+        const astroData = await getAstroData(location, day.date);
+        moonPhase = astroData.moon_phase || 'N/A';
+        moonIllumination = parseInt(astroData.moon_illumination || '0', 10);
+        moonrise = astroData.moonrise || 'N/A';
+        moonset = astroData.moonset || 'N/A';
+        sunrise = astroData.sunrise || 'N/A';
+        sunset = astroData.sunset || 'N/A';
+      } catch (astroError) {
+        console.error('Errore nel recupero dei dati astronomici:', astroError);
+      }
+      
+      return {
+        temperature: day.day.avgtemp_c,
+        humidity: day.day.avghumidity,
+        precipitation: day.day.totalprecip_mm,
+        windSpeed: day.day.maxwind_kph,
+        windDirection: 'N/A', // Daily forecast doesn't include wind direction
+        cloudCover: 0, // Daily forecast doesn't include cloud cover
+        condition: day.day.condition.text,
+        conditionIcon: day.day.condition.icon,
+        conditionCode: day.day.condition.code,
+        timestamp: new Date(day.date),
+        // Aggiungi i dati astronomici
+        moonPhase,
+        moonIllumination,
+        moonrise,
+        moonset,
+        sunrise,
+        sunset
+      };
     }));
-
-    console.log('Dati previsioni formattati:', forecastData);
-    return forecastData;
   } catch (error) {
-    console.error('Errore nel recupero delle previsioni:', error);
-    throw error instanceof Error ? error : new Error('Errore sconosciuto nel recupero delle previsioni');
+    if (error instanceof Error) throw error;
+    throw new Error('Errore nel recupero delle previsioni');
   }
 };
 
