@@ -166,10 +166,8 @@ const WeatherForecast: React.FC = () => {
           setHistoricalData(historicalWeatherData);
           console.log('Dati storici caricati:', historicalWeatherData);
           
-          // Simula la funzionalità di fetchCurrentWeather qui, in modo che il componente funzioni
-          // anche se useWeatherStore.fetchCurrentWeather fallisce
+          // Gestione del meteo corrente con fallback
           try {
-            // Tenta di recuperare i dati correnti
             await useWeatherStore.getState().fetchCurrentWeather(locationQuery);
           } catch (currentWeatherError) {
             console.warn('Impossibile caricare meteo corrente, utilizzo dei dati di previsione come fallback', currentWeatherError);
@@ -178,6 +176,14 @@ const WeatherForecast: React.FC = () => {
             if (forecastData && forecastData.length > 0) {
               const todayForecast = forecastData[0];
               console.log('Utilizzo dati previsione come fallback per meteo corrente:', todayForecast);
+              
+              // Aggiorna lo store con i dati di fallback
+              useWeatherStore.setState({
+                currentTemperature: todayForecast.temp_c,
+                lastUpdate: Date.now(),
+                isLoading: false,
+                error: null
+              });
             }
           }
           
@@ -211,6 +217,25 @@ const WeatherForecast: React.FC = () => {
           // Carica dati storici
           const historicalWeatherData = await getHistoricalWeather(locationQuery);
           setHistoricalData(historicalWeatherData);
+          
+          // Gestione del meteo corrente con fallback per la posizione di default
+          try {
+            await useWeatherStore.getState().fetchCurrentWeather(locationQuery);
+          } catch (currentWeatherError) {
+            console.warn('Impossibile caricare meteo corrente per posizione default, utilizzo dei dati di previsione come fallback', currentWeatherError);
+            
+            if (forecastData && forecastData.length > 0) {
+              const todayForecast = forecastData[0];
+              console.log('Utilizzo dati previsione come fallback per meteo corrente (default):', todayForecast);
+              
+              useWeatherStore.setState({
+                currentTemperature: todayForecast.temp_c,
+                lastUpdate: Date.now(),
+                isLoading: false,
+                error: null
+              });
+            }
+          }
           
           setLoading(false);
         } catch (error) {
