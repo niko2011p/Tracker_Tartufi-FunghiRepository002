@@ -86,6 +86,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
   const [weatherData, setWeatherData] = useState<any[]>([]);
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [currentWeather, setCurrentWeather] = useState<{temp?: number, humidity?: number}>({});
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
   
@@ -236,7 +237,22 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       const avgLat = coordinates.reduce((sum, coord) => sum + coord[0], 0) / coordinates.length;
       const avgLng = coordinates.reduce((sum, coord) => sum + coord[1], 0) / coordinates.length;
       
-      // Per ora imposta dei dati mock - Sostituire con una chiamata API reale
+      // Carica i dati meteo attuali
+      try {
+        const response = await fetch(`https://api.weatherapi.com/v1/current.json?key=97959559d86f4d3a975175711252303&q=${avgLat},${avgLng}&aqi=no`);
+        const data = await response.json();
+        if (data && data.current) {
+          setCurrentWeather({
+            temp: data.current.temp_c,
+            humidity: data.current.humidity
+          });
+          console.log('Dati meteo correnti caricati:', data.current);
+        }
+      } catch (error) {
+        console.error('Errore nel caricamento dei dati meteo correnti:', error);
+      }
+      
+      // Carica anche i dati meteo storici (mock per ora)
       const mockData = generateMockWeatherData();
       setWeatherData(mockData);
     } catch (error) {
@@ -275,11 +291,11 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       ? Math.round((track.endTime.getTime() - track.startTime.getTime()) / (1000 * 60))
       : 0;
     
-    // Verifica che la distanza sia correttamente calcolata
-    // Controlla se la distanza è definita nella traccia oppure calcola in base alle coordinate
+    // Calcola la distanza basata sulle coordinate se non è già definita
     let distance = 0;
-    if (track.distance) {
+    if (track.distance && track.distance > 0) {
       distance = track.distance;
+      console.log('Usando distanza predefinita:', distance);
     } else if (track.coordinates && track.coordinates.length > 1) {
       // Calcola la distanza basata sulle coordinate
       for (let i = 1; i < track.coordinates.length; i++) {
@@ -297,6 +313,12 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         distance += R * c; // Distanza in km
       }
+      console.log('Distanza calcolata dalle coordinate:', distance);
+      
+      // Aggiorna il track con la distanza calcolata (solo in memoria locale)
+      if (distance > 0) {
+        track.distance = distance;
+      }
     }
     
     // Statistiche aggiuntive
@@ -304,14 +326,18 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       ? (distance / (duration / 60)).toFixed(1) 
       : '0';
     
+    // Usa i dati dell'elevazione media (mock o reali)
     const elevation = {
-      avg: Math.round(400 + Math.random() * 200)
+      avg: track.averageAltitude || Math.round(400 + Math.random() * 200)
     };
     
+    // Usa i dati meteo reali se disponibili
     const weather = {
-      temp: Math.round(10 + Math.random() * 15),
-      humidity: Math.round(40 + Math.random() * 40)
+      temp: currentWeather.temp !== undefined ? currentWeather.temp : Math.round(10 + Math.random() * 15),
+      humidity: currentWeather.humidity !== undefined ? currentWeather.humidity : Math.round(40 + Math.random() * 40)
     };
+    
+    console.log('Statistiche calcolate:', { distance, avgSpeed, weather });
     
     return {
       duration,
