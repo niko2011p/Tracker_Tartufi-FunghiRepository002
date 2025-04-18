@@ -141,7 +141,7 @@ const NavigationPage: React.FC = () => {
           name: finding.name
         });
       });
-    } else {
+      } else {
       console.log('📍 No findings to render in current track');
     }
   }, [currentTrack]);
@@ -151,7 +151,7 @@ const NavigationPage: React.FC = () => {
     console.log('🗺️ Map is ready');
     mapRef.current = map;
   };
-
+  
   return (
     <div className="fixed inset-0" style={{ zIndex: 1000 }}>
       <MapContainer
@@ -179,8 +179,8 @@ const NavigationPage: React.FC = () => {
                 <p>Lat: {currentPosition[0].toFixed(6)}°</p>
                 <p>Lon: {currentPosition[1].toFixed(6)}°</p>
                 <p>Precisione: {accuracy !== null ? `${accuracy.toFixed(1)}m` : 'N/A'}</p>
-              </div>
-            </div>
+        </div>
+        </div>
           </Popup>
         </Marker>
 

@@ -504,24 +504,36 @@ export const useWeatherStore = create<WeatherStore>((set) => ({
       );
       
       if (!response.ok) {
+        console.error(`Errore HTTP: ${response.status} ${response.statusText}`);
         throw new Error(`Errore nel recupero dei dati meteo: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
+      // Ottieni il testo della risposta prima di fare il parse JSON
+      const responseText = await response.text();
       
-      // Log del payload ricevuto per debug
-      console.log('Payload meteo ricevuto:', JSON.stringify(data));
+      // Verifica se la risposta è un JSON valido
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('Payload meteo ricevuto:', JSON.stringify(data));
+      } catch (jsonError) {
+        console.error('Risposta non è un JSON valido:', responseText);
+        throw new Error('Risposta non è un JSON valido');
+      }
       
       // Validazione dei dati ricevuti con controlli più specifici
       if (!data) {
+        console.error('Nessun dato ricevuto dall\'API meteo');
         throw new Error('Nessun dato ricevuto dall\'API meteo');
       }
       
       if (!data.current) {
+        console.error('Dati meteo mancanti del campo "current":', data);
         throw new Error('Dati meteo non contengono informazioni correnti');
       }
       
       if (typeof data.current.temp_c !== 'number') {
+        console.error('Temperatura mancante o non valida:', data.current);
         throw new Error('Temperatura mancante o non valida nei dati meteo');
       }
       

@@ -104,25 +104,44 @@ interface WeatherStation {
 }
 
 const WeatherForecast: React.FC = () => {
-  const { currentTemperature, isLoading, error, fetchCurrentWeather } = useWeatherStore();
-  const { currentLocation } = useTrackStore();
-  const { currentTrack } = useTrackStore();
-  const { selectedLocation, setSelectedLocation } = useWeatherStore();
+  // Funzione per tradurre le fasi lunari in italiano
+  const getItalianPhase = (phase: string): string => {
+    const phases: { [key: string]: string } = {
+      'New Moon': 'Luna Nuova',
+      'Waxing Crescent': 'Luna Crescente',
+      'First Quarter': 'Primo Quarto',
+      'Waxing Gibbous': 'Gibbosa Crescente',
+      'Full Moon': 'Luna Piena',
+      'Waning Gibbous': 'Gibbosa Calante',
+      'Last Quarter': 'Ultimo Quarto',
+      'Waning Crescent': 'Luna Calante',
+      // Aggiungi varianti per compatibilità con WeatherAPI
+      'New': 'Luna Nuova',
+      'Waxing crescent': 'Luna Crescente',
+      'First quarter': 'Primo Quarto',
+      'Waxing gibbous': 'Gibbosa Crescente',
+      'Full': 'Luna Piena',
+      'Waning gibbous': 'Gibbosa Calante',
+      'Last quarter': 'Ultimo Quarto',
+      'Waning crescent': 'Luna Calante'
+    };
+    return phases[phase] || phase;
+  };
   const [forecast, setForecast] = useState<WeatherData[]>([]);
   const [hourlyForecast, setHourlyForecast] = useState<any[]>([]);
   const [filteredHourlyForecast, setFilteredHourlyForecast] = useState<any[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalWeatherData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-
-  useEffect(() => {
-    if (currentLocation?.lat && currentLocation?.lng) {
-      fetchCurrentWeather(currentLocation.lat, currentLocation.lng);
-    }
-  }, [currentLocation, fetchCurrentWeather]);
+  const currentTrack = useTrackStore(state => state.currentTrack);
+  
+  // Utilizzo lo store condiviso per la località
+  const selectedLocation = useWeatherStore(state => state.selectedLocation);
+  const setSelectedLocation = useWeatherStore(state => state.setSelectedLocation);
 
   useEffect(() => {
     const loadWeatherData = async () => {
