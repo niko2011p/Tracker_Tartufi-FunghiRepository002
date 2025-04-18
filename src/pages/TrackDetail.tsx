@@ -318,7 +318,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         console.log('Inizializzazione mappa completata e ridisegnata');
         
         // Se abbiamo i bounds, assicuriamoci che siano visualizzati
-        if (bounds) {
+        if (bounds && track?.coordinates?.length > 0) {
           try {
             mapInstance.fitBounds(bounds, {
               padding: [50, 50],
@@ -332,7 +332,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         }
       }, 500);
     }
-  }, [bounds]);
+  }, [bounds, track]);
 
   // Funzione per caricare i dati meteo
   const loadWeatherData = async (coordinates: [number, number][]) => {
@@ -571,7 +571,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       </div>
 
       <div ref={mapContainerRef} className="relative h-[78vh] min-h-[400px] bg-gray-100 overflow-hidden">
-        {isMapReady && (
+        {isMapReady && track?.coordinates?.length > 0 && (
           <MapContainer
             center={[track.coordinates[0][0], track.coordinates[0][1]]}
             zoom={15}
@@ -665,6 +665,16 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             {/* Componente per centrare la mappa sui bounds */}
             {bounds && <MapBoundsHandler bounds={bounds} padding={[50, 50]} maxZoom={18} />}
           </MapContainer>
+        )}
+        
+        {/* Mostra messaggio informativo se non ci sono coordinate */}
+        {isMapReady && (!track?.coordinates || track.coordinates.length === 0) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+            <div className="text-center p-4">
+              <div className="text-gray-600 mb-2">⚠️ Questa traccia non contiene coordinate GPS</div>
+              <p className="text-gray-500 text-sm">Non è possibile visualizzare la mappa</p>
+            </div>
+          </div>
         )}
         
         {/* Messaggio di caricamento */}
