@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
-import { X, Camera, Upload } from 'lucide-react';
+import { X, Camera, Upload, Leaf, Save, Tag } from 'lucide-react';
 import { useTrackStore } from '../store/trackStore';
 import { species } from '../data/species';
 import '../styles/FindingForm.css'; // Make sure this CSS file exists
@@ -242,31 +242,25 @@ function FindingForm({ onClose, position }: FindingFormProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Aggiungi Ritrovamento</h2>
           <div className="flex items-center gap-2">
-            {error && (
-              <div className="text-red-500 text-sm mr-2">
-                {error}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isLoading}
-              className="px-6 py-2 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors text-lg font-medium"
-            >
-              {isLoading ? 'Salvataggio...' : 'Salva'}
-            </button>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X size={24} />
-            </button>
+            <Tag size={28} className="text-[#8eaa36]" />
+            <h2 className="text-2xl font-bold text-[#444] tracking-wide">Aggiungi Ritrovamento</h2>
           </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X size={24} />
+          </button>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 rounded">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
@@ -284,7 +278,9 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <div className="finding-icon mushroom-icon w-8 h-8"></div>
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <img src="/assets/icons/mushroom-tag-icon.svg" alt="Fungo" className="w-6 h-6" />
+                </div>
                 Fungo
               </button>
               <button
@@ -300,7 +296,9 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <div className="finding-icon truffle-icon w-8 h-8"></div>
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <img src="/assets/icons/truffle-tag-icon.svg" alt="Tartufo" className="w-6 h-6" />
+                </div>
                 Tartufo
               </button>
             </div>
@@ -321,7 +319,7 @@ function FindingForm({ onClose, position }: FindingFormProps) {
             {showSuggestions && (
               <div 
                 ref={suggestionsRef}
-                className="absolute bottom-full left-0 right-0 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto mb-2"
+                className="absolute bottom-full left-0 right-0 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto mb-2 z-10"
               >
                 {filteredSpecies.map((suggestion) => (
                   <button
@@ -396,6 +394,18 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               </button>
             </div>
           )}
+          
+          {/* Save button at the bottom */}
+          <div className="pt-4 border-t mt-6">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-4 bg-[#8eaa36] text-white rounded-lg hover:bg-[#7d9830] transition-colors text-lg font-medium flex items-center justify-center gap-2"
+            >
+              <Save size={20} />
+              {isLoading ? 'Salvataggio...' : 'Salva Ritrovamento'}
+            </button>
+          </div>
         </form>
       </div>
     </div>
