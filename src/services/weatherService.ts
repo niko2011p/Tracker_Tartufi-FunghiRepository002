@@ -508,16 +508,64 @@ export const useWeatherStore = create<WeatherStore>((set) => ({
         throw new Error(`Errore nel recupero dei dati meteo: ${response.status} ${response.statusText}`);
       }
       
+      // Ottieni una copia della risposta per il debug
+      const responseClone = response.clone();
+      
       // Ottieni il testo della risposta prima di fare il parse JSON
-      const responseText = await response.text();
+      let responseText;
+      try {
+        responseText = await response.text();
+        console.log(`Lunghezza risposta: ${responseText.length} caratteri`);
+        
+        // Mostra i primi 100 caratteri per debugging
+        if (responseText.length > 0) {
+          console.log(`Inizio risposta: ${responseText.substring(0, 100)}...`);
+        } else {
+          console.error('Risposta vuota ricevuta');
+          throw new Error('Risposta vuota ricevuta dall\'API meteo');
+        }
+      } catch (textError) {
+        console.error('Errore nella lettura del testo della risposta:', textError);
+        
+        // Prova a usare il clone come fallback
+        try {
+          const jsonData = await responseClone.json();
+          console.log('Risposta JSON (da clone):', jsonData);
+          
+          // Se siamo arrivati qui, possiamo processare direttamente i dati JSON
+          if (!jsonData) {
+            throw new Error('Nessun dato ricevuto dall\'API meteo');
+          }
+          
+          if (!jsonData.current) {
+            throw new Error('Dati meteo non contengono informazioni correnti');
+          }
+          
+          if (typeof jsonData.current.temp_c !== 'number') {
+            throw new Error('Temperatura mancante o non valida nei dati meteo');
+          }
+          
+          set({
+            currentTemperature: jsonData.current.temp_c,
+            lastUpdate: Date.now(),
+            isLoading: false
+          });
+          
+          console.log(`Meteo aggiornato: ${jsonData.current.temp_c}°C`);
+          return;
+        } catch (jsonError) {
+          console.error('Impossibile leggere la risposta come JSON:', jsonError);
+          throw new Error('Errore nella lettura della risposta dell\'API meteo');
+        }
+      }
       
       // Verifica se la risposta è un JSON valido
       let data;
       try {
         data = JSON.parse(responseText);
-        console.log('Payload meteo ricevuto:', JSON.stringify(data));
+        console.log('Payload meteo ricevuto:', JSON.stringify(data).substring(0, 200) + '...');
       } catch (jsonError) {
-        console.error('Risposta non è un JSON valido:', responseText);
+        console.error('Risposta non è un JSON valido:', responseText.substring(0, 200));
         throw new Error('Risposta non è un JSON valido');
       }
       
@@ -550,6 +598,7 @@ export const useWeatherStore = create<WeatherStore>((set) => ({
         error: error instanceof Error ? error.message : 'Errore sconosciuto',
         isLoading: false
       });
+      throw error; // Rilancia l'errore per permettere gestione esterna
     }
   }
 }));

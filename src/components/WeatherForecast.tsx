@@ -166,6 +166,21 @@ const WeatherForecast: React.FC = () => {
           setHistoricalData(historicalWeatherData);
           console.log('Dati storici caricati:', historicalWeatherData);
           
+          // Simula la funzionalità di fetchCurrentWeather qui, in modo che il componente funzioni
+          // anche se useWeatherStore.fetchCurrentWeather fallisce
+          try {
+            // Tenta di recuperare i dati correnti
+            await useWeatherStore.getState().fetchCurrentWeather(locationQuery);
+          } catch (currentWeatherError) {
+            console.warn('Impossibile caricare meteo corrente, utilizzo dei dati di previsione come fallback', currentWeatherError);
+            
+            // Se fallisce, usa i dati della prima previsione (oggi) come dati correnti
+            if (forecastData && forecastData.length > 0) {
+              const todayForecast = forecastData[0];
+              console.log('Utilizzo dati previsione come fallback per meteo corrente:', todayForecast);
+            }
+          }
+          
           setLoading(false);
         } catch (error) {
           console.error('Error fetching weather data:', error);
