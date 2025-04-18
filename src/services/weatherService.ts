@@ -497,20 +497,32 @@ export const useWeatherStore = create<WeatherStore>((set) => ({
     try {
       set({ isLoading: true, error: null });
       
+      console.log(`Tentativo di recupero meteo per coordinate: ${lat},${lon}`);
+      
       const response = await fetch(
         `https://api.weatherapi.com/v1/current.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}&aqi=no&lang=it`
       );
       
       if (!response.ok) {
-        throw new Error('Errore nel recupero dei dati meteo');
+        throw new Error(`Errore nel recupero dei dati meteo: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
       
-      // Validazione dei dati ricevuti
-      if (!data || !data.current || typeof data.current.temp_c !== 'number') {
-        console.error('Dati meteo incompleti o non validi:', response);
-        throw new Error('Dati meteo non disponibili o incompleti');
+      // Log del payload ricevuto per debug
+      console.log('Payload meteo ricevuto:', JSON.stringify(data));
+      
+      // Validazione dei dati ricevuti con controlli più specifici
+      if (!data) {
+        throw new Error('Nessun dato ricevuto dall\'API meteo');
+      }
+      
+      if (!data.current) {
+        throw new Error('Dati meteo non contengono informazioni correnti');
+      }
+      
+      if (typeof data.current.temp_c !== 'number') {
+        throw new Error('Temperatura mancante o non valida nei dati meteo');
       }
       
       set({
@@ -518,6 +530,8 @@ export const useWeatherStore = create<WeatherStore>((set) => ({
         lastUpdate: Date.now(),
         isLoading: false
       });
+      
+      console.log(`Meteo aggiornato: ${data.current.temp_c}°C`);
     } catch (error) {
       console.error('Errore nel recupero del meteo attuale:', error);
       set({
