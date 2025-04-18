@@ -197,31 +197,40 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     }
     
     // Se non troviamo le coordinate nei campi standard, proviamo a recuperarle da campi annidati
-    if (!validCoordinates && track.rawData) {
-      console.log('🔍 Cercando coordinate in track.rawData...');
-      try {
-        for (const field of coordinateFieldsToCheck) {
-          if (track.rawData[field] && Array.isArray(track.rawData[field]) && track.rawData[field].length > 0) {
-            console.log(`✅ Trovate coordinate in track.rawData.${field}`);
-            track.coordinates = track.rawData[field];
-            validCoordinates = track.coordinates;
-            break;
-          }
-        }
-        
-        // Cerca anche in track.data se esiste
-        if (!validCoordinates && track.data) {
+    if (!validCoordinates) {
+      // Controlliamo se c'è un campo location.coordinates
+      if (track.location && Array.isArray(track.location.coordinates) && 
+          track.location.coordinates.length === 2) {
+        console.log('✅ Trovate coordinate in track.location.coordinates');
+        // Crea un array di coordinate con un solo punto dalla location
+        validCoordinates = [track.location.coordinates];
+        track.coordinates = validCoordinates;
+      } else if (track.rawData) {
+        console.log('🔍 Cercando coordinate in track.rawData...');
+        try {
           for (const field of coordinateFieldsToCheck) {
-            if (track.data[field] && Array.isArray(track.data[field]) && track.data[field].length > 0) {
-              console.log(`✅ Trovate coordinate in track.data.${field}`);
-              track.coordinates = track.data[field];
+            if (track.rawData[field] && Array.isArray(track.rawData[field]) && track.rawData[field].length > 0) {
+              console.log(`✅ Trovate coordinate in track.rawData.${field}`);
+              track.coordinates = track.rawData[field];
               validCoordinates = track.coordinates;
               break;
             }
           }
+          
+          // Cerca anche in track.data se esiste
+          if (!validCoordinates && track.data) {
+            for (const field of coordinateFieldsToCheck) {
+              if (track.data[field] && Array.isArray(track.data[field]) && track.data[field].length > 0) {
+                console.log(`✅ Trovate coordinate in track.data.${field}`);
+                track.coordinates = track.data[field];
+                validCoordinates = track.coordinates;
+                break;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('❌ Errore nell\'accesso ai campi annidati:', error);
         }
-      } catch (error) {
-        console.error('❌ Errore nell\'accesso ai campi annidati:', error);
       }
     }
     
@@ -328,6 +337,13 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
   // Ottieni il nome della località dalla posizione media della traccia
   useEffect(() => {
     const fetchLocationName = async () => {
+      // Se track ha già un nome di località in location.name, usalo direttamente
+      if (track?.location?.name) {
+        console.log('📍 Usando località dal campo track.location.name:', track.location.name);
+        setLocationName(track.location.name);
+        return;
+      }
+      
       if (track?.coordinates?.length) {
         try {
           // Verifica se ci sono coordinate valide
@@ -587,15 +603,19 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       coordinates: track.coordinates?.length || 0,
       findings: track.findings?.length || 0,
       distance: track.distance,
+      avgSpeed: track.avgSpeed,
+      avgAltitude: track.avgAltitude,
       startTime: track.startTime,
       endTime: track.endTime,
-      altitude: track.averageAltitude
+      duration: track.duration
     }));
 
-    // Statistiche di base
-    const duration = track.endTime 
-      ? Math.round((new Date(track.endTime).getTime() - new Date(track.startTime).getTime()) / (1000 * 60))
-      : 0;
+    // Statistiche di base - usa track.duration se disponibile
+    const duration = track.duration 
+      ? Math.round(track.duration / 1000 / 60)  // converti da millisecondi a minuti
+      : track.endTime 
+        ? Math.round((new Date(track.endTime).getTime() - new Date(track.startTime).getTime()) / (1000 * 60))
+        : 0;
     
     console.log('⏱️ Durata calcolata:', duration, 'minuti');
     
@@ -604,6 +624,9 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     if (track.distance && track.distance > 0) {
       distance = track.distance;
       console.log('📏 Usando distanza predefinita:', distance);
+    } else if (track.totalDistance && track.totalDistance > 0) {
+      distance = track.totalDistance / 1000; // converti da metri a km
+      console.log('📏 Usando distanza totale dal track:', distance);
     } else if (track.coordinates && track.coordinates.length > 1) {
       // Filtra le coordinate valide
       const validCoords = track.coordinates.filter(coord => 
@@ -659,15 +682,17 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       }
     }
     
-    // Statistiche aggiuntive
-    const avgSpeed = distance > 0 && duration > 0 
-      ? (distance / (duration / 60)).toFixed(1) 
-      : '0';
+    // Statistiche aggiuntive - usa track.avgSpeed se disponibile
+    const avgSpeed = track.avgSpeed && track.avgSpeed > 0
+      ? track.avgSpeed.toFixed(1)
+      : distance > 0 && duration > 0 
+        ? (distance / (duration / 60)).toFixed(1) 
+        : '0';
     
     console.log('🚀 Velocità media calcolata:', avgSpeed, 'km/h');
     
-    // Calcola altitudine media dalle coordinate se disponibile
-    let avgAltitude = track.averageAltitude || 0;
+    // Usa track.avgAltitude se disponibile
+    let avgAltitude = track.avgAltitude || 0;
     if (!avgAltitude && track.coordinates && track.coordinates.length > 0) {
       // Se le coordinate hanno anche l'altitudine (punto 3D)
       const altitudes = track.coordinates
@@ -838,9 +863,11 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       </div>
 
       <div ref={mapContainerRef} className="relative h-[78vh] min-h-[400px] bg-gray-100 overflow-hidden">
-        {isMapReady && track && checkCoordinatesValidity(track) && (
+        {isMapReady && track && (checkCoordinatesValidity(track) || (track.location && track.location.coordinates)) && (
           <MapContainer
-            center={[track.coordinates[0][0], track.coordinates[0][1]]}
+            center={track.coordinates && track.coordinates.length > 0 
+              ? [track.coordinates[0][0], track.coordinates[0][1]] 
+              : track.location ? track.location.coordinates : [0, 0]}
             zoom={15}
             scrollWheelZoom={true}
             className="w-full h-full z-0"
@@ -858,12 +885,26 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             <TileErrorHandler />
             <MapInvalidator />
             
-            <Polyline 
-              positions={track.coordinates} 
-              color="#8eaa36"
-              weight={4}
-              opacity={0.8}
-            />
+            {/* Traccia con stile tratteggiato */}
+            {track.coordinates && track.coordinates.length > 1 && (
+              <Polyline 
+                positions={track.coordinates} 
+                color="#f5a149"
+                weight={4}
+                opacity={0.8}
+                dashArray="10, 10"  /* Questo rende la linea tratteggiata */
+              />
+            )}
+            
+            {/* Fallback: Se non ci sono coordinate multiple ma c'è una location, mostra un cerchio */}
+            {(!track.coordinates || track.coordinates.length <= 1) && track.location && track.location.coordinates && (
+              <Polyline 
+                positions={[track.location.coordinates, track.location.coordinates]} 
+                color="#f5a149"
+                weight={4}
+                opacity={0.8}
+              />
+            )}
             
             {track.findings?.map((finding: Finding) => (
               <Marker
