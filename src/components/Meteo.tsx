@@ -358,6 +358,10 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
     setLoading(true);
     setError(null);
     
+    // Initialize variables that might be used in saveToCache
+    let validHistoricalData: any[] = [];
+    let processedForecastData: any[] = [];
+    
     let locationQuery = 'auto:ip';
     let lat = latitude;
     let lon = longitude;
@@ -550,10 +554,11 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
       }
       const forecastData = await forecastResponse.json();
 
-      // Process forecast data from WeatherAPI
-      const processedForecastData = [];
+      // Initialize empty arrays for forecast data
+      let formattedForecast: any[] = [];
+      
       if (forecastData && forecastData.forecast && forecastData.forecast.forecastday) {
-        forecastData.forecast.forecastday.forEach((day) => {
+        formattedForecast = await Promise.all(forecastData.forecast.forecastday.map(async (day: any) => {
           if (day && day.hour) {
             day.hour.forEach((hour) => {
               processedForecastData.push({
@@ -571,12 +576,11 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
               });
             });
           }
-        });
+        }));
       }
       setForecast(processedForecastData);
 
       // Recupera i dati storici
-      let validHistoricalData: any[] = [];
       try {
         const dates = Array.from({ length: 7 }, (_, i) => {
           const date = new Date();
@@ -653,8 +657,9 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         });
         
         const historicalResults = await Promise.all(historicalDataPromises);
-        validHistoricalData = historicalResults.filter(data => data !== null);
-        setHistoricalData(validHistoricalData);
+        let filteredResults = historicalResults.filter(data => data !== null);
+        validHistoricalData = filteredResults;
+        setHistoricalData(filteredResults);
       } catch (historicalError) {
         console.error('Errore nel recupero dei dati storici:', historicalError);
         // Non interrompiamo completamente il caricamento
@@ -900,6 +905,10 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
       try {
         setLoading(true);
         setError(null);
+        
+        // Initialize variables that might be used elsewhere
+        let validHistoricalData: any[] = [];
+        let formattedForecast: any[] = [];
         
         // Verifica se abbiamo una località selezionata
         if (!selectedLocation) {
