@@ -3,11 +3,13 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
 import { MapPin } from 'lucide-react';
+// @ts-ignore - Known issue with @turf/turf types
 import * as turf from '@turf/turf';
 import 'leaflet/dist/leaflet.css';
 import './MapControls.css';
 import './UnifiedButtons.css';
-import { Finding } from '../types';
+import { Finding } from '../types/index';
+import { Track, Marker as TrackMarker } from '../types';
 import FindingForm from './FindingForm';
 import TagOptionsPopup from './TagOptionsPopup';
 import GpsStatusIndicator from './GpsStatusIndicator';
@@ -94,6 +96,180 @@ const FindingsLayer = ({ findings }: { findings: Finding[] }) => {
   return null;
 };
 
+// Component to display start and end markers
+const TrackMarkersLayer = ({ track }: { track: Track }) => {
+  const map = useMap();
+  const markersRef = useRef<L.Marker[]>([]);
+
+  useEffect(() => {
+    // Clear previous markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    // Add start marker if available
+    if (track.startMarker && track.startMarker.coordinates) {
+      console.log('🚩 Adding start marker at', track.startMarker.coordinates);
+      
+      const startMarker = L.marker(track.startMarker.coordinates, {
+        icon: L.divIcon({
+          html: `
+            <div class="marker-flag" style="
+              width: 32px;
+              height: 32px;
+              position: relative;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            ">
+              <div style="
+                width: 14px;
+                height: 20px;
+                background-color: ${track.startMarker.color};
+                clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              "></div>
+              <div style="
+                width: 3px;
+                height: 24px;
+                background-color: #555;
+                margin-top: -4px;
+              "></div>
+            </div>
+          `,
+          className: 'start-flag-icon',
+          iconSize: [32, 44],
+          iconAnchor: [7, 44],
+          popupAnchor: [0, -44]
+        }),
+        zIndexOffset: 1000
+      });
+
+      // Create a formatted time string safely
+      const startTime = track.actualStartTime || track.startTime;
+      const timeString = startTime ? startTime.toLocaleTimeString() : 'N/A';
+
+      startMarker.bindPopup(`
+        <div>
+          <strong>Punto de inicio</strong>
+          <p>Hora: ${timeString}</p>
+          <p>Precisión: ${track.startMarker.accuracy.toFixed(1)}m</p>
+        </div>
+      `);
+
+      startMarker.addTo(map);
+      markersRef.current.push(startMarker);
+    }
+
+    // Add end marker if available
+    if (track.endMarker && track.endMarker.coordinates) {
+      console.log('🚩 Adding end marker at', track.endMarker.coordinates);
+      
+      const endMarker = L.marker(track.endMarker.coordinates, {
+        icon: L.divIcon({
+          html: `
+            <div class="marker-flag" style="
+              width: 32px;
+              height: 32px;
+              position: relative;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            ">
+              <div style="
+                width: 14px;
+                height: 20px;
+                background-color: ${track.endMarker.color};
+                clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              "></div>
+              <div style="
+                width: 3px;
+                height: 24px;
+                background-color: #555;
+                margin-top: -4px;
+              "></div>
+            </div>
+          `,
+          className: 'end-flag-icon',
+          iconSize: [32, 44],
+          iconAnchor: [7, 44], 
+          popupAnchor: [0, -44]
+        }),
+        zIndexOffset: 1000
+      });
+
+      // Create a formatted time string safely
+      const endTime = track.actualEndTime || track.endTime;
+      const timeString = endTime ? endTime.toLocaleTimeString() : 'N/A';
+
+      endMarker.bindPopup(`
+        <div>
+          <strong>Punto final</strong>
+          <p>Hora: ${timeString}</p>
+          <p>Precisión: ${track.endMarker.accuracy.toFixed(1)}m</p>
+        </div>
+      `);
+
+      endMarker.addTo(map);
+      markersRef.current.push(endMarker);
+    }
+
+    return () => {
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+    };
+  }, [track, map]);
+
+  return null;
+};
+
+// Component to handle live GPS position updates
+const GpsPositionUpdater = () => {
+  const map = useMap();
+  const { updateCurrentPosition, isRecording, currentTrack } = useTrackStore();
+  const watchIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Set up GPS tracking
+    if (navigator.geolocation) {
+      console.log('🔄 Starting GPS position tracking...');
+      
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          const newPosition: [number, number] = [latitude, longitude];
+          
+          // Update store with current position
+          updateCurrentPosition(newPosition);
+          
+          // If recording, make sure the polyline is updated on the map
+          if (isRecording && currentTrack) {
+            // The polyline will update via the Polyline component when currentTrack updates
+            console.log(`📍 Position updated: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], accuracy: ${accuracy.toFixed(1)}m`);
+          }
+        },
+        (error) => {
+          console.error('❌ GPS Error:', error.message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000, 
+          maximumAge: 0
+        }
+      );
+    }
+    
+    return () => {
+      if (watchIdRef.current !== null) {
+        console.log('🛑 Stopping GPS position tracking');
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [updateCurrentPosition, isRecording, currentTrack]);
+  
+  return null;
+};
+
 const NavigationPage: React.FC = () => {
   const { 
     currentTrack, 
@@ -104,7 +280,8 @@ const NavigationPage: React.FC = () => {
     loadedFindings, 
     updateCurrentPosition,
     autoSaveTrack,
-    showGPSWaitingMessage
+    showGPSWaitingMessage,
+    isRecording
   } = useTrackStore();
   
   const location = useLocation();
@@ -131,6 +308,55 @@ const NavigationPage: React.FC = () => {
   });
   
   console.log('📌 GPS marker icon URL:', '/assets/icons/map-navigation-orange-icon.svg');
+
+  // Watch for GPS position updates
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      console.error('❌ Geolocation not supported');
+      return;
+    }
+
+    setIsAcquiringGps(true);
+    
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, accuracy: gpsAccuracy, altitude, speed } = position.coords;
+        
+        // Update local state
+        setCurrentPosition([latitude, longitude]);
+        setAccuracy(gpsAccuracy);
+        setIsAcquiringGps(false);
+        
+        // Update tracking data
+        setTrackingData({
+          lat: latitude,
+          lng: longitude,
+          alt: altitude || 0,
+          speed: speed || 0
+        });
+        
+        // Update the global store
+        updateCurrentPosition([latitude, longitude]);
+        
+        console.log(`📍 Position updated: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], accuracy: ${gpsAccuracy.toFixed(1)}m`);
+      },
+      (error) => {
+        console.error('❌ GPS Error:', error.message);
+        setIsAcquiringGps(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+    
+    return () => {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [updateCurrentPosition]);
 
   // Add this useEffect to log findings whenever currentTrack changes
   useEffect(() => {
@@ -173,6 +399,9 @@ const NavigationPage: React.FC = () => {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
+        {/* GPS Position Updater component - keeps store in sync with GPS */}
+        <GpsPositionUpdater />
+        
         {/* Current position marker */}
         <Marker position={currentPosition} icon={gpsMarkerIcon}>
           <Popup>
@@ -196,6 +425,9 @@ const NavigationPage: React.FC = () => {
               opacity={0.9}
           />
         )}
+
+        {/* Start and end markers */}
+        {currentTrack && <TrackMarkersLayer track={currentTrack} />}
 
         {/* Findings layer - use the dedicated component */}
         {currentTrack?.findings && currentTrack.findings.length > 0 && (
