@@ -641,6 +641,9 @@ export const useTrackStore = create<TrackState>()(
           });
         }
 
+        // Aggiorna sempre la posizione corrente nello stato
+        set({ currentPosition: position });
+
         // Aggiorna il tracciamento solo se stiamo registrando
         if (currentTrack && isRecording) {
           // Aggiungi la nuova posizione alle coordinate del tracciamento
@@ -683,7 +686,7 @@ export const useTrackStore = create<TrackState>()(
           });
           
           // Log per debug dell'aggiornamento della posizione
-          if (newCoordinates.length % 10 === 0) { // Log ogni 10 aggiornamenti per non intasare la console
+          if (newCoordinates.length % 10 === 0 || newCoordinates.length === 1) { // Log ogni 10 aggiornamenti e al primo punto
             console.debug(`Tracciamento: ${newCoordinates.length} punti, distanza totale: ${distance.toFixed(3)}km`);
           }
         }
