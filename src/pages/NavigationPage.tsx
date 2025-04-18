@@ -182,15 +182,6 @@ const NavigationPage: React.FC = () => {
         const { latitude, longitude, altitude, speed, accuracy } = position.coords;
         console.log('Nuova posizione:', { latitude, longitude, altitude, speed, accuracy });
         
-        // Imposta il livello del segnale GPS in base all'accuracy
-        if (accuracy < 10) {
-          setGpsSignal('good'); // Precisione alta (meno di 10 metri)
-        } else if (accuracy < 30) {
-          setGpsSignal('medium'); // Precisione media (tra 10 e 30 metri)
-        } else {
-          setGpsSignal('weak'); // Precisione bassa (più di 30 metri)
-        }
-        
         // Aggiorna i dati GPS
         setGpsData({
           latitude,
@@ -205,22 +196,19 @@ const NavigationPage: React.FC = () => {
           if (isFollowingGPS) {
             setMapCenter([latitude, longitude]);
           }
-          
-          // Aggiungi il punto al percorso con timestamp per calcolare la distanza
-          setPath(prev => {
-            const newPoint: [number, number] = [latitude, longitude];
-            
-            // Solo se è un punto diverso dall'ultimo
-            if (prev.length === 0 || (
-                prev[prev.length-1][0] !== latitude || 
-                prev[prev.length-1][1] !== longitude
-              )) {
-              return [...prev, newPoint];
-            }
-            return prev;
-          });
+          setPath(prev => [...prev, [latitude, longitude]]);
         }
-
+        
+        // Aggiorna lo stato del segnale GPS
+        if (accuracy < 10) {
+          setGpsSignal('good');
+        } else if (accuracy < 50) {
+          setGpsSignal('medium');
+        } else {
+          setGpsSignal('weak');
+        }
+        
+        setMapError(null);
         lastUpdateRef.current = now;
       }
     };
@@ -252,66 +240,75 @@ const NavigationPage: React.FC = () => {
     };
   }, [isRecording, isFollowingGPS]);
 
-  // Crea l'icona del marker GPS in base alla qualità del segnale
-  const createGpsMarkerIcon = () => {
-    const size: [number, number] = [32, 32];
-    let color;
+  // Aggiorna il marker GPS
+  useEffect(() => {
+    if (!mapRef.current || gpsData.latitude === 0 || gpsData.longitude === 0) return;
     
-    // Imposta il colore in base alla qualità del segnale
-    if (gpsSignal === 'good') {
-      color = '#8eaa36'; // Verde per un buon segnale
-    } else if (gpsSignal === 'medium') {
-      color = '#fd9a3c'; // Arancione per un segnale medio
-    } else {
-      color = '#ff4444'; // Rosso per un segnale debole
-    }
-    
-    return L.divIcon({
-      html: `
-        <div class="marker-container">
-          <div class="marker-pulse" style="background-color: ${color};"></div>
-          <div class="marker-inner">
-            <div class="marker-dot" style="background-color: ${color};"></div>
-            <div class="marker-ring" style="border: 2px solid ${color};"></div>
+    try {
+      // Create or update the GPS marker
+      if (gpsMarkerRef.current) {
+        // Update existing marker position
+        gpsMarkerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
+        
+        // Update the icon to reflect current GPS signal
+        const newIcon = createFindingIcon('Fungo', true);
+        gpsMarkerRef.current.setIcon(newIcon);
+        
+        // Update popup content
+        const popupContent = `
+          <div class="p-2">
+            <h3 class="font-bold text-sm mb-1">${locationName}</h3>
+            <div class="text-xs space-y-1">
+              <p>Lat: ${gpsData.latitude.toFixed(6)}°</p>
+              <p>Lon: ${gpsData.longitude.toFixed(6)}°</p>
+              <p>Alt: ${gpsData.altitude.toFixed(1)}m</p>
+              <p>Precisione: ${gpsData.accuracy.toFixed(1)}m</p>
+            </div>
           </div>
-        </div>
-      `,
-      className: `gps-marker gps-signal-${gpsSignal}`,
-      iconSize: size,
-      iconAnchor: [size[0] / 2, size[1] / 2]
-    });
-  };
+        `;
+        gpsMarkerRef.current.bindPopup(popupContent);
+      } else {
+        // Create new marker only if it doesn't exist
+        console.log("Creating new GPS marker");
+        const marker = L.marker(
+          [gpsData.latitude, gpsData.longitude],
+          { icon: createFindingIcon('Fungo', true) }
+        );
+        
+        // Add popup
+        marker.bindPopup(`
+          <div class="p-2">
+            <h3 class="font-bold text-sm mb-1">${locationName}</h3>
+            <div class="text-xs space-y-1">
+              <p>Lat: ${gpsData.latitude.toFixed(6)}°</p>
+              <p>Lon: ${gpsData.longitude.toFixed(6)}°</p>
+              <p>Alt: ${gpsData.altitude.toFixed(1)}m</p>
+              <p>Precisione: ${gpsData.accuracy.toFixed(1)}m</p>
+            </div>
+          </div>
+        `);
+        
+        // Add to map
+        marker.addTo(mapRef.current);
+        gpsMarkerRef.current = marker;
+      }
+    } catch (error) {
+      console.error("Error updating GPS marker:", error);
+    }
 
-  // Componente aggiornato per il marker GPS
-  const GpsMarker: React.FC = () => {
-    const map = useMap();
-    const markerRef = useRef<L.Marker | null>(null);
-    
-    useEffect(() => {
-      // Crea il marker GPS se non esiste
-      if (!markerRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
-        markerRef.current = L.marker([gpsData.latitude, gpsData.longitude], {
-          icon: createGpsMarkerIcon(),
-          zIndexOffset: 1000
-        }).addTo(map);
+    // Process any findings if available
+    if (currentTrack && currentTrack.findings && currentTrack.findings.length > 0) {
+      processFindings(currentTrack.findings);
+    }
+
+    return () => {
+      // Clean up marker when component unmounts
+      if (gpsMarkerRef.current && mapRef.current) {
+        mapRef.current.removeLayer(gpsMarkerRef.current);
+        gpsMarkerRef.current = null;
       }
-      
-      // Aggiorna la posizione e l'icona del marker
-      if (markerRef.current && gpsData.latitude !== 0 && gpsData.longitude !== 0) {
-        markerRef.current.setLatLng([gpsData.latitude, gpsData.longitude]);
-        markerRef.current.setIcon(createGpsMarkerIcon());
-      }
-      
-      return () => {
-        if (markerRef.current) {
-          markerRef.current.removeFrom(map);
-          markerRef.current = null;
-        }
-      };
-    }, [map, gpsData, gpsSignal]);
-    
-    return null;
-  };
+    };
+  }, [gpsData.latitude, gpsData.longitude, gpsSignal, locationName, gpsData.altitude, gpsData.accuracy]);
 
   // Add a function to process findings and show them on the map
   const findingMarkersRef = useRef<{[id: string]: L.Marker}>({});
@@ -650,9 +647,6 @@ const NavigationPage: React.FC = () => {
         direction={currentDirection}
         accuracy={gpsData.accuracy}
       />
-
-      {/* GPS Marker con colore basato sulla precisione */}
-      <GpsMarker />
     </div>
   );
 };
