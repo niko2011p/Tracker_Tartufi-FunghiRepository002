@@ -577,40 +577,86 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
 
       // Fetch historical data using WeatherAPI
       try {
-        const historicalUrl = `${BASE_URL}/history.json?key=${WEATHER_API_KEY}&q=${locationQuery}&dt=${format(subDays(new Date(), 7), 'yyyy-MM-dd')}&end_dt=${format(new Date(), 'yyyy-MM-dd')}`;  
-        const historicalResponse = await retryFetch(historicalUrl, {}, 3);
-        if (!historicalResponse.ok) {
-          console.warn(`Avviso: impossibile caricare i dati storici: ${historicalResponse.status} ${historicalResponse.statusText}`);
-          // Non interrompere il flusso principale se lo storico fallisce
-          setHistoricalData([]);
-        } else {
-          const historicalData = await historicalResponse.json();
-          
-          // Process historical data
-          const processedHistoricalData: WeatherData[] = [];
-          if (historicalData.forecast && historicalData.forecast.forecastday) {
-            historicalData.forecast.forecastday.forEach((day: any) => {
-              processedHistoricalData.push({
-                date: day.date,
-                temp_c: day.day.avgtemp_c,
-                temp_min: day.day.mintemp_c,
-                temp_max: day.day.maxtemp_c,
-                humidity: day.day.avghumidity,
-                precip_mm: day.day.totalprecip_mm,
-                precip_chance: day.day.daily_chance_of_rain || 0,
-                wind_kph: day.day.maxwind_kph,
-                wind_dir: 'N/A', // WeatherAPI non fornisce direzione del vento nei dati giornalieri
-                cloud_cover: 0, // WeatherAPI non fornisce copertura nuvolosa nei dati giornalieri
-                condition: day.day.condition.text
-              });
-            });
+        const dates = Array.from({ length: 7 }, (_, i) => {
+          const date = new Date();
+          date.setDate(date.getDate() - (i + 1));
+          return date.toISOString().split('T')[0];
+        });
+        
+        const historicalDataPromises = dates.map(async (date) => {
+          try {
+            const response = await retryFetch(
+              `${BASE_URL}/history.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&dt=${date}&lang=it`
+            );
+            
+            // Parse the response to JSON
+            const historyData = await response.json();
+            
+            if (!historyData || !historyData.forecast || !historyData.forecast.forecastday || historyData.forecast.forecastday.length === 0) {
+              return null;
+            }
+            
+            const dayData = historyData.forecast.forecastday[0].day;
+            
+            // Recupera i dati astronomici storici con gestione errori migliorata
+            let astroData = {
+              moon_phase: 'Non disponibile',
+              moon_illumination: '0',
+              moonrise: 'Non disponibile',
+              moonset: 'Non disponibile',
+              sunrise: 'Non disponibile',
+              sunset: 'Non disponibile'
+            };
+            
+            try {
+              const astroResponse = await Promise.race([
+                fetch(`${BASE_URL}/astronomy.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&dt=${date}&lang=it`),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+              ]);
+              
+              if (astroResponse.ok) {
+                const astroJson = await astroResponse.json();
+                if (astroJson && astroJson.astronomy && astroJson.astronomy.astro) {
+                  astroData = astroJson.astronomy.astro;
+                }
+              }
+            } catch (astroError) {
+              console.warn('Errore nel recupero dei dati astronomici storici:', astroError);
+              // Continuiamo con i dati predefiniti
+            }
+            
+            return {
+              date,
+              temp_c: dayData.avgtemp_c,
+              temp_min: dayData.mintemp_c,
+              temp_max: dayData.maxtemp_c,
+              humidity: dayData.avghumidity,
+              precip_mm: dayData.totalprecip_mm,
+              precip_chance: dayData.daily_chance_of_rain || 0,
+              wind_kph: dayData.maxwind_kph,
+              wind_dir: 'N/A',
+              cloud_cover: 0,
+              condition: dayData.condition.text,
+              // Dati astronomici
+              moonPhase: astroData.moon_phase || 'Non disponibile',
+              moonIllumination: parseInt(astroData.moon_illumination || '0', 10),
+              moonrise: astroData.moonrise || 'Non disponibile',
+              moonset: astroData.moonset || 'Non disponibile',
+              sunrise: astroData.sunrise || 'Non disponibile',
+              sunset: astroData.sunset || 'Non disponibile'
+            };
+          } catch (dayError) {
+            console.warn(`Errore nel recupero dei dati storici per ${date}:`, dayError);
+            return null;
           }
-          setHistoricalData(processedHistoricalData);
-        }
-      } catch (histErr) {
-        console.warn('Avviso: impossibile caricare i dati storici', histErr);
-        // Non interrompere il flusso principale se lo storico fallisce
-        setHistoricalData([]);
+        });
+        
+        const historicalResults = await Promise.all(historicalDataPromises);
+        const validHistoricalData = historicalResults.filter(data => data !== null);
+        setHistoricalData(validHistoricalData);
+      } catch (historicalError) {
+        console.error('Errore nel recupero dei dati storici:', historicalError);
+        // Non interrompiamo completamente il caricamento
       }
 
       // Salva i dati in cache
@@ -630,7 +676,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
           condition: weatherData.current.condition.text
         },
         forecast: processedForecastData,
-        historicalData: historicalData
+        historicalData: validHistoricalData
       });
 
       setLoading(false);
@@ -882,9 +928,12 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         
         // Recupera il meteo attuale con gestione errori migliorata
         try {
-          const weatherData = await retryFetch(
+          const response = await retryFetch(
             `${BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&aqi=no&lang=it`
           );
+          
+          // Parse the response to JSON
+          const weatherData = await response.json();
           
           // Verifica rigorosa dei dati meteo
           if (!weatherData || !weatherData.current) {
@@ -915,9 +964,12 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         
         // Recupera le previsioni
         try {
-          const forecastData = await retryFetch(
+          const response = await retryFetch(
             `${BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&days=3&aqi=no&alerts=no&lang=it`
           );
+          
+          // Parse the response to JSON
+          const forecastData = await response.json();
           
           if (forecastData && forecastData.forecast && forecastData.forecast.forecastday) {
             const formattedForecast = await Promise.all(forecastData.forecast.forecastday.map(async (day: any) => {
@@ -988,9 +1040,12 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
           
           const historicalDataPromises = dates.map(async (date) => {
             try {
-              const historyData = await retryFetch(
+              const response = await retryFetch(
                 `${BASE_URL}/history.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(locationQuery)}&dt=${date}&lang=it`
               );
+              
+              // Parse the response to JSON
+              const historyData = await response.json();
               
               if (!historyData || !historyData.forecast || !historyData.forecast.forecastday || historyData.forecast.forecastday.length === 0) {
                 return null;
