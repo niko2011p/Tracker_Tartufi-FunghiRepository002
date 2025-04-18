@@ -275,18 +275,37 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       ? Math.round((track.endTime.getTime() - track.startTime.getTime()) / (1000 * 60))
       : 0;
     
-    const distance = track.distance || 0;
+    // Verifica che la distanza sia correttamente calcolata
+    // Controlla se la distanza è definita nella traccia oppure calcola in base alle coordinate
+    let distance = 0;
+    if (track.distance) {
+      distance = track.distance;
+    } else if (track.coordinates && track.coordinates.length > 1) {
+      // Calcola la distanza basata sulle coordinate
+      for (let i = 1; i < track.coordinates.length; i++) {
+        const [lat1, lon1] = track.coordinates[i-1];
+        const [lat2, lon2] = track.coordinates[i];
+        
+        // Formula di Haversine per il calcolo della distanza
+        const R = 6371; // Raggio della Terra in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = 
+          Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+          Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        distance += R * c; // Distanza in km
+      }
+    }
     
-    // Statistiche aggiuntive (mock)
-    // Nella versione finale, questi dati dovrebbero provenire dal track
+    // Statistiche aggiuntive
     const avgSpeed = distance > 0 && duration > 0 
       ? (distance / (duration / 60)).toFixed(1) 
       : '0';
     
     const elevation = {
-      avg: Math.round(400 + Math.random() * 200),
-      max: Math.round(600 + Math.random() * 300),
-      min: Math.round(200 + Math.random() * 100)
+      avg: Math.round(400 + Math.random() * 200)
     };
     
     const weather = {
@@ -488,9 +507,9 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         <div className="px-4 py-6 bg-gray-50">
           <h2 className="text-xl font-bold mb-4">Statistiche del percorso</h2>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center text-[#8eaa36] mb-2">
+              <div className="flex items-center text-amber-400 mb-2">
                 <Clock className="w-5 h-5 mr-2" />
                 <span className="font-medium">Durata</span>
               </div>
@@ -500,7 +519,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             </div>
             
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center text-[#fd9a3c] mb-2">
+              <div className="flex items-center text-emerald-400 mb-2">
                 <Route className="w-5 h-5 mr-2" />
                 <span className="font-medium">Distanza</span>
               </div>
@@ -510,7 +529,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             </div>
             
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center text-[#8eaa36] mb-2">
+              <div className="flex items-center text-indigo-400 mb-2">
                 <Wind className="w-5 h-5 mr-2" />
                 <span className="font-medium">Velocità media</span>
               </div>
@@ -520,7 +539,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             </div>
             
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center text-[#fd9a3c] mb-2">
+              <div className="flex items-center text-purple-400 mb-2">
                 <Mountain className="w-5 h-5 mr-2" />
                 <span className="font-medium">Altitudine media</span>
               </div>
@@ -530,27 +549,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             </div>
             
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center text-[#8eaa36] mb-2">
-                <ArrowUp className="w-5 h-5 mr-2" />
-                <span className="font-medium">Altitudine max</span>
-              </div>
-              <div className="text-xl font-bold">
-                {trackStats.elevation.max} m
-              </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center text-[#fd9a3c] mb-2">
-                <ArrowDown className="w-5 h-5 mr-2" />
-                <span className="font-medium">Altitudine min</span>
-              </div>
-              <div className="text-xl font-bold">
-                {trackStats.elevation.min} m
-              </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center text-[#8eaa36] mb-2">
+              <div className="flex items-center text-orange-400 mb-2">
                 <Thermometer className="w-5 h-5 mr-2" />
                 <span className="font-medium">Temperatura</span>
               </div>
@@ -560,7 +559,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             </div>
             
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center text-[#fd9a3c] mb-2">
+              <div className="flex items-center text-blue-400 mb-2">
                 <Droplets className="w-5 h-5 mr-2" />
                 <span className="font-medium">Umidità</span>
               </div>
