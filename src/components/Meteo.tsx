@@ -575,7 +575,8 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
       }
       setForecast(processedForecastData);
 
-      // Fetch historical data using WeatherAPI
+      // Recupera i dati storici
+      let validHistoricalData: any[] = [];
       try {
         const dates = Array.from({ length: 7 }, (_, i) => {
           const date = new Date();
@@ -652,7 +653,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
         });
         
         const historicalResults = await Promise.all(historicalDataPromises);
-        const validHistoricalData = historicalResults.filter(data => data !== null);
+        validHistoricalData = historicalResults.filter(data => data !== null);
         setHistoricalData(validHistoricalData);
       } catch (historicalError) {
         console.error('Errore nel recupero dei dati storici:', historicalError);
@@ -1107,7 +1108,7 @@ const fetchWeatherData = async (latitude?: number, longitude?: number) => {
           });
           
           const historicalResults = await Promise.all(historicalDataPromises);
-          const validHistoricalData = historicalResults.filter(data => data !== null);
+          validHistoricalData = historicalResults.filter(data => data !== null);
           setHistoricalData(validHistoricalData);
         } catch (historicalError) {
           console.error('Errore nel recupero dei dati storici:', historicalError);
