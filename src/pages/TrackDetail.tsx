@@ -5,7 +5,22 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTrackStore } from '../store/trackStore';
 import { Finding, Track } from '../types';
-import { ArrowLeft, Share2, Download, Clock, Route, ArrowUp, ArrowDown, Thermometer, Droplets, Wind, Mountain } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Share2, 
+  Download, 
+  Clock, 
+  Route, 
+  ArrowUp, 
+  ArrowDown, 
+  Thermometer, 
+  Droplets, 
+  Wind, 
+  Mountain,
+  Map,
+  Calendar,
+  MapPin
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { 
@@ -87,8 +102,10 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [currentWeather, setCurrentWeather] = useState<{temp?: number, humidity?: number}>({});
+  const [locationName, setLocationName] = useState<string>('');
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
+  const mapInitializedRef = useRef<boolean>(false);
   
   // Use the trackId prop if provided, otherwise use the id from the URL params
   const id = propTrackId || params.id;
@@ -160,6 +177,35 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     }
   }, [track]);
 
+  // Ottieni il nome della località dalla posizione media della traccia
+  useEffect(() => {
+    const fetchLocationName = async () => {
+      if (track?.coordinates?.length) {
+        try {
+          // Calcola la posizione media della traccia
+          const avgLat = track.coordinates.reduce((sum, coord) => sum + coord[0], 0) / track.coordinates.length;
+          const avgLng = track.coordinates.reduce((sum, coord) => sum + coord[1], 0) / track.coordinates.length;
+          
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${avgLat}&lon=${avgLng}&zoom=14&addressdetails=1`);
+          const data = await response.json();
+          
+          if (data.address) {
+            const { hamlet, village, town, city, municipality, county, state } = data.address;
+            const location = hamlet || village || town || city || municipality || county || state || 'Posizione sconosciuta';
+            setLocationName(location);
+          } else {
+            setLocationName('Posizione sconosciuta');
+          }
+        } catch (error) {
+          console.error('Errore nel recupero del nome della località:', error);
+          setLocationName('Posizione sconosciuta');
+        }
+      }
+    };
+    
+    fetchLocationName();
+  }, [track]);
+
   // Debug delle dimensioni del contenitore e inizializzazione della mappa
   useEffect(() => {
     const container = mapContainerRef.current;
@@ -171,7 +217,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         const height = container.offsetHeight;
         console.log(`Dimensioni contenitore mappa: ${width}x${height}px (circa ${Math.round((height / window.innerHeight) * 100)}vh)`);
         
-        if (height > 0) {
+        if (height > 0 && width > 0) {
           setIsMapReady(true);
           return true;
         }
@@ -182,51 +228,46 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
       if (!checkContainerSize()) {
         // Se il contenitore non è ancora pronto, riprova dopo un breve ritardo
         const retryTimer = setTimeout(() => {
-          checkContainerSize();
-        }, 100);
+          if (checkContainerSize() && leafletMapRef.current) {
+            // Forza il ridisegno della mappa
+            leafletMapRef.current.invalidateSize();
+            console.log('Mappa ridisegnata dopo retry');
+          }
+        }, 300);
         
         return () => clearTimeout(retryTimer);
       }
     }
   }, []);
 
-  // Gestore per il ridimensionamento della finestra
-  useEffect(() => {
-    const handleResize = () => {
-      const container = mapContainerRef.current;
-      if (container) {
-        const width = container.offsetWidth;
-        const height = container.offsetHeight;
-        console.log(`Dimensioni mappa dopo resize: ${width}x${height}px (circa ${Math.round((height / window.innerHeight) * 100)}vh)`);
-        
-        // Aggiorna la mappa dopo il ridimensionamento
-        if (leafletMapRef.current) {
-          leafletMapRef.current.invalidateSize();
-          console.log('Mappa ridisegnata dopo resize');
-        }
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
   // Riferimento alla mappa Leaflet
   const setMapRef = useCallback((mapInstance: L.Map) => {
-    if (mapInstance) {
+    if (mapInstance && !mapInitializedRef.current) {
       leafletMapRef.current = mapInstance;
+      mapInitializedRef.current = true;
       console.log('Riferimento mappa Leaflet acquisito');
       
       // Forza il ridisegno della mappa dopo che è stata inizializzata
       setTimeout(() => {
         mapInstance.invalidateSize();
         console.log('Inizializzazione mappa completata e ridisegnata');
-      }, 300);
+        
+        // Se abbiamo i bounds, assicuriamoci che siano visualizzati
+        if (bounds) {
+          try {
+            mapInstance.fitBounds(bounds, {
+              padding: [50, 50],
+              maxZoom: 18,
+              animate: true
+            });
+            console.log('Bounds applicati manualmente:', bounds.toBBoxString());
+          } catch (error) {
+            console.error('Errore nell\'applicare i bounds:', error);
+          }
+        }
+      }, 500);
     }
-  }, []);
+  }, [bounds]);
 
   // Funzione per caricare i dati meteo
   const loadWeatherData = async (coordinates: [number, number][]) => {
@@ -349,6 +390,14 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     };
   };
 
+  // Formatta la data e l'ora della traccia
+  const formatTrackDateTime = () => {
+    if (!track?.startTime) return '';
+    
+    const date = new Date(track.startTime);
+    return format(date, 'dd/MM/yyyy HH:mm', { locale: it });
+  };
+
   if (!track) {
     return (
       <div className="w-screen h-screen bg-white text-gray-800 flex items-center justify-center">
@@ -408,36 +457,55 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
 
   return (
     <div className="w-screen h-screen bg-white text-gray-800 flex flex-col overflow-auto">
-      <div className="flex items-center justify-between p-4 border-b border-[#7d9830] bg-[#8eaa36] text-white">
-        <button
-          onClick={() => navigate('/logger')}
-          className="flex items-center gap-2 text-white hover:text-gray-100 transition-colors"
-        >
-          <ArrowLeft size={24} />
-          <span>Indietro</span>
-        </button>
-        
-        <h1 className="text-xl font-bold">{track.name}</h1>
-        
-        <div className="flex gap-2">
+      <div className="flex flex-col border-b border-[#7d9830] bg-[#8eaa36] text-white">
+        {/* Prima riga: pulsante indietro, titolo e icone azioni */}
+        <div className="flex items-center justify-between p-4">
           <button
-            onClick={handleShare}
-            className="p-2 text-white hover:text-gray-100 transition-colors"
-            title="Condividi"
+            onClick={() => navigate('/logger')}
+            className="flex items-center gap-2 text-white hover:text-gray-100 transition-colors"
           >
-            <Share2 size={24} />
+            <ArrowLeft size={24} />
+            <span>Indietro</span>
           </button>
-          <button
-            onClick={handleExportGPX}
-            className="p-2 text-white hover:text-gray-100 transition-colors"
-            title="Esporta GPX"
-          >
-            <Download size={24} />
-          </button>
+          
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Map size={22} className="opacity-80" />
+            {track.name}
+          </h1>
+          
+          <div className="flex gap-2">
+            <button
+              onClick={handleShare}
+              className="p-2 text-white hover:text-gray-100 transition-colors"
+              title="Condividi"
+            >
+              <Share2 size={24} />
+            </button>
+            <button
+              onClick={handleExportGPX}
+              className="p-2 text-white hover:text-gray-100 transition-colors"
+              title="Esporta GPX"
+            >
+              <Download size={24} />
+            </button>
+          </div>
+        </div>
+        
+        {/* Seconda riga: nome località, data, ora */}
+        <div className="flex items-center justify-between px-4 pb-3 text-sm text-white/90">
+          <div className="flex items-center gap-1.5">
+            <MapPin size={16} className="opacity-80" />
+            <span>{locationName}</span>
+          </div>
+          
+          <div className="flex items-center gap-1.5">
+            <Calendar size={16} className="opacity-80" />
+            <span>{formatTrackDateTime()}</span>
+          </div>
         </div>
       </div>
 
-      <div ref={mapContainerRef} className="relative h-[78vh]">
+      <div ref={mapContainerRef} className="relative h-[78vh] bg-gray-100">
         {isMapReady && (
           <MapContainer
             center={track.coordinates[0]}
@@ -445,11 +513,15 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             scrollWheelZoom={true}
             className="w-full h-full z-0"
             whenCreated={setMapRef}
+            attributionControl={false}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap contributors"
             />
+            
+            <TileErrorHandler />
+            
             <Polyline 
               positions={track.coordinates} 
               color="#8eaa36"
@@ -523,8 +595,17 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             
             {/* Componente per centrare la mappa sui bounds */}
             {bounds && <MapBoundsHandler bounds={bounds} padding={[50, 50]} maxZoom={18} />}
-            <TileErrorHandler />
           </MapContainer>
+        )}
+        
+        {/* Messaggio di caricamento */}
+        {!isMapReady && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+            <div className="text-center">
+              <div className="inline-block w-8 h-8 border-4 border-[#8eaa36] border-t-transparent rounded-full animate-spin mb-2"></div>
+              <p className="text-gray-600">Caricamento mappa...</p>
+            </div>
+          </div>
         )}
       </div>
       
