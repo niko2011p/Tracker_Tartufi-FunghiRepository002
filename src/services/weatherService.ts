@@ -78,6 +78,7 @@ interface ForecastResponse extends WeatherAPIResponse {
         humidity: number;
         wind_kph: number;
         wind_dir: string;
+        chance_of_rain?: number;
         condition: {
           text: string;
           icon: string;
@@ -497,7 +498,7 @@ export const useWeatherStore = create<WeatherStore>((set) => ({
       set({ isLoading: true, error: null });
       
       const response = await fetch(
-        `https://api.weatherapi.com/v1/current.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}&aqi=no`
+        `https://api.weatherapi.com/v1/current.json?key=${import.meta.env.VITE_WEATHERAPI_KEY}&q=${lat},${lon}&aqi=no&lang=it`
       );
       
       if (!response.ok) {
@@ -506,12 +507,19 @@ export const useWeatherStore = create<WeatherStore>((set) => ({
       
       const data = await response.json();
       
+      // Validazione dei dati ricevuti
+      if (!data || !data.current || typeof data.current.temp_c !== 'number') {
+        console.error('Dati meteo incompleti o non validi:', response);
+        throw new Error('Dati meteo non disponibili o incompleti');
+      }
+      
       set({
         currentTemperature: data.current.temp_c,
         lastUpdate: Date.now(),
         isLoading: false
       });
     } catch (error) {
+      console.error('Errore nel recupero del meteo attuale:', error);
       set({
         error: error instanceof Error ? error.message : 'Errore sconosciuto',
         isLoading: false
