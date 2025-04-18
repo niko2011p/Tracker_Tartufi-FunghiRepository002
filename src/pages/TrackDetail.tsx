@@ -56,14 +56,33 @@ function MapBoundsHandler({ bounds, padding, maxZoom = 18 }: { bounds: L.LatLngB
   useEffect(() => {
     if (bounds) {
       console.log('Bounds calcolati:', bounds.toBBoxString());
-      map.fitBounds(bounds, {
-        padding: padding,
-        maxZoom: maxZoom,
-        animate: true
-      });
-      console.log('Zoom applicato:', map.getZoom());
+      try {
+        map.fitBounds(bounds, {
+          padding: padding,
+          maxZoom: maxZoom,
+          animate: true
+        });
+        console.log('Zoom applicato:', map.getZoom());
+      } catch (e) {
+        console.error('Errore nell\'applicare i bounds:', e);
+      }
     }
   }, [bounds, map, padding, maxZoom]);
+  
+  return null;
+}
+
+// Componente per forzare il ridisegno della mappa
+function MapInvalidator() {
+  const map = useMap();
+  
+  useEffect(() => {
+    console.log('MapInvalidator montato');
+    setTimeout(() => {
+      map.invalidateSize();
+      console.log('Mappa invalidata da MapInvalidator');
+    }, 300);
+  }, [map]);
   
   return null;
 }
@@ -186,18 +205,40 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
           const avgLat = track.coordinates.reduce((sum, coord) => sum + coord[0], 0) / track.coordinates.length;
           const avgLng = track.coordinates.reduce((sum, coord) => sum + coord[1], 0) / track.coordinates.length;
           
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${avgLat}&lon=${avgLng}&zoom=14&addressdetails=1`);
-          const data = await response.json();
+          console.log('Ottengo località per coordinate:', avgLat, avgLng);
           
-          if (data.address) {
-            const { hamlet, village, town, city, municipality, county, state } = data.address;
-            const location = hamlet || village || town || city || municipality || county || state || 'Posizione sconosciuta';
-            setLocationName(location);
-          } else {
-            setLocationName('Posizione sconosciuta');
+          // Usa un timeout più lungo per Nominatim
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${avgLat}&lon=${avgLng}&zoom=14&addressdetails=1`,
+              { signal: controller.signal }
+            );
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) throw new Error(`Status: ${response.status}`);
+            
+            const data = await response.json();
+            console.log('Risposta nominatim:', data);
+            
+            if (data.address) {
+              const { hamlet, village, town, city, municipality, county, state } = data.address;
+              const location = hamlet || village || town || city || municipality || county || state || 'Posizione sconosciuta';
+              console.log('Nome località trovato:', location);
+              setLocationName(location);
+            } else {
+              setLocationName('Posizione sconosciuta');
+            }
+          } catch (e) {
+            clearTimeout(timeoutId);
+            console.error('Errore API Nominatim:', e);
+            // Fallback: usa le coordinate formattate
+            setLocationName(`Lat: ${avgLat.toFixed(5)}, Lon: ${avgLng.toFixed(5)}`);
           }
         } catch (error) {
-          console.error('Errore nel recupero del nome della località:', error);
+          console.error('Errore nel calcolo posizione media:', error);
           setLocationName('Posizione sconosciuta');
         }
       }
@@ -233,11 +274,35 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             leafletMapRef.current.invalidateSize();
             console.log('Mappa ridisegnata dopo retry');
           }
-        }, 300);
+        }, 500);
         
         return () => clearTimeout(retryTimer);
       }
     }
+  }, []);
+
+  // Gestore per il ridimensionamento della finestra
+  useEffect(() => {
+    const handleResize = () => {
+      const container = mapContainerRef.current;
+      if (container) {
+        const width = container.offsetWidth;
+        const height = container.offsetHeight;
+        console.log(`Dimensioni mappa dopo resize: ${width}x${height}px`);
+        
+        // Aggiorna la mappa dopo il ridimensionamento
+        if (leafletMapRef.current) {
+          leafletMapRef.current.invalidateSize();
+          console.log('Mappa ridisegnata dopo resize');
+        }
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Riferimento alla mappa Leaflet
@@ -495,7 +560,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         <div className="flex items-center justify-between px-4 pb-3 text-sm text-white/90">
           <div className="flex items-center gap-1.5">
             <MapPin size={16} className="opacity-80" />
-            <span>{locationName}</span>
+            <span>{locationName || 'Caricamento posizione...'}</span>
           </div>
           
           <div className="flex items-center gap-1.5">
@@ -505,22 +570,26 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         </div>
       </div>
 
-      <div ref={mapContainerRef} className="relative h-[78vh] bg-gray-100">
+      <div ref={mapContainerRef} className="relative h-[78vh] min-h-[400px] bg-gray-100 overflow-hidden">
         {isMapReady && (
           <MapContainer
-            center={track.coordinates[0]}
+            center={[track.coordinates[0][0], track.coordinates[0][1]]}
             zoom={15}
             scrollWheelZoom={true}
             className="w-full h-full z-0"
             whenCreated={setMapRef}
             attributionControl={false}
+            style={{ height: '100%', width: '100%' }}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              subdomains="abc"
+              maxZoom={19}
               attribution="&copy; OpenStreetMap contributors"
             />
             
             <TileErrorHandler />
+            <MapInvalidator />
             
             <Polyline 
               positions={track.coordinates} 
