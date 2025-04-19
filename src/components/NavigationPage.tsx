@@ -613,46 +613,125 @@ const MapUpdater = () => {
   const trackStore = useTrackStore();
   
   const updateCountRef = useRef(0);
+  const lastRefreshRef = useRef(Date.now());
+  const polylineRef = useRef<L.Polyline | null>(null);
   
+  // Force map redraw and update polyline
+  const forceMapUpdate = useCallback(() => {
+    if (!map) return;
+    
+    // Force map to redraw
+    map.invalidateSize({ animate: false, pan: false });
+    
+    // Force redraw of all tiles on the map
+    map.eachLayer(layer => {
+      if ('redraw' in layer) {
+        try {
+          (layer as any).redraw();
+        } catch (e) {
+          // Ignore redraw errors
+        }
+      }
+    });
+    
+    // Load tiles in view - use a safe approach
+    try {
+      // Trigger map resize event to force tile loading
+      window.dispatchEvent(new Event('resize'));
+      
+      // Adjust zoom slightly to force tile refresh
+      if (trackStore.isRecording) {
+        const currentZoom = map.getZoom();
+        if (currentZoom) {
+          map.setZoom(currentZoom - 0.001);
+          setTimeout(() => map.setZoom(currentZoom), 50);
+        }
+      }
+    } catch (e) {
+      console.warn('Error during map refresh:', e);
+    }
+    
+    // Trigger a slight pan to force redrawing tiles
+    if (trackStore.isRecording) {
+      setTimeout(() => {
+        map.panBy([1, 1]);
+        map.panBy([-1, -1]);
+      }, 100);
+    }
+  }, [map, trackStore.isRecording]);
+  
+  // Handle track coordinates changes
+  useEffect(() => {
+    if (!map || !trackStore.currentTrack?.coordinates) return;
+    
+    // Get current track coordinates
+    const { coordinates } = trackStore.currentTrack;
+    
+    // Clear existing polyline
+    if (polylineRef.current) {
+      polylineRef.current.remove();
+    }
+    
+    // Create new polyline with updated coordinates
+    if (coordinates.length > 1) {
+      polylineRef.current = L.polyline(coordinates, {
+        color: "#FF9800",
+        weight: 4,
+        opacity: 0.9
+      }).addTo(map);
+      
+      updateCountRef.current += 1;
+      if (updateCountRef.current % 5 === 0) {
+        console.log(`🔄 Updated track polyline with ${coordinates.length} points`);
+      }
+      
+      // Force map update to ensure polyline is visible
+      forceMapUpdate();
+    }
+    
+    return () => {
+      if (polylineRef.current) {
+        polylineRef.current.remove();
+        polylineRef.current = null;
+      }
+    };
+  }, [map, trackStore.currentTrack?.coordinates, forceMapUpdate]);
+  
+  // Handle current position updates and map centering
   useEffect(() => {
     if (!map || !trackStore.currentPosition) return;
     
-    updateCountRef.current += 1;
+    const now = Date.now();
     
-    // If tracking, center map on current position
+    // If tracking is active and auto-center is on, center map on current position
     if (trackStore.isRecording && !map.dragging.enabled()) {
       map.panTo(trackStore.currentPosition);
+      
+      // Force map update after panning, but not too frequently
+      if (now - lastRefreshRef.current > 1000) {
+        lastRefreshRef.current = now;
+        forceMapUpdate();
+      }
     }
-    
-    // Force redraw only occasionally
-    if (updateCountRef.current % 3 === 0) {
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    }
-  }, [map, trackStore.currentPosition, trackStore.isRecording]);
+  }, [map, trackStore.currentPosition, trackStore.isRecording, forceMapUpdate]);
   
-  // Background timer to keep map updated
+  // Set up periodic forced updates
   useEffect(() => {
+    // More frequent updates during tracking
+    const interval = trackStore.isRecording ? 2000 : 5000;
+    
     const forceUpdateInterval = setInterval(() => {
       if (map) {
-        map.invalidateSize();
-        
-        // Redraw tiles
-        map.eachLayer(layer => {
-          if ('redraw' in layer) {
-            try {
-              (layer as any).redraw();
-            } catch (e) {
-              // Ignore redraw errors
-            }
-          }
-        });
+        updateCountRef.current += 1;
+        if (updateCountRef.current % 10 === 0) {
+          console.log('🔄 Periodic map refresh');
+        }
+        forceMapUpdate();
       }
-    }, 10000);
+    }, interval);
     
     return () => clearInterval(forceUpdateInterval);
-  }, [map]);
+  }, [map, trackStore.isRecording, forceMapUpdate]);
   
   return null;
 };
@@ -830,11 +909,24 @@ const NavigationPage: React.FC = () => {
         center={currentPosition}
         zoom={18}
         style={{ height: '100%', width: '100%' }}
+        preferCanvas={true}
+        attributionControl={false}
+        zoomControl={false}
         ref={(map) => {
           if (map) {
             mapRef.current = map;
             map.on('movestart', handleMapMoveStarted);
             console.log('🗺️ Map is ready');
+          }
+        }}
+        whenCreated={(mapInstance) => {
+          // Additional setup for better performance
+          if (mapInstance) {
+            // Set fade animation to false for better performance
+            (mapInstance as any).options.fadeAnimation = false;
+            (mapInstance as any).options.zoomAnimation = false;
+            
+            console.log('Map options configured for performance');
           }
         }}
       >
