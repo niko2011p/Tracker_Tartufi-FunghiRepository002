@@ -389,24 +389,15 @@ const GpsPositionUpdater = () => {
       // ALWAYS update position in store immediately to ensure real-time updates
       trackStore.updateCurrentPosition(newPosition);
       
-      // Check if enough time has passed for auxiliary operations
-      const now = Date.now();
-      const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+      // Check if position changed at all (not just significantly)
+      const positionChangedAtAll = !lastPositionRef.current || 
+        lastPositionRef.current[0] !== newPosition[0] || 
+        lastPositionRef.current[1] !== newPosition[1];
       
-      // Always update during recording, use speed to determine frequency
-      const speedBasedFrequency = speed && speed > 1 ? 100 : 250;
-      const updateFrequency = trackStore.isRecording ? speedBasedFrequency : 500;
-      
-      // Position changed significantly
-      const positionChangedSignificantly = 
-        lastPositionRef.current &&
-        (Math.abs(newPosition[0] - lastPositionRef.current[0]) > 0.00001 ||
-         Math.abs(newPosition[1] - lastPositionRef.current[1]) > 0.00001);
-      
-      // Always update when recording or position changed significantly
-      if (trackStore.isRecording || positionChangedSignificantly || timeSinceLastUpdate >= updateFrequency) {
+      // FORZA SEMPRE aggiornamento ad ogni cambiamento di posizione
+      if (positionChangedAtAll || trackStore.isRecording) {
         // Update time and counter
-        lastUpdateTimeRef.current = now;
+        lastUpdateTimeRef.current = Date.now();
         updateCountRef.current += 1;
         lastPositionRef.current = newPosition;
         
@@ -415,25 +406,61 @@ const GpsPositionUpdater = () => {
           console.log(`🧭 GPS: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], acc: ${accuracy.toFixed(1)}m, spd: ${speed || 0}m/s`);
         }
         
-        // Force map update on EVERY position change during recording
+        // ATTIVA SEMPRE IL RIDISEGNO COMPLETO DELLA MAPPA
+        // Questo simula la riattivazione manuale della navigazione
+        
+        // 1. Simula un pannello sulla posizione attuale se in registrazione
         if (trackStore.isRecording) {
-          // Force map update to ensure position is visible
-          map.invalidateSize({ animate: false });
-          
-          // Explicitly trigger redraw with a micro-pan
-          map.panBy([1, 0]);
-          setTimeout(() => map.panBy([-1, 0]), 10);
-          
-          // If we're tracking and the position changed significantly, ensure polyline is visible
-          if (positionChangedSignificantly) {
-            // Force all layers to redraw
-            map.eachLayer(layer => {
-              if (layer instanceof L.TileLayer) {
-                layer.redraw();
-              }
-            });
-          }
+          map.panTo(newPosition, {
+            animate: true,
+            duration: 0.1
+          });
         }
+        
+        // 2. Invalidazione completa della mappa
+        map.invalidateSize({ animate: false });
+        
+        // 3. Forzare un ridisegno COMPLETO di tutti i layer
+        map.eachLayer(layer => {
+          try {
+            if (layer instanceof L.TileLayer) {
+              layer.redraw();
+            } else if (layer instanceof L.Polyline) {
+              // Ridisegna la polilinea
+              const path = layer.getElement();
+              if (path) {
+                // Forza ridisegno con CSS
+                const htmlPath = path as HTMLElement;
+                htmlPath.style.display = 'none';
+                setTimeout(() => {
+                  htmlPath.style.display = 'block';
+                  htmlPath.style.strokeOpacity = '1';
+                }, 5);
+              }
+            }
+          } catch (e) {
+            // Ignora errori
+          }
+        });
+        
+        // 4. Trucci di micro-movimenti per forzare il ridisegno
+        const currentZoom = map.getZoom();
+        if (currentZoom) {
+          // Micro-zoom per forzare ridisegno
+          map.setZoom(currentZoom - 0.001);
+          setTimeout(() => map.setZoom(currentZoom), 5);
+        }
+        
+        // 5. Micro-spostamento per forzare ridisegno
+        map.panBy([1, 0]);
+        setTimeout(() => map.panBy([-1, 0]), 5);
+        
+        // 6. Genera eventi mappa per forzare aggiornamenti interni
+        map.fire('moveend');
+        map.fire('zoomend');
+        
+        // 7. Ridisegna completamente le finestre
+        window.dispatchEvent(new Event('resize'));
       }
     };
     
@@ -443,7 +470,7 @@ const GpsPositionUpdater = () => {
         return;
       }
       
-      console.log('🧭 Setting up high-precision GPS watcher...');
+      console.log('🧭 Setting up ultra-precision GPS watcher...');
       
       watchIdRef.current = navigator.geolocation.watchPosition(
         updatePosition,
@@ -452,35 +479,44 @@ const GpsPositionUpdater = () => {
         },
         {
           enableHighAccuracy: true,
-          timeout: 1000, // Reduced timeout for faster responses
-          maximumAge: 0   // Always get fresh positions
+          timeout: 500, // Timeout più breve per risposte più veloci
+          maximumAge: 0   // Solo posizioni fresche
         }
       );
     };
     
     setupWatcher();
     
-    // Periodic backup refresh to ensure map is updated
+    // Backup refresh ultrafrequente per garantire l'aggiornamento della mappa
     const backupRefreshInterval = setInterval(() => {
-      if (map && trackStore.isRecording) {
+      if (map && trackStore.isRecording && lastPositionRef.current) {
         console.log('🔄 Backup map refresh triggered');
+        
+        // Forza panoramica sulla posizione attuale
+        map.panTo(lastPositionRef.current, {
+          animate: true,
+          duration: 0.1
+        });
+        
+        // Invalidazione completa
         map.invalidateSize({ animate: false });
         
-        // Force a more aggressive redraw during recording
-        if (lastPositionRef.current) {
-          const currentZoom = map.getZoom();
-          if (currentZoom) {
-            // Micro-zoom to force redraw
-            map.setZoom(currentZoom - 0.001);
-            setTimeout(() => map.setZoom(currentZoom), 20);
-          }
-          
-          // Micro-pan to force redraw
-          map.panBy([1, 1]);
-          setTimeout(() => map.panBy([-1, -1]), 20);
+        // Micro-zoom per forzare ridisegno
+        const currentZoom = map.getZoom();
+        if (currentZoom) {
+          map.setZoom(currentZoom - 0.001);
+          setTimeout(() => map.setZoom(currentZoom), 5);
         }
+        
+        // Micro-pan per forzare ridisegno
+        map.panBy([1, 1]);
+        setTimeout(() => map.panBy([-1, -1]), 5);
+        
+        // Genera eventi mappa
+        map.fire('moveend');
+        map.fire('zoomend');
       }
-    }, 1000); // Every 1 second (more frequent)
+    }, 300); // Molto frequente (300ms)
     
     return () => {
       if (watchIdRef.current !== null) {
