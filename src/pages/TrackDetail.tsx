@@ -371,7 +371,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
           
           try {
             const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${avgLat}&lon=${avgLng}&zoom=14&addressdetails=1`,
+              `/.netlify/functions/geocode?lat=${avgLat}&lon=${avgLng}&zoom=14&addressdetails=1`,
               { signal: controller.signal }
             );
             clearTimeout(timeoutId);
@@ -415,7 +415,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             
             try {
               const response = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`,
+                `/.netlify/functions/geocode?lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`,
                 { signal: controller.signal }
               );
               clearTimeout(timeoutId);

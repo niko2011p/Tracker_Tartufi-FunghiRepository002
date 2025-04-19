@@ -1,0 +1,8 @@
+{
+  "name": "netlify-nominatim-proxy",
+  "version": "1.0.0",
+  "description": "CORS proxy for Nominatim geocoding API",
+  "dependencies": {
+    "node-fetch": "^2.6.9"
+  }
+} 

@@ -3,9 +3,18 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
 # Reindirizzamenti per SPA
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Proxy per OpenStreetMap Nominatim
+[[redirects]]
+  from = "/api/nominatim/*"
+  to = "https://nominatim.openstreetmap.org/:splat"
+  status = 200
+  force = true
+  headers = {Access-Control-Allow-Origin = "*"}

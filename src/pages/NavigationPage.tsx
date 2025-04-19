@@ -489,7 +489,7 @@ const NavigationPage: React.FC = () => {
   // Funzione per ottenere il nome della località
   const fetchLocationName = async (lat: number, lng: number) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      const response = await fetch(`/.netlify/functions/geocode?lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
       const data = await response.json();
       if (data.address) {
         const { road, hamlet, village, town, city, state, country } = data.address;
