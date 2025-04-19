@@ -329,8 +329,13 @@ export const useTrackStore = create<TrackState>()(
       startTrack: () => {
         // Proporciona vibración larga como feedback de inicio
         if (navigator.vibrate) {
-          navigator.vibrate(500); // 500ms de vibración
-          console.log('🔊 Feedback de vibración proporcionado');
+          try {
+            // Fornisce una vibrazione più forte e prolungata all'avvio
+            navigator.vibrate([300, 100, 300, 100, 500]); // Pattern di vibrazione più distintivo
+            console.log('🔊 Feedback di vibrazione fornito per inizio traccia');
+          } catch (e) {
+            console.error('❌ Errore durante la vibrazione:', e);
+          }
         }
         
         // Crea una nueva traccia con timestamp corrente, pero marcada como "esperando GPS"
@@ -369,7 +374,13 @@ export const useTrackStore = create<TrackState>()(
                   
                   // Vibración corta para notificar inicio real
                   if (navigator.vibrate) {
-                    navigator.vibrate([100, 100, 100]); // Patrón: vibra-pausa-vibra
+                    try {
+                      // Pattern di vibrazione più complesso per indicare "inizio reale"
+                      navigator.vibrate([100, 100, 100, 100, 200]); 
+                      console.log('🔊 Feedback di vibrazione fornito per segnale GPS di qualità');
+                    } catch (e) {
+                      console.error('❌ Errore durante la vibrazione:', e);
+                    }
                   }
                   
                   // Añadir bandera verde en el punto de inicio
@@ -380,6 +391,8 @@ export const useTrackStore = create<TrackState>()(
                     timestamp: new Date(),
                     accuracy: accuracy
                   };
+                  
+                  console.log('🚩 Creato marker di inizio in:', startMarker.coordinates);
                   
                   // Actualizar el track con la posición inicial y quitar el estado de espera
                   set((state) => ({
@@ -482,7 +495,13 @@ export const useTrackStore = create<TrackState>()(
           
           // Proporciona vibración como feedback de finalización
           if (navigator.vibrate) {
-            navigator.vibrate([100, 100, 300]); // Patrón: vibra-pausa-vibra-larga
+            try {
+              // Vibrazione più forte per la fine della traccia
+              navigator.vibrate([100, 100, 300, 100, 500]); // Pattern di vibrazione più distintivo per fine traccia
+              console.log('🔊 Feedback di vibrazione fornito per fine traccia');
+            } catch (e) {
+              console.error('❌ Errore durante la vibrazione:', e);
+            }
           }
           
           // Obtener posición actual para bandera final
@@ -519,6 +538,7 @@ export const useTrackStore = create<TrackState>()(
                   timestamp: new Date(),
                   accuracy: 0
                 };
+                console.log('🚩 Fallback: Marcador final creado usando última posición conocida:', lastCoord);
               }
             }
           }

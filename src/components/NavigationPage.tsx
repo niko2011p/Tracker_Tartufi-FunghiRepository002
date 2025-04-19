@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
-import { MapPin } from 'lucide-react';
+import { MapPin, Crosshair } from 'lucide-react';
 // @ts-ignore - Known issue with @turf/turf types
 import * as turf from '@turf/turf';
 import 'leaflet/dist/leaflet.css';
@@ -27,6 +27,30 @@ const GEOLOCATION_OPTIONS = {
   enableHighAccuracy: true,
   timeout: 20000,
   maximumAge: 5000
+};
+
+// Componente per mantenere la mappa centrata sulla posizione attuale
+const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, number], autoCenter?: boolean }) => {
+  const map = useMap();
+  const initialUpdateRef = useRef(false);
+  const { isRecording } = useTrackStore();
+  
+  useEffect(() => {
+    // Se la posizione è valida e il flag di centraggio automatico è attivo
+    if (position[0] !== 0 && position[1] !== 0 && autoCenter) {
+      // Solo se stiamo registrando, centriamo automaticamente
+      if (isRecording || !initialUpdateRef.current) {
+        console.log('🗺️ Auto-centering map to:', position);
+        map.flyTo(position, map.getZoom() || 18, {
+          animate: true,
+          duration: 1
+        });
+        initialUpdateRef.current = true;
+      }
+    }
+  }, [position, map, autoCenter, isRecording]);
+  
+  return null;
 };
 
 // Component to handle map markers
@@ -291,6 +315,7 @@ const NavigationPage: React.FC = () => {
   const [direction, setDirection] = useState<number>(0);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
+  const [autoCenterMap, setAutoCenterMap] = useState(true);
   const [trackingData, setTrackingData] = useState({
     lat: 0,
     lng: 0,
@@ -358,6 +383,21 @@ const NavigationPage: React.FC = () => {
     };
   }, [updateCurrentPosition]);
 
+  // Verifica della presenza dei marker all'avvio
+  useEffect(() => {
+    if (currentTrack) {
+      if (currentTrack.startMarker && currentTrack.startMarker.coordinates) {
+        console.log('✅ Verificato marker di inizio:', currentTrack.startMarker.coordinates);
+      } else {
+        console.warn('⚠️ Marker di inizio non impostato:', currentTrack);
+      }
+      
+      if (currentTrack.endMarker && currentTrack.endMarker.coordinates) {
+        console.log('✅ Verificato marker di fine:', currentTrack.endMarker.coordinates);
+      }
+    }
+  }, [currentTrack]);
+
   // Add this useEffect to log findings whenever currentTrack changes
   useEffect(() => {
     if (currentTrack && currentTrack.findings && currentTrack.findings.length > 0) {
@@ -381,6 +421,19 @@ const NavigationPage: React.FC = () => {
     mapRef.current = map;
   };
   
+  // Funzione per centrare manualmente la mappa
+  const handleCenterMap = () => {
+    if (mapRef.current && currentPosition) {
+      mapRef.current.setView(currentPosition, mapRef.current.getZoom() || 18);
+      setAutoCenterMap(true);
+    }
+  };
+  
+  // Disattiva il centraggio automatico quando l'utente sposta la mappa manualmente
+  const handleMapMoveStarted = () => {
+    setAutoCenterMap(false);
+  };
+  
   return (
     <div className="fixed inset-0" style={{ zIndex: showGPSWaitingMessage ? 1000 : 1 }}>
       <MapContainer
@@ -390,6 +443,7 @@ const NavigationPage: React.FC = () => {
         ref={(map) => {
           if (map) {
             mapRef.current = map;
+            map.on('movestart', handleMapMoveStarted);
             console.log('🗺️ Map is ready');
           }
         }}
@@ -398,6 +452,9 @@ const NavigationPage: React.FC = () => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
+        
+        {/* Auto-center component */}
+        <MapViewUpdater position={currentPosition} autoCenter={autoCenterMap} />
         
         {/* GPS Position Updater component - keeps store in sync with GPS */}
         <GpsPositionUpdater />
@@ -411,8 +468,8 @@ const NavigationPage: React.FC = () => {
                 <p>Lat: {currentPosition[0].toFixed(6)}°</p>
                 <p>Lon: {currentPosition[1].toFixed(6)}°</p>
                 <p>Precisione: {accuracy !== null ? `${accuracy.toFixed(1)}m` : 'N/A'}</p>
-        </div>
-        </div>
+            </div>
+            </div>
           </Popup>
         </Marker>
 
@@ -423,7 +480,7 @@ const NavigationPage: React.FC = () => {
               color="#FF9800"
               weight={4}
               opacity={0.9}
-          />
+            />
         )}
 
         {/* Start and end markers */}
@@ -448,25 +505,44 @@ const NavigationPage: React.FC = () => {
           <CompassIndicator position="topRight" />
         </div>
 
+        {/* Center Map Button */}
+        <div className="fixed bottom-36 right-10 z-[1001]">
+          <button
+            onClick={handleCenterMap}
+            className="unified-button center-map"
+            style={{
+              backgroundColor: 'rgba(59, 130, 246, 0.9)',
+              borderRadius: '50%',
+              width: '50px',
+              height: '50px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            <Crosshair className="w-6 h-6 text-white" />
+          </button>
+        </div>
+
         {/* Tag Button */}
         <div className="fixed bottom-10 right-10 z-[10000]">
-        <button
-          onClick={() => setShowTagOptions(true)}
-          className="unified-button tag"
-          style={{
+          <button
+            onClick={() => setShowTagOptions(true)}
+            className="unified-button tag"
+            style={{
               backgroundColor: 'rgba(59, 130, 246, 0.9)',
               borderRadius: '50%'
-          }}
-        >
-          <MapPin className="w-6 h-6" />
-          Tag
-        </button>
-      </div>
+            }}
+          >
+            <MapPin className="w-6 h-6" />
+            Tag
+          </button>
+        </div>
       
         {/* Forms and Popups */}
-      {showTagOptions && (
-        <TagOptionsPopup 
-          onClose={() => setShowTagOptions(false)}
+        {showTagOptions && (
+          <TagOptionsPopup 
+            onClose={() => setShowTagOptions(false)}
             onFindingClick={() => {
               setShowTagOptions(false);
               setShowFindingForm(true);
