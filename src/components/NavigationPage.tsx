@@ -57,22 +57,27 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
     
     console.log('⏱️ Attivato timer di aggiornamento mappa durante la registrazione');
     
-    // Ogni 3 secondi, forza l'aggiornamento delle tiles e la centratura
+    // Ogni 1 secondo, forza l'aggiornamento delle tiles e la centratura (più frequente)
     const intervalId = setInterval(() => {
       if (position[0] !== 0 && position[1] !== 0) {
         // Aggiorna il centro della mappa se necessario
         if (autoCenter && isRecording) {
           map.panTo(position, { 
             animate: true, 
-            duration: 0.5,
-            easeLinearity: 0.5
+            duration: 0.25, // Più veloce
+            easeLinearity: 0.25
           });
+          
+          // Aggiorna lo zoom se necessario (solo durante la registrazione)
+          if (map.getZoom() < 17) {
+            map.setZoom(18);
+          }
         }
         
         // Forza refresh delle tiles
         forceTileRefresh();
       }
-    }, 3000);
+    }, 1000); // Più frequente
     
     return () => {
       clearInterval(intervalId);
@@ -103,24 +108,28 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
         // Differenzia fra primo centraggio e aggiornamenti successivi
         if (!initialUpdateRef.current) {
           // Primo aggiornamento: più lento per dare tempo al caricamento
-          map.setView(position, map.getZoom() || 18, {
+          map.setView(position, 18, { // Forzato a zoom 18
             animate: true,
             duration: 1
           });
           initialUpdateRef.current = true;
           
           // Dopo l'impostazione iniziale, forza un refresh delle tiles
-          setTimeout(forceTileRefresh, 500);
+          setTimeout(forceTileRefresh, 200);
         } else {
           // Centraggio durante la registrazione: più rapido e fluido
           map.panTo(position, {
             animate: true,
-            duration: 0.5,
-            easeLinearity: 0.5
+            duration: 0.25, // Più veloce
+            easeLinearity: 0.25
           });
           
-          // Se ci siamo spostati significativamente, forza il refresh delle tiles
-          if (hasMovedSignificantly) {
+          // Forza refresh delle tiles sempre durante il tracking
+          if (isRecording) {
+            forceTileRefresh();
+          } 
+          // Altrimenti solo se ci siamo spostati significativamente
+          else if (hasMovedSignificantly) {
             forceTileRefresh();
           }
         }
@@ -172,7 +181,7 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
           });
           
           // Forza refresh delle tiles dopo il fit bounds
-          setTimeout(forceTileRefresh, 500);
+          setTimeout(forceTileRefresh, 200);
         } catch (e) {
           console.error('❌ Errore nel fitBounds:', e);
         }
@@ -260,15 +269,17 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
-    // Debug dei marker della traccia
+    // Detailed debug logs for marker presence
     if (track.startMarker) {
-      console.log('🚩 Track ha startMarker:', track.startMarker);
+      console.log('🚩 Track ha startMarker:', JSON.stringify(track.startMarker));
     } else {
       console.warn('⚠️ Track non ha startMarker!');
     }
     
     if (track.endMarker) {
-      console.log('🏁 Track ha endMarker:', track.endMarker);
+      console.log('🏁 Track ha endMarker:', JSON.stringify(track.endMarker));
+    } else if (track.isPaused === false) { // Solo se la traccia non è in pausa
+      console.warn('⚠️ Track non ha endMarker!');
     }
 
     // Add start marker if available
@@ -276,40 +287,45 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
       console.log('🚩 Adding start marker at', track.startMarker.coordinates);
       
       try {
+        // Use direct SVG instead of background image for better visibility
         const startMarker = L.marker(track.startMarker.coordinates, {
           icon: L.divIcon({
             html: `
               <div class="marker-flag" style="
-                width: 40px;
-                height: 40px;
+                width: 60px;
+                height: 60px;
                 position: relative;
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                z-index: 2000 !important;
+                z-index: 10000 !important;
               ">
-                <div style="
-                  width: 40px;
-                  height: 40px;
-                  background-image: url('/assets/icons/Start_Track_icon.svg');
-                  background-size: contain;
-                  background-position: center;
-                  background-repeat: no-repeat;
-                  filter: drop-shadow(0 3px 3px rgba(0,0,0,0.5));
+                <div class="pulse-ring" style="
+                  position: absolute;
+                  width: 48px;
+                  height: 48px;
+                  border-radius: 50%;
+                  background-color: rgba(76, 175, 80, 0.4);
+                  animation: pulse 2s infinite;
+                  z-index: 9999;
                 "></div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); z-index: 10000; transform: scale(1.2);">
+                  <path fill="#4CAF50" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  <circle cx="12" cy="7" r="4" fill="white"/>
+                </svg>
               </div>
             `,
             className: 'start-flag-icon',
-            iconSize: [40, 40],
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -40]
+            iconSize: [60, 60],
+            iconAnchor: [30, 60],
+            popupAnchor: [0, -60]
           }),
-          zIndexOffset: 2000 // Assicura che sia sopra tutti gli altri elementi
+          zIndexOffset: 10000 // Ensure highest z-index
         });
 
         // Create a formatted time string safely
         const startTime = track.actualStartTime || track.startTime;
-        const timeString = startTime ? startTime.toLocaleTimeString() : 'N/A';
+        const timeString = startTime ? new Date(startTime).toLocaleTimeString() : 'N/A';
 
         startMarker.bindPopup(`
           <div>
@@ -324,6 +340,29 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
         startMarker.addTo(map);
         markersRef.current.push(startMarker);
         console.log('✅ Start marker aggiunto con successo!');
+        
+        // Force marker into view
+        setTimeout(() => {
+          map.panTo(track.startMarker.coordinates);
+          const markerElement = document.querySelector('.start-flag-icon');
+          console.log('🔍 Start marker element found in DOM:', !!markerElement);
+          if (markerElement) {
+            console.log('📏 Start marker dimensions:', markerElement.getBoundingClientRect());
+            // Force visibility with higher specificity CSS
+            const style = document.createElement('style');
+            style.innerHTML = `
+              .leaflet-marker-icon.start-flag-icon {
+                visibility: visible !important;
+                opacity: 1 !important;
+                z-index: 10000 !important;
+                pointer-events: auto !important;
+                display: block !important;
+                transform: translate3d(0, 0, 0) !important;
+              }
+            `;
+            document.head.appendChild(style);
+          }
+        }, 500);
       } catch (e) {
         console.error('❌ Errore aggiungendo start marker:', e);
       }
@@ -331,43 +370,47 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
 
     // Add end marker if available
     if (track.endMarker && track.endMarker.coordinates) {
-      console.log('🚩 Adding end marker at', track.endMarker.coordinates);
+      console.log('🏁 Adding end marker at', track.endMarker.coordinates);
       
       try {
         const endMarker = L.marker(track.endMarker.coordinates, {
           icon: L.divIcon({
             html: `
               <div class="marker-flag" style="
-                width: 40px;
-                height: 40px;
+                width: 60px;
+                height: 60px;
                 position: relative;
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                z-index: 2000 !important;
+                z-index: 10000 !important;
               ">
-                <div style="
-                  width: 40px;
-                  height: 40px;
-                  background-image: url('/assets/icons/End_Track_icon.svg');
-                  background-size: contain;
-                  background-position: center;
-                  background-repeat: no-repeat;
-                  filter: drop-shadow(0 3px 3px rgba(0,0,0,0.5));
+                <div class="pulse-ring" style="
+                  position: absolute;
+                  width: 48px;
+                  height: 48px;
+                  border-radius: 50%;
+                  background-color: rgba(255, 152, 0, 0.4);
+                  animation: pulse 2s infinite;
+                  z-index: 9999;
                 "></div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); z-index: 10000; transform: scale(1.2);">
+                  <path fill="#FF9800" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  <path fill="white" d="M12 11.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
               </div>
             `,
             className: 'end-flag-icon',
-            iconSize: [40, 40],
-            iconAnchor: [20, 40], 
-            popupAnchor: [0, -40]
+            iconSize: [60, 60],
+            iconAnchor: [30, 60], 
+            popupAnchor: [0, -60]
           }),
-          zIndexOffset: 2000 // Assicura che sia sopra tutti gli altri elementi
+          zIndexOffset: 10000 // Ensure highest z-index
         });
 
         // Create a formatted time string safely
         const endTime = track.actualEndTime || track.endTime;
-        const timeString = endTime ? endTime.toLocaleTimeString() : 'N/A';
+        const timeString = endTime ? new Date(endTime).toLocaleTimeString() : 'N/A';
 
         endMarker.bindPopup(`
           <div>
@@ -382,16 +425,91 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
         endMarker.addTo(map);
         markersRef.current.push(endMarker);
         console.log('✅ End marker aggiunto con successo!');
+        
+        // Force marker into view
+        setTimeout(() => {
+          map.panTo(track.endMarker.coordinates);
+          const markerElement = document.querySelector('.end-flag-icon');
+          console.log('🔍 End marker element found in DOM:', !!markerElement);
+          if (markerElement) {
+            console.log('📏 End marker dimensions:', markerElement.getBoundingClientRect());
+            // Force visibility with higher specificity CSS
+            const style = document.createElement('style');
+            style.innerHTML = `
+              .leaflet-marker-icon.end-flag-icon {
+                visibility: visible !important;
+                opacity: 1 !important;
+                z-index: 10000 !important;
+                pointer-events: auto !important;
+                display: block !important;
+                transform: translate3d(0, 0, 0) !important;
+              }
+            `;
+            document.head.appendChild(style);
+          }
+        }, 500);
       } catch (e) {
         console.error('❌ Errore aggiungendo end marker:', e);
       }
     }
 
+    // Add custom CSS for the pulse animation if not already added
+    if (!document.getElementById('marker-pulse-animation')) {
+      const styleElement = document.createElement('style');
+      styleElement.id = 'marker-pulse-animation';
+      styleElement.innerHTML = `
+        @keyframes pulse {
+          0% {
+            transform: scale(0.95);
+            opacity: 0.7;
+          }
+          50% {
+            transform: scale(1.2);
+            opacity: 0.4;
+          }
+          100% {
+            transform: scale(0.95);
+            opacity: 0.7;
+          }
+        }
+        
+        /* Force visibility of markers */
+        .marker-flag, .start-flag-icon, .end-flag-icon, 
+        .leaflet-marker-icon.start-flag-icon, .leaflet-marker-icon.end-flag-icon {
+          visibility: visible !important;
+          opacity: 1 !important;
+          z-index: 10000 !important;
+          pointer-events: auto !important;
+          display: block !important;
+        }
+        
+        /* Fix for markers being hidden */
+        .leaflet-marker-pane {
+          z-index: 10000 !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          pointer-events: auto !important;
+        }
+      `;
+      document.head.appendChild(styleElement);
+      console.log('✅ Added pulse animation styles for markers');
+    }
+
+    // Force map redraw to ensure markers are visible
+    setTimeout(() => {
+      map.invalidateSize();
+      // If markers exist, make sure they're in view
+      if (markersRef.current.length > 0) {
+        const bounds = L.latLngBounds(markersRef.current.map(marker => marker.getLatLng()));
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+    }, 1000);
+
     return () => {
       markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
     };
-  }, [track, map]);
+  }, [map, track]);
 
   return null;
 };
@@ -399,98 +517,253 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
 // Component to handle live GPS position updates
 const GpsPositionUpdater = () => {
   const map = useMap();
-  const { updateCurrentPosition, isRecording, currentTrack } = useTrackStore();
+  const { 
+    setCurrentPosition, 
+    setAccuracy, 
+    setHeading, 
+    setSpeed, 
+    setElevation,
+    setTrackingData,
+    activeTrackId,
+    tracks
+  } = useTrackStore();
+
   const watchIdRef = useRef<number | null>(null);
+  const lastUpdateRef = useRef<number>(0);
+  const highAccuracyFailedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    // Set up GPS tracking
-    if (navigator.geolocation) {
-      console.log('🔄 Starting GPS position tracking...');
+    console.log('📍 Setting up GPS position watcher');
+    
+    // Function to update position with debounce effect
+    const updatePosition = (position: GeolocationPosition) => {
+      const now = Date.now();
       
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          const newPosition: [number, number] = [latitude, longitude];
-          
-          // Update store with current position
-          updateCurrentPosition(newPosition);
-          
-          // If recording, make sure the polyline is updated on the map
-          if (isRecording && currentTrack) {
-            // The polyline will update via the Polyline component when currentTrack updates
-            console.log(`📍 Position updated: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], accuracy: ${accuracy.toFixed(1)}m`);
-          }
-        },
-        (error) => {
-          console.error('❌ GPS Error:', error.message);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000, 
-          maximumAge: 0
+      // Adjust update frequency based on movement speed
+      const updateInterval = position.coords.speed && position.coords.speed > 1 ? 500 : 1000;
+      
+      if (now - lastUpdateRef.current >= updateInterval) {
+        lastUpdateRef.current = now;
+        
+        const coords: [number, number] = [position.coords.latitude, position.coords.longitude];
+        
+        console.log('📍 GPS Update:', coords, 'accuracy:', position.coords.accuracy.toFixed(1) + 'm');
+        
+        setCurrentPosition(coords);
+        setAccuracy(position.coords.accuracy);
+        
+        if (position.coords.heading !== null) {
+          setHeading(position.coords.heading);
         }
-      );
-    }
+        
+        if (position.coords.speed !== null) {
+          setSpeed(position.coords.speed);
+        }
+        
+        if (position.coords.altitude !== null) {
+          setElevation(position.coords.altitude);
+        }
+        
+        // Update tracking data if track is active
+        if (activeTrackId) {
+          const activeTrack = tracks.find(t => t.id === activeTrackId);
+          if (activeTrack && !activeTrack.isPaused) {
+            setTrackingData({
+              position: coords,
+              accuracy: position.coords.accuracy,
+              timestamp: position.timestamp,
+              altitude: position.coords.altitude || undefined,
+              heading: position.coords.heading !== null ? position.coords.heading : undefined,
+              speed: position.coords.speed !== null ? position.coords.speed : undefined
+            });
+            
+            // Force map to update and recenter if tracking
+            if (map && !map.dragging.enabled()) {
+              map.panTo(coords);
+              // Force redraw of tiles to ensure track is visible
+              map.invalidateSize();
+            }
+          }
+        }
+      }
+    };
+
+    const setupWatcher = (highAccuracy = true) => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      
+      try {
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          updatePosition,
+          (error) => {
+            console.error('❌ GPS Error:', error.message);
+            if (highAccuracy && !highAccuracyFailedRef.current) {
+              console.log('⚠️ High accuracy failed, falling back to standard accuracy');
+              highAccuracyFailedRef.current = true;
+              setupWatcher(false);
+            }
+          },
+          {
+            enableHighAccuracy: highAccuracy,
+            maximumAge: 0,
+            timeout: 5000
+          }
+        );
+        
+        console.log(`✅ GPS watcher started with ${highAccuracy ? 'high' : 'standard'} accuracy`);
+      } catch (error) {
+        console.error('❌ Failed to set up GPS watcher:', error);
+      }
+    };
+    
+    setupWatcher();
+    
+    // Create force update interval to ensure map is getting updates
+    const forceUpdateInterval = setInterval(() => {
+      if (map) {
+        map.invalidateSize();
+        console.log('🔄 Forced map refresh');
+      }
+    }, 10000); // Force refresh every 10 seconds
     
     return () => {
       if (watchIdRef.current !== null) {
-        console.log('🛑 Stopping GPS position tracking');
         navigator.geolocation.clearWatch(watchIdRef.current);
+        console.log('📍 GPS watcher stopped');
       }
+      clearInterval(forceUpdateInterval);
     };
-  }, [updateCurrentPosition, isRecording, currentTrack]);
-  
+  }, [
+    map, 
+    activeTrackId, 
+    tracks, 
+    setCurrentPosition, 
+    setAccuracy, 
+    setHeading, 
+    setSpeed, 
+    setElevation, 
+    setTrackingData
+  ]);
+
   return null;
 };
 
 // Un componente specifico per aggiornare la mappa regolarmente
 const MapUpdater = () => {
-  const map = useMap();
-  const { isRecording } = useTrackStore();
+  const map = useMapContext();
+  const { 
+    currentPosition, 
+    accuracy, 
+    heading, 
+    activeTrackId, 
+    tracks, 
+    addLocationToTrack
+  } = useTrackStore();
+  
+  const isTrackingRef = useRef(false);
+  const lastUpdateTimeRef = useRef(0);
   
   useEffect(() => {
-    if (!isRecording) return;
+    if (!map || !currentPosition) return;
     
-    console.log('🔄 Attivato sistema di aggiornamento automatico mappa');
+    const now = Date.now();
+    const activeTrack = activeTrackId ? tracks.find(t => t.id === activeTrackId) : null;
+    const isTracking = activeTrack && !activeTrack.isPaused;
     
-    // Forza l'aggiornamento della mappa ogni 2 secondi
-    const intervalId = setInterval(() => {
-      // Invalidare la dimensione forza Leaflet a ricalcolare tutto
-      map.invalidateSize(true);
+    // Record the tracking state for comparison
+    isTrackingRef.current = !!isTracking;
+    
+    // If tracking, update more frequently
+    const updateInterval = isTracking ? 1000 : 3000;
+    
+    if (now - lastUpdateTimeRef.current >= updateInterval) {
+      lastUpdateTimeRef.current = now;
       
-      // Aggiorna le tiles
-      map.eachLayer(layer => {
-        if (layer instanceof L.TileLayer) {
-          layer.redraw();
+      // Force map update
+      map.invalidateSize();
+      
+      // Only add location points if we're actively recording
+      if (isTracking && activeTrackId) {
+        addLocationToTrack(activeTrackId, {
+          coordinates: currentPosition,
+          accuracy: accuracy || 0,
+          timestamp: now,
+          heading: heading !== null ? heading : undefined
+        });
+        
+        console.log('📍 Added position to track:', currentPosition);
+        
+        // If autocentering is active, force the map to center on current position
+        if (!map.dragging.enabled()) {
+          map.panTo(currentPosition);
         }
-      });
-      
-      // Forza un aggiornamento dei bounds
-      try {
-        const bounds = map.getBounds();
-        map.setView(map.getCenter(), map.getZoom(), {
-          animate: false
-        });
-        // Forza un aggiornamento di tutti i layer della mappa
-        map.eachLayer((layer) => {
-          if ('redraw' in layer) {
-            (layer as any).redraw();
-          }
-        });
-        console.log('🔄 Vista mappa aggiornata forzatamente');
-      } catch (e) {
-        console.error('❌ Errore nell\'aggiornamento forzato della mappa:', e);
+        
+        // Force redraw of tiles and paths
+        setTimeout(() => {
+          map.invalidateSize();
+          // Trigger a slight pan to force redrawing tiles
+          map.panBy([1, 1]);
+          map.panBy([-1, -1]);
+        }, 100);
       }
-    }, 2000);
+    }
+  }, [
+    map,
+    currentPosition,
+    accuracy,
+    heading,
+    activeTrackId,
+    tracks,
+    addLocationToTrack
+  ]);
+  
+  // Setup a background update timer to ensure map is always refreshed
+  useEffect(() => {
+    const forceUpdateInterval = setInterval(() => {
+      if (map && currentPosition) {
+        console.log('🔄 Forcing map refresh from background timer');
+        map.invalidateSize();
+        
+        // If tracking and not dragging, ensure map stays centered
+        if (isTrackingRef.current && !map.dragging.enabled()) {
+          map.panTo(currentPosition);
+        }
+      }
+    }, 5000); // Every 5 seconds
     
-    return () => {
-      clearInterval(intervalId);
-      console.log('🔄 Sistema di aggiornamento automatico mappa fermato');
-    };
-  }, [map, isRecording]);
+    return () => clearInterval(forceUpdateInterval);
+  }, [map, currentPosition]);
   
   return null;
 };
+
+// Aggiunge stili CSS per l'animazione pulse
+useEffect(() => {
+  // Aggiungi uno stile globale per l'animazione pulse se non esiste già
+  if (!document.getElementById('pulse-animation-style')) {
+    const style = document.createElement('style');
+    style.id = 'pulse-animation-style';
+    style.innerHTML = `
+      @keyframes pulse {
+        0% {
+          transform: scale(0.95);
+          opacity: 0.9;
+        }
+        50% {
+          transform: scale(1.2);
+          opacity: 0.5;
+        }
+        100% {
+          transform: scale(0.95);
+          opacity: 0.9;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    console.log('💥 Stile di animazione pulse aggiunto');
+  }
+}, []);
 
 const NavigationPage: React.FC = () => {
   const { 

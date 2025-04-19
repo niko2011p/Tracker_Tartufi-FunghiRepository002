@@ -87,6 +87,50 @@ function MapInvalidator() {
   return null;
 }
 
+// Componente per forzare aggiornamenti periodici della mappa
+function MapPeriodicUpdater() {
+  const map = useMap();
+  const updateCountRef = useRef(0);
+  
+  useEffect(() => {
+    console.log('MapPeriodicUpdater montato');
+    
+    // Funzione per forzare l'aggiornamento
+    const forceUpdate = () => {
+      updateCountRef.current += 1;
+      console.log(`🔄 Aggiornamento periodico mappa #${updateCountRef.current}`);
+      
+      // Forza ridisegno
+      map.invalidateSize({animate: false, pan: false});
+      
+      // Aggiorna tiles
+      map.eachLayer((layer) => {
+        if (layer instanceof L.TileLayer) {
+          layer.redraw();
+        }
+      });
+      
+      // Piccolo movimento per forzare aggiornamento
+      map.panBy([1, 1], { animate: false });
+      setTimeout(() => {
+        map.panBy([-1, -1], { animate: false });
+      }, 50);
+    };
+    
+    // Avvia aggiornamento iniziale
+    setTimeout(forceUpdate, 500);
+    
+    // Aggiornamenti periodici
+    const intervalId = setInterval(forceUpdate, 2000);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [map]);
+  
+  return null;
+}
+
 // Componente per gestire gli errori di caricamento delle tile
 function TileErrorHandler() {
   const map = useMap();
@@ -884,6 +928,7 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
             
             <TileErrorHandler />
             <MapInvalidator />
+            <MapPeriodicUpdater />
             
             {/* Traccia con stile tratteggiato */}
             {track.coordinates && track.coordinates.length > 1 && (
@@ -904,6 +949,104 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
                 weight={4}
                 opacity={0.8}
               />
+            )}
+            
+            {/* Marcador de inicio (bandera verde) */}
+            {track.startMarker && track.startMarker.coordinates && (
+              <Marker
+                position={track.startMarker.coordinates}
+                icon={L.divIcon({
+                  html: `
+                    <div class="marker-flag" style="
+                      width: 60px;
+                      height: 60px;
+                      position: relative;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      z-index: 3000 !important;
+                    ">
+                      <div class="pulse-ring" style="
+                        position: absolute;
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 50%;
+                        background-color: rgba(76, 175, 80, 0.4);
+                        animation: pulse 2s infinite;
+                        z-index: 2999;
+                      "></div>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); z-index: 3000;">
+                        <path fill="#4CAF50" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        <circle cx="12" cy="7" r="4" fill="white"/>
+                      </svg>
+                    </div>
+                  `,
+                  className: 'start-flag-icon',
+                  iconSize: [60, 60],
+                  iconAnchor: [30, 60],
+                  popupAnchor: [0, -60]
+                })}
+                zIndexOffset={3000}
+              >
+                <Popup>
+                  <div>
+                    <strong>Punto de inicio</strong>
+                    <p>Hora: {track.startMarker.timestamp ? new Date(track.startMarker.timestamp).toLocaleTimeString() : new Date(track.actualStartTime || track.startTime).toLocaleTimeString()}</p>
+                    <p>Precisión: {track.startMarker.accuracy.toFixed(1)}m</p>
+                    <p>Lat: {track.startMarker.coordinates[0].toFixed(6)}</p>
+                    <p>Lon: {track.startMarker.coordinates[1].toFixed(6)}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+            
+            {/* Marcador de fin (bandera naranja) */}
+            {track.endMarker && track.endMarker.coordinates && (
+              <Marker
+                position={track.endMarker.coordinates}
+                icon={L.divIcon({
+                  html: `
+                    <div class="marker-flag" style="
+                      width: 60px;
+                      height: 60px;
+                      position: relative;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      z-index: 3000 !important;
+                    ">
+                      <div class="pulse-ring" style="
+                        position: absolute;
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 50%;
+                        background-color: rgba(255, 152, 0, 0.4);
+                        animation: pulse 2s infinite;
+                        z-index: 2999;
+                      "></div>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); z-index: 3000;">
+                        <path fill="#FF9800" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        <path fill="white" d="M12 11.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                      </svg>
+                    </div>
+                  `,
+                  className: 'end-flag-icon',
+                  iconSize: [60, 60],
+                  iconAnchor: [30, 60], 
+                  popupAnchor: [0, -60]
+                })}
+                zIndexOffset={3000}
+              >
+                <Popup>
+                  <div>
+                    <strong>Punto final</strong>
+                    <p>Hora: {track.endMarker.timestamp ? new Date(track.endMarker.timestamp).toLocaleTimeString() : new Date(track.actualEndTime || track.endTime).toLocaleTimeString()}</p>
+                    <p>Precisión: {track.endMarker.accuracy.toFixed(1)}m</p>
+                    <p>Lat: {track.endMarker.coordinates[0].toFixed(6)}</p>
+                    <p>Lon: {track.endMarker.coordinates[1].toFixed(6)}</p>
+                  </div>
+                </Popup>
+              </Marker>
             )}
             
             {track.findings?.map((finding: Finding) => (
