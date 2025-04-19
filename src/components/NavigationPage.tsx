@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useTrackStore } from '../store/trackStore';
@@ -36,6 +36,50 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
   const lastPositionRef = useRef<[number, number]>([0, 0]);
   const { isRecording, currentTrack } = useTrackStore();
   
+  // Forza il ricaricamento delle tiles quando la posizione cambia significativamente
+  const forceTileRefresh = useCallback(() => {
+    // Invalidate size forza Leaflet a ricalcolare le dimensioni e le tiles visibili
+    map.invalidateSize();
+    
+    // Forza l'aggiornamento di tutte le tiles
+    map.eachLayer(layer => {
+      if (layer instanceof L.TileLayer) {
+        layer.redraw();
+      }
+    });
+    
+    console.log('🔄 Tiles della mappa aggiornate forzatamente');
+  }, [map]);
+  
+  // Esegui un controllo periodico per forzare l'aggiornamento della mappa durante la registrazione
+  useEffect(() => {
+    if (!isRecording) return;
+    
+    console.log('⏱️ Attivato timer di aggiornamento mappa durante la registrazione');
+    
+    // Ogni 3 secondi, forza l'aggiornamento delle tiles e la centratura
+    const intervalId = setInterval(() => {
+      if (position[0] !== 0 && position[1] !== 0) {
+        // Aggiorna il centro della mappa se necessario
+        if (autoCenter && isRecording) {
+          map.panTo(position, { 
+            animate: true, 
+            duration: 0.5,
+            easeLinearity: 0.5
+          });
+        }
+        
+        // Forza refresh delle tiles
+        forceTileRefresh();
+      }
+    }, 3000);
+    
+    return () => {
+      clearInterval(intervalId);
+      console.log('⏱️ Timer di aggiornamento mappa fermato');
+    };
+  }, [map, isRecording, position, autoCenter, forceTileRefresh]);
+  
   useEffect(() => {
     // Se la posizione è valida e il flag di centraggio automatico è attivo
     if (position[0] !== 0 && position[1] !== 0) {
@@ -49,8 +93,8 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
       
       // Vari casi in cui dobbiamo centrare la mappa:
       // 1. Non abbiamo ancora fatto il primo aggiornamento
-      // 2. L'utente ha attivato il centraggio automatico
-      // 3. Stiamo registrando la traccia (e l'autoCenter è attivo)
+      // 2. L'utente ha attivato il centraggio automatico e stiamo registrando
+      // 3. La posizione è cambiata significativamente e l'autoCenter è attivo
       if (!initialUpdateRef.current || 
           (autoCenter && (isRecording || hasMovedSignificantly))) {
         
@@ -64,6 +108,9 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
             duration: 1
           });
           initialUpdateRef.current = true;
+          
+          // Dopo l'impostazione iniziale, forza un refresh delle tiles
+          setTimeout(forceTileRefresh, 500);
         } else {
           // Centraggio durante la registrazione: più rapido e fluido
           map.panTo(position, {
@@ -71,13 +118,18 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
             duration: 0.5,
             easeLinearity: 0.5
           });
+          
+          // Se ci siamo spostati significativamente, forza il refresh delle tiles
+          if (hasMovedSignificantly) {
+            forceTileRefresh();
+          }
         }
         
         // Log per debug
         console.log(`🗺️ Mappa centrata su [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
       }
     }
-  }, [position, map, autoCenter, isRecording, currentTrack]);
+  }, [position, map, autoCenter, isRecording, forceTileRefresh]);
   
   // Effetto aggiuntivo che verifica se sono presenti marker di inizio/fine
   useEffect(() => {
@@ -85,6 +137,15 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
       // Controlla se ci sono marker da visualizzare sulla mappa
       const hasStartMarker = currentTrack.startMarker && currentTrack.startMarker.coordinates;
       const hasEndMarker = currentTrack.endMarker && currentTrack.endMarker.coordinates;
+      
+      // Log dettagliato per debug dei marker
+      if (hasStartMarker) {
+        console.log('🚩 Marker di inizio presente alle coordinate:', currentTrack.startMarker!.coordinates);
+      }
+      
+      if (hasEndMarker) {
+        console.log('🏁 Marker di fine presente alle coordinate:', currentTrack.endMarker!.coordinates);
+      }
       
       // Se abbiamo sia il marker di inizio che di fine, aggiungiamo un effetto per inquadrare tutta la traccia
       if (hasStartMarker && hasEndMarker && !isRecording) {
@@ -109,12 +170,15 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
             padding: [50, 50],
             animate: true
           });
+          
+          // Forza refresh delle tiles dopo il fit bounds
+          setTimeout(forceTileRefresh, 500);
         } catch (e) {
           console.error('❌ Errore nel fitBounds:', e);
         }
       }
     }
-  }, [currentTrack, map, position, isRecording]);
+  }, [currentTrack, map, position, isRecording, forceTileRefresh]);
   
   return null;
 };
@@ -196,104 +260,131 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
+    // Debug dei marker della traccia
+    if (track.startMarker) {
+      console.log('🚩 Track ha startMarker:', track.startMarker);
+    } else {
+      console.warn('⚠️ Track non ha startMarker!');
+    }
+    
+    if (track.endMarker) {
+      console.log('🏁 Track ha endMarker:', track.endMarker);
+    }
+
     // Add start marker if available
     if (track.startMarker && track.startMarker.coordinates) {
       console.log('🚩 Adding start marker at', track.startMarker.coordinates);
       
-      const startMarker = L.marker(track.startMarker.coordinates, {
-        icon: L.divIcon({
-          html: `
-            <div class="marker-flag" style="
-              width: 40px;
-              height: 40px;
-              position: relative;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-            ">
-              <div style="
+      try {
+        const startMarker = L.marker(track.startMarker.coordinates, {
+          icon: L.divIcon({
+            html: `
+              <div class="marker-flag" style="
                 width: 40px;
                 height: 40px;
-                background-image: url('/assets/icons/Start_Track_icon.svg');
-                background-size: contain;
-                background-position: center;
-                background-repeat: no-repeat;
-                filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
-              "></div>
-            </div>
-          `,
-          className: 'start-flag-icon',
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-          popupAnchor: [0, -40]
-        }),
-        zIndexOffset: 1000
-      });
+                position: relative;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 2000 !important;
+              ">
+                <div style="
+                  width: 40px;
+                  height: 40px;
+                  background-image: url('/assets/icons/Start_Track_icon.svg');
+                  background-size: contain;
+                  background-position: center;
+                  background-repeat: no-repeat;
+                  filter: drop-shadow(0 3px 3px rgba(0,0,0,0.5));
+                "></div>
+              </div>
+            `,
+            className: 'start-flag-icon',
+            iconSize: [40, 40],
+            iconAnchor: [20, 40],
+            popupAnchor: [0, -40]
+          }),
+          zIndexOffset: 2000 // Assicura che sia sopra tutti gli altri elementi
+        });
 
-      // Create a formatted time string safely
-      const startTime = track.actualStartTime || track.startTime;
-      const timeString = startTime ? startTime.toLocaleTimeString() : 'N/A';
+        // Create a formatted time string safely
+        const startTime = track.actualStartTime || track.startTime;
+        const timeString = startTime ? startTime.toLocaleTimeString() : 'N/A';
 
-      startMarker.bindPopup(`
-        <div>
-          <strong>Punto de inicio</strong>
-          <p>Hora: ${timeString}</p>
-          <p>Precisión: ${track.startMarker.accuracy.toFixed(1)}m</p>
-        </div>
-      `);
+        startMarker.bindPopup(`
+          <div>
+            <strong>Punto de inicio</strong>
+            <p>Hora: ${timeString}</p>
+            <p>Precisión: ${track.startMarker.accuracy.toFixed(1)}m</p>
+            <p>Lat: ${track.startMarker.coordinates[0].toFixed(6)}</p>
+            <p>Lon: ${track.startMarker.coordinates[1].toFixed(6)}</p>
+          </div>
+        `);
 
-      startMarker.addTo(map);
-      markersRef.current.push(startMarker);
+        startMarker.addTo(map);
+        markersRef.current.push(startMarker);
+        console.log('✅ Start marker aggiunto con successo!');
+      } catch (e) {
+        console.error('❌ Errore aggiungendo start marker:', e);
+      }
     }
 
     // Add end marker if available
     if (track.endMarker && track.endMarker.coordinates) {
       console.log('🚩 Adding end marker at', track.endMarker.coordinates);
       
-      const endMarker = L.marker(track.endMarker.coordinates, {
-        icon: L.divIcon({
-          html: `
-            <div class="marker-flag" style="
-              width: 40px;
-              height: 40px;
-              position: relative;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-            ">
-              <div style="
+      try {
+        const endMarker = L.marker(track.endMarker.coordinates, {
+          icon: L.divIcon({
+            html: `
+              <div class="marker-flag" style="
                 width: 40px;
                 height: 40px;
-                background-image: url('/assets/icons/End_Track_icon.svg');
-                background-size: contain;
-                background-position: center;
-                background-repeat: no-repeat;
-                filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
-              "></div>
-            </div>
-          `,
-          className: 'end-flag-icon',
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-          popupAnchor: [0, -40]
-        }),
-        zIndexOffset: 1000
-      });
+                position: relative;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 2000 !important;
+              ">
+                <div style="
+                  width: 40px;
+                  height: 40px;
+                  background-image: url('/assets/icons/End_Track_icon.svg');
+                  background-size: contain;
+                  background-position: center;
+                  background-repeat: no-repeat;
+                  filter: drop-shadow(0 3px 3px rgba(0,0,0,0.5));
+                "></div>
+              </div>
+            `,
+            className: 'end-flag-icon',
+            iconSize: [40, 40],
+            iconAnchor: [20, 40], 
+            popupAnchor: [0, -40]
+          }),
+          zIndexOffset: 2000 // Assicura che sia sopra tutti gli altri elementi
+        });
 
-      // Create a formatted time string safely
-      const endTime = track.actualEndTime || track.endTime;
-      const timeString = endTime ? endTime.toLocaleTimeString() : 'N/A';
+        // Create a formatted time string safely
+        const endTime = track.actualEndTime || track.endTime;
+        const timeString = endTime ? endTime.toLocaleTimeString() : 'N/A';
 
-      endMarker.bindPopup(`
-        <div>
-          <strong>Punto final</strong>
-          <p>Hora: ${timeString}</p>
-          <p>Precisión: ${track.endMarker.accuracy.toFixed(1)}m</p>
-        </div>
-      `);
+        endMarker.bindPopup(`
+          <div>
+            <strong>Punto final</strong>
+            <p>Hora: ${timeString}</p>
+            <p>Precisión: ${track.endMarker.accuracy.toFixed(1)}m</p>
+            <p>Lat: ${track.endMarker.coordinates[0].toFixed(6)}</p>
+            <p>Lon: ${track.endMarker.coordinates[1].toFixed(6)}</p>
+          </div>
+        `);
 
-      endMarker.addTo(map);
-      markersRef.current.push(endMarker);
+        endMarker.addTo(map);
+        markersRef.current.push(endMarker);
+        console.log('✅ End marker aggiunto con successo!');
+      } catch (e) {
+        console.error('❌ Errore aggiungendo end marker:', e);
+      }
     }
 
     return () => {
@@ -348,6 +439,55 @@ const GpsPositionUpdater = () => {
       }
     };
   }, [updateCurrentPosition, isRecording, currentTrack]);
+  
+  return null;
+};
+
+// Un componente specifico per aggiornare la mappa regolarmente
+const MapUpdater = () => {
+  const map = useMap();
+  const { isRecording } = useTrackStore();
+  
+  useEffect(() => {
+    if (!isRecording) return;
+    
+    console.log('🔄 Attivato sistema di aggiornamento automatico mappa');
+    
+    // Forza l'aggiornamento della mappa ogni 2 secondi
+    const intervalId = setInterval(() => {
+      // Invalidare la dimensione forza Leaflet a ricalcolare tutto
+      map.invalidateSize(true);
+      
+      // Aggiorna le tiles
+      map.eachLayer(layer => {
+        if (layer instanceof L.TileLayer) {
+          layer.redraw();
+        }
+      });
+      
+      // Forza un aggiornamento dei bounds
+      try {
+        const bounds = map.getBounds();
+        map.setView(map.getCenter(), map.getZoom(), {
+          animate: false
+        });
+        // Forza un aggiornamento di tutti i layer della mappa
+        map.eachLayer((layer) => {
+          if ('redraw' in layer) {
+            (layer as any).redraw();
+          }
+        });
+        console.log('🔄 Vista mappa aggiornata forzatamente');
+      } catch (e) {
+        console.error('❌ Errore nell\'aggiornamento forzato della mappa:', e);
+      }
+    }, 2000);
+    
+    return () => {
+      clearInterval(intervalId);
+      console.log('🔄 Sistema di aggiornamento automatico mappa fermato');
+    };
+  }, [map, isRecording]);
   
   return null;
 };
@@ -513,6 +653,9 @@ const NavigationPage: React.FC = () => {
         
         {/* Auto-center component */}
         <MapViewUpdater position={currentPosition} autoCenter={autoCenterMap} />
+        
+        {/* Aggiornamento forzato mappa */}
+        <MapUpdater />
         
         {/* GPS Position Updater component - keeps store in sync with GPS */}
         <GpsPositionUpdater />

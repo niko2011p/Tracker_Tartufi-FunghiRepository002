@@ -16,32 +16,29 @@
                 icon={L.divIcon({
                   html: `
                     <div class="marker-flag" style="
-                      width: 32px;
-                      height: 32px;
+                      width: 40px;
+                      height: 40px;
                       position: relative;
                       display: flex;
-                      flex-direction: column;
+                      justify-content: center;
                       align-items: center;
+                      z-index: 1000;
                     ">
                       <div style="
-                        width: 14px;
-                        height: 20px;
-                        background-color: ${track.startMarker.color};
-                        clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                      "></div>
-                      <div style="
-                        width: 3px;
-                        height: 24px;
-                        background-color: #555;
-                        margin-top: -4px;
+                        width: 40px;
+                        height: 40px;
+                        background-image: url('/assets/icons/Start_Track_icon.svg');
+                        background-size: contain;
+                        background-position: center;
+                        background-repeat: no-repeat;
+                        filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
                       "></div>
                     </div>
                   `,
                   className: 'start-flag-icon',
-                  iconSize: [32, 44],
-                  iconAnchor: [7, 44],
-                  popupAnchor: [0, -44]
+                  iconSize: [40, 40],
+                  iconAnchor: [20, 40],
+                  popupAnchor: [0, -40]
                 })}
               >
                 <Popup>
@@ -61,32 +58,29 @@
                 icon={L.divIcon({
                   html: `
                     <div class="marker-flag" style="
-                      width: 32px;
-                      height: 32px;
+                      width: 40px;
+                      height: 40px;
                       position: relative;
                       display: flex;
-                      flex-direction: column;
+                      justify-content: center;
                       align-items: center;
+                      z-index: 1000;
                     ">
                       <div style="
-                        width: 14px;
-                        height: 20px;
-                        background-color: ${track.endMarker.color};
-                        clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                      "></div>
-                      <div style="
-                        width: 3px;
-                        height: 24px;
-                        background-color: #555;
-                        margin-top: -4px;
+                        width: 40px;
+                        height: 40px;
+                        background-image: url('/assets/icons/End_Track_icon.svg');
+                        background-size: contain;
+                        background-position: center;
+                        background-repeat: no-repeat;
+                        filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
                       "></div>
                     </div>
                   `,
                   className: 'end-flag-icon',
-                  iconSize: [32, 44],
-                  iconAnchor: [7, 44], 
-                  popupAnchor: [0, -44]
+                  iconSize: [40, 40],
+                  iconAnchor: [20, 40], 
+                  popupAnchor: [0, -40]
                 })}
               >
                 <Popup>
