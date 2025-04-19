@@ -260,7 +260,7 @@ const FindingsLayer = ({ findings }: { findings: Finding[] }) => {
 };
 
 // Component to display start and end markers
-const TrackMarkersLayer = ({ track }: { track: Track }) => {
+const TrackMarkersLayer: React.FC<{ track: Track }> = ({ track }) => {
   const map = useMap();
   const markersRef = useRef<L.Marker[]>([]);
 
@@ -270,20 +270,20 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
     markersRef.current = [];
 
     // Detailed debug logs for marker presence
-    if (track.startMarker) {
+    if (track?.startMarker && track.startMarker.coordinates) {
       console.log('🚩 Track ha startMarker:', JSON.stringify(track.startMarker));
     } else {
       console.warn('⚠️ Track non ha startMarker!');
     }
     
-    if (track.endMarker) {
+    if (track?.endMarker && track.endMarker.coordinates) {
       console.log('🏁 Track ha endMarker:', JSON.stringify(track.endMarker));
     } else if (track.isPaused === false) { // Solo se la traccia non è in pausa
       console.warn('⚠️ Track non ha endMarker!');
     }
 
     // Add start marker if available
-    if (track.startMarker && track.startMarker?.coordinates) {
+    if (track?.startMarker && track.startMarker.coordinates) {
       console.log('🚩 Adding start marker at', track.startMarker.coordinates);
       
       try {
@@ -371,7 +371,7 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
     }
 
     // Add end marker if available
-    if (track.endMarker && track.endMarker?.coordinates) {
+    if (track?.endMarker && track.endMarker.coordinates) {
       console.log('🏁 Adding end marker at', track.endMarker.coordinates);
       
       try {
@@ -541,14 +541,17 @@ const GpsPositionUpdater = () => {
       const { latitude, longitude, accuracy, altitude, speed, heading } = position.coords;
       const newPosition: [number, number] = [latitude, longitude];
       
-      // Check if we should update based on time
+      // Always update position in store immediately for tracking
+      trackStore.updateCurrentPosition(newPosition);
+      
+      // Check if we should perform additional actions based on time
       const now = Date.now();
       const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
       
-      // Determine update frequency based on movement
-      const updateFrequency = speed && speed > 2 ? 1000 : 3000;
+      // Determine update frequency - always update more frequently when recording
+      const updateFrequency = trackStore.isRecording ? 500 : (speed && speed > 1 ? 1000 : 2000);
       
-      // Skip updates that happen too frequently
+      // Skip additional processing if it's too soon
       if (timeSinceLastUpdate < updateFrequency) {
         return;
       }
@@ -557,13 +560,16 @@ const GpsPositionUpdater = () => {
       lastUpdateTimeRef.current = now;
       updateCountRef.current += 1;
       
-      // Update position in store
-      trackStore.updateCurrentPosition(newPosition);
       lastPositionRef.current = newPosition;
       
       // Log at reduced frequency
-      if (updateCountRef.current % 5 === 0) {
-        console.log(`🧭 GPS update: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], acc: ${accuracy.toFixed(1)}m`);
+      if (updateCountRef.current % 10 === 0) {
+        console.log(`🧭 GPS update: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], acc: ${accuracy.toFixed(1)}m, speed: ${speed || 0}m/s`);
+      }
+      
+      // Force a map update when tracking
+      if (trackStore.isRecording && map) {
+        map.invalidateSize({ animate: false });
       }
     };
     
@@ -589,12 +595,17 @@ const GpsPositionUpdater = () => {
     
     setupWatcher();
     
-    // Force map update periodically
+    // Force map update periodically - less frequently than before
     const forceUpdateInterval = setInterval(() => {
       if (map) {
         map.invalidateSize();
+        // Explicitly trigger polyline redraw by panning slightly
+        if (trackStore.isRecording && lastPositionRef.current) {
+          map.panBy([1, 0]);
+          setTimeout(() => map.panBy([-1, 0]), 50);
+        }
       }
-    }, 5000);
+    }, 10000); // Reduced from 5000ms to 10000ms
     
     return () => {
       if (watchIdRef.current !== null) {
@@ -607,86 +618,68 @@ const GpsPositionUpdater = () => {
   return null;
 };
 
-// Simplified Map Updater
-const MapUpdater = () => {
+// Add a custom track polyline layer before the NavigationPage component
+const TrackPolylineLayer = () => {
   const map = useMap();
   const trackStore = useTrackStore();
-  
-  const updateCountRef = useRef(0);
-  const lastRefreshRef = useRef(Date.now());
   const polylineRef = useRef<L.Polyline | null>(null);
-  
-  // Force map redraw and update polyline
-  const forceMapUpdate = useCallback(() => {
-    if (!map) return;
-    
-    // Force map to redraw
-    map.invalidateSize({ animate: false, pan: false });
-    
-    // Force redraw of all tiles on the map
-    map.eachLayer(layer => {
-      if ('redraw' in layer) {
-        try {
-          (layer as any).redraw();
-        } catch (e) {
-          // Ignore redraw errors
-        }
-      }
-    });
-    
-    // Load tiles in view - use a safe approach
-    try {
-      // Trigger map resize event to force tile loading
-      window.dispatchEvent(new Event('resize'));
-      
-      // Adjust zoom slightly to force tile refresh
-      if (trackStore.isRecording) {
-        const currentZoom = map.getZoom();
-        if (currentZoom) {
-          map.setZoom(currentZoom - 0.001);
-          setTimeout(() => map.setZoom(currentZoom), 50);
-        }
-      }
-    } catch (e) {
-      console.warn('Error during map refresh:', e);
-    }
-    
-    // Trigger a slight pan to force redrawing tiles
-    if (trackStore.isRecording) {
-      setTimeout(() => {
-        map.panBy([1, 1]);
-        map.panBy([-1, -1]);
-      }, 100);
-    }
-  }, [map, trackStore.isRecording]);
-  
-  // Handle track coordinates changes
+  const lastCoordLengthRef = useRef<number>(0);
+  const lastUpdateTimeRef = useRef<number>(Date.now());
+
+  // Effect to handle track coordinate updates
   useEffect(() => {
-    if (!map || !trackStore.currentTrack?.coordinates) return;
+    if (!map || !trackStore.currentTrack) return;
     
-    // Get current track coordinates
     const { coordinates } = trackStore.currentTrack;
+    const now = Date.now();
     
-    // Clear existing polyline
+    // Skip if no coordinates or if coordinates haven't changed and not enough time has passed
+    if (!coordinates || coordinates.length === 0) {
+      return;
+    }
+    
+    // Only update if coordinates changed or if more than 2 seconds since last update
+    const coordinatesChanged = coordinates.length !== lastCoordLengthRef.current;
+    const timeToForceUpdate = now - lastUpdateTimeRef.current > 1000; // Reduced from 2000ms to 1000ms
+    
+    if (!coordinatesChanged && !timeToForceUpdate) {
+      return;
+    }
+    
+    // Log update (only when coordinates change or periodically)
+    if (coordinatesChanged && coordinates.length % 5 === 0) { // Only log every 5 coordinate additions
+      console.log(`🛣️ Updating track polyline with ${coordinates.length} points`);
+      lastCoordLengthRef.current = coordinates.length;
+      lastUpdateTimeRef.current = now;
+    }
+    
+    // Remove existing polyline
     if (polylineRef.current) {
       polylineRef.current.remove();
     }
     
-    // Create new polyline with updated coordinates
-    if (coordinates.length > 1) {
-      polylineRef.current = L.polyline(coordinates, {
-        color: "#FF9800",
-        weight: 4,
-        opacity: 0.9
-      }).addTo(map);
-      
-      updateCountRef.current += 1;
-      if (updateCountRef.current % 5 === 0) {
-        console.log(`🔄 Updated track polyline with ${coordinates.length} points`);
+    // Create new polyline if there are at least 2 points
+    if (coordinates.length >= 2) {
+      try {
+        polylineRef.current = L.polyline(coordinates, {
+          color: "#FF9800",
+          weight: 4,
+          opacity: 0.9,
+          lineCap: 'round',
+          lineJoin: 'round'
+        }).addTo(map);
+        
+        // Force map redraw to ensure path is visible
+        map.invalidateSize({ animate: false });
+        
+        // For better visibility, pan slightly to trigger a redraw - only do this every few updates
+        if (trackStore.isRecording && coordinates.length % 3 === 0) {
+          map.panBy([1, 1]);
+          setTimeout(() => map.panBy([-1, -1]), 50);
+        }
+      } catch (err) {
+        console.error('Error updating track polyline:', err);
       }
-      
-      // Force map update to ensure polyline is visible
-      forceMapUpdate();
     }
     
     return () => {
@@ -695,42 +688,57 @@ const MapUpdater = () => {
         polylineRef.current = null;
       }
     };
-  }, [map, trackStore.currentTrack?.coordinates, forceMapUpdate]);
+  }, [map, trackStore.currentTrack?.coordinates, trackStore.isRecording]);
   
-  // Handle current position updates and map centering
-  useEffect(() => {
-    if (!map || !trackStore.currentPosition) return;
+  return null;
+};
+
+// Modify the MapUpdater component to better force redraws
+const MapUpdater = () => {
+  const map = useMap();
+  const trackStore = useTrackStore();
+  const updateCountRef = useRef(0);
+  const lastRefreshRef = useRef(Date.now());
+  
+  // Force map redraw more aggressively
+  const forceMapUpdate = useCallback(() => {
+    if (!map) return;
     
-    const now = Date.now();
-    
-    // If tracking is active and auto-center is on, center map on current position
-    if (trackStore.isRecording && !map.dragging.enabled()) {
-      map.panTo(trackStore.currentPosition);
+    try {
+      // Force map to redraw with all options for max compatibility
+      map.invalidateSize({ animate: false, pan: false });
       
-      // Force map update after panning, but not too frequently
-      if (now - lastRefreshRef.current > 1000) {
-        lastRefreshRef.current = now;
-        forceMapUpdate();
-      }
-    }
-  }, [map, trackStore.currentPosition, trackStore.isRecording, forceMapUpdate]);
-  
-  // Set up periodic forced updates
-  useEffect(() => {
-    // More frequent updates during tracking
-    const interval = trackStore.isRecording ? 2000 : 5000;
-    
-    const forceUpdateInterval = setInterval(() => {
-      if (map) {
-        updateCountRef.current += 1;
-        if (updateCountRef.current % 10 === 0) {
-          console.log('🔄 Periodic map refresh');
+      // Force redraw all tile layers
+      map.eachLayer(layer => {
+        if (layer instanceof L.TileLayer) {
+          layer.redraw();
         }
-        forceMapUpdate();
+      });
+      
+      // Only log every few updates
+      updateCountRef.current += 1;
+      if (updateCountRef.current % 5 === 0) {
+        console.log('🗺️ Forced map update');
       }
-    }, interval);
+      
+      lastRefreshRef.current = Date.now();
+    } catch (e) {
+      console.error('Error forcing map update:', e);
+    }
+  }, [map]);
+  
+  // Set up periodic refresh
+  useEffect(() => {
+    if (!map) return;
     
-    return () => clearInterval(forceUpdateInterval);
+    // Different refresh rates based on tracking state
+    const refreshInterval = trackStore.isRecording ? 1500 : 3000;
+    
+    const interval = setInterval(() => {
+      forceMapUpdate();
+    }, refreshInterval);
+    
+    return () => clearInterval(interval);
   }, [map, trackStore.isRecording, forceMapUpdate]);
   
   return null;
@@ -919,12 +927,15 @@ const NavigationPage: React.FC = () => {
             console.log('🗺️ Map is ready');
           }
         }}
-        whenCreated={(mapInstance) => {
+        whenReady={(mapEvent: L.LeafletEvent) => {
           // Additional setup for better performance
-          if (mapInstance) {
+          if (mapEvent.target) {
             // Set fade animation to false for better performance
-            (mapInstance as any).options.fadeAnimation = false;
-            (mapInstance as any).options.zoomAnimation = false;
+            const leafletMap = mapEvent.target as L.Map;
+            if (leafletMap.options) {
+              leafletMap.options.fadeAnimation = false;
+              leafletMap.options.zoomAnimation = false;
+            }
             
             console.log('Map options configured for performance');
           }
@@ -958,15 +969,8 @@ const NavigationPage: React.FC = () => {
           </Popup>
         </Marker>
 
-        {/* Track polyline */}
-        {currentTrack?.coordinates && currentTrack.coordinates.length > 0 && (
-            <Polyline
-              positions={currentTrack.coordinates}
-              color="#FF9800"
-              weight={4}
-              opacity={0.9}
-            />
-        )}
+        {/* Custom track polyline that updates in real-time */}
+        <TrackPolylineLayer track={currentTrack} />
 
         {/* Start and end markers */}
         {currentTrack && <TrackMarkersLayer track={currentTrack} />}
