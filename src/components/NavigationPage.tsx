@@ -69,12 +69,12 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
       if (currentZoom) {
         // Tiny zoom change to force redraw
         map.setZoom(currentZoom - 0.001);
-        setTimeout(() => map.setZoom(currentZoom), 10);
+        setTimeout(() => map.setZoom(currentZoom), 5);
       }
       
       // Pan slightly to force redraw
       map.panBy([1, 1]);
-      setTimeout(() => map.panBy([-1, -1]), 20);
+      setTimeout(() => map.panBy([-1, -1]), 10);
     } catch (e) {
       console.error('Error in complete map refresh:', e);
     }
@@ -96,9 +96,9 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
       if (isRecording) {
         userMovedMapRef.current = true;
         setTimeout(() => {
-          // Auto-reset after 3 seconds to resume auto-centering (reduced from 5s)
+          // Auto-reset after 2 seconds to resume auto-centering (reduced from 3s)
           userMovedMapRef.current = false;
-        }, 3000);
+        }, 2000);
       }
     };
     
@@ -109,13 +109,13 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
     };
   }, [map, isRecording]);
   
-  // Effect for tracking mode - more aggressive updates
+  // Effect for tracking mode - ULTRA-aggressive updates
   useEffect(() => {
     if (!isRecording || !map) return;
     
-    console.log('⏱️ Starting aggressive map tracking mode');
+    console.log('⏱️ Starting ultra-aggressive map tracking mode');
     
-    // During tracking, update very frequently (every 300ms)
+    // During tracking, update extremely frequently (every 150ms)
     const trackingInterval = setInterval(() => {
       if (position[0] === 0 && position[1] === 0) return;
       
@@ -123,7 +123,7 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
       if (autoCenter && !userMovedMapRef.current) {
         map.panTo(position, { 
           animate: true, 
-          duration: 0.2, // Very quick animation
+          duration: 0.1, // Ultra-quick animation
           easeLinearity: 0.5
         });
         
@@ -137,11 +137,11 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
       // Aggressive refresh during tracking
       forceCompleteMapRefresh();
       
-    }, 300); // More frequent updates (was 500ms)
+    }, 150); // Much more frequent updates for continuous motion
     
     return () => {
       clearInterval(trackingInterval);
-      console.log('⏱️ Stopped aggressive map tracking mode');
+      console.log('⏱️ Stopped ultra-aggressive map tracking mode');
     };
   }, [map, isRecording, position, autoCenter, forceCompleteMapRefresh]);
   
@@ -176,12 +176,15 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
       lastUpdateTimeRef.current = now;
       
       // Force complete refresh after initial setup
-      setTimeout(forceCompleteMapRefresh, 200);
+      setTimeout(forceCompleteMapRefresh, 100);
       return;
     }
     
+    // Update more frequently during recording
+    const updateThreshold = isRecording ? 150 : 400; 
+    
     // Limit frequency of regular updates
-    if (timeSinceLastUpdate < (isRecording ? 300 : 800)) {
+    if (timeSinceLastUpdate < updateThreshold && !hasMovedSignificantly) {
       return;
     }
     
@@ -192,16 +195,14 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
     // 1. We're in tracking mode and auto-center is on and user hasn't moved map
     // 2. We've moved significantly and auto-center is on
     if (autoCenter && ((isRecording && !userMovedMapRef.current) || hasMovedSignificantly)) {
-      console.log(`🗺️ Centering map on [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
-      
       map.panTo(position, {
         animate: true,
-        duration: isRecording ? 0.2 : 0.5, // Faster during recording
+        duration: isRecording ? 0.1 : 0.3, // Very fast during recording
         easeLinearity: 0.5
       });
       
       // Refresh map visuals after centering
-      setTimeout(forceCompleteMapRefresh, 100);
+      setTimeout(forceCompleteMapRefresh, 50);
     }
     
   }, [position, map, autoCenter, isRecording, forceCompleteMapRefresh]);
@@ -392,41 +393,47 @@ const GpsPositionUpdater = () => {
       const now = Date.now();
       const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
       
-      // More frequent updates during recording (300ms vs 800ms)
-      const updateFrequency = trackStore.isRecording ? 300 : 800;
+      // Always update during recording, use speed to determine frequency
+      const speedBasedFrequency = speed && speed > 1 ? 100 : 250;
+      const updateFrequency = trackStore.isRecording ? speedBasedFrequency : 500;
       
       // Position changed significantly
       const positionChangedSignificantly = 
         lastPositionRef.current &&
         (Math.abs(newPosition[0] - lastPositionRef.current[0]) > 0.00001 ||
          Math.abs(newPosition[1] - lastPositionRef.current[1]) > 0.00001);
+      
+      // Always update when recording or position changed significantly
+      if (trackStore.isRecording || positionChangedSignificantly || timeSinceLastUpdate >= updateFrequency) {
+        // Update time and counter
+        lastUpdateTimeRef.current = now;
+        updateCountRef.current += 1;
+        lastPositionRef.current = newPosition;
         
-      // Skip auxiliary operations if too frequent and position hasn't changed much
-      if (timeSinceLastUpdate < updateFrequency && !positionChangedSignificantly) {
-        return;
-      }
-      
-      // Update time and counter
-      lastUpdateTimeRef.current = now;
-      updateCountRef.current += 1;
-      lastPositionRef.current = newPosition;
-      
-      // Only log every 5th update to reduce console noise
-      if (updateCountRef.current % 5 === 0) {
-        console.log(`🧭 GPS: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], acc: ${accuracy.toFixed(1)}m, spd: ${speed || 0}m/s`);
-      }
-      
-      // If recording, force map to refresh on significant position change or every few updates
-      if (trackStore.isRecording && 
-          (positionChangedSignificantly || updateCountRef.current % 3 === 0)) {
-        // Force map update to ensure position is visible
-        map.invalidateSize({ animate: false });
+        // Only log every 3rd update to reduce console noise
+        if (updateCountRef.current % 3 === 0) {
+          console.log(`🧭 GPS: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], acc: ${accuracy.toFixed(1)}m, spd: ${speed || 0}m/s`);
+        }
         
-        // Explicitly trigger redraw with a micro-pan
-        setTimeout(() => {
+        // Force map update on EVERY position change during recording
+        if (trackStore.isRecording) {
+          // Force map update to ensure position is visible
+          map.invalidateSize({ animate: false });
+          
+          // Explicitly trigger redraw with a micro-pan
           map.panBy([1, 0]);
-          setTimeout(() => map.panBy([-1, 0]), 30);
-        }, 50);
+          setTimeout(() => map.panBy([-1, 0]), 10);
+          
+          // If we're tracking and the position changed significantly, ensure polyline is visible
+          if (positionChangedSignificantly) {
+            // Force all layers to redraw
+            map.eachLayer(layer => {
+              if (layer instanceof L.TileLayer) {
+                layer.redraw();
+              }
+            });
+          }
+        }
       }
     };
     
@@ -439,13 +446,13 @@ const GpsPositionUpdater = () => {
       console.log('🧭 Setting up high-precision GPS watcher...');
       
       watchIdRef.current = navigator.geolocation.watchPosition(
-      updatePosition,
-      (error) => {
+        updatePosition,
+        (error) => {
           console.error('❌ GPS error:', error.message);
         },
         {
           enableHighAccuracy: true,
-          timeout: 5000, // Reduced timeout for faster responses
+          timeout: 1000, // Reduced timeout for faster responses
           maximumAge: 0   // Always get fresh positions
         }
       );
@@ -465,15 +472,15 @@ const GpsPositionUpdater = () => {
           if (currentZoom) {
             // Micro-zoom to force redraw
             map.setZoom(currentZoom - 0.001);
-            setTimeout(() => map.setZoom(currentZoom), 50);
+            setTimeout(() => map.setZoom(currentZoom), 20);
           }
           
           // Micro-pan to force redraw
           map.panBy([1, 1]);
-          setTimeout(() => map.panBy([-1, -1]), 50);
+          setTimeout(() => map.panBy([-1, -1]), 20);
         }
       }
-    }, 3000); // Every 3 seconds
+    }, 1000); // Every 1 second (more frequent)
     
     return () => {
       if (watchIdRef.current !== null) {
@@ -524,7 +531,7 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
           padding: [50, 50],
           maxZoom: 18,
           animate: true,
-          duration: 0.3 // Faster animation
+          duration: 0.2 // Fast animation
         });
         
         // Force redraw all layers to ensure visibility
@@ -541,13 +548,28 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
     // Force the polyline to be visible by manipulating its style directly
     try {
       if (polylineRef.current) {
+        // Force redraw by adding and removing a class
+        const polylinePath = polylineRef.current.getElement();
+        if (polylinePath) {
+          polylinePath.classList.remove('force-redraw');
+          setTimeout(() => polylinePath.classList.add('force-redraw'), 10);
+        }
+        
+        // Direct DOM manipulation for visibility
         const pathElements = document.querySelectorAll('.track-polyline');
         pathElements.forEach(el => {
           (el as HTMLElement).style.visibility = 'visible';
           (el as HTMLElement).style.display = 'block';
           (el as HTMLElement).style.zIndex = '650';
+          (el as HTMLElement).style.stroke = '#FF9800';
+          (el as HTMLElement).style.strokeWidth = '5px';
+          (el as HTMLElement).style.strokeOpacity = '1';
+          
+          // Add animation flash to make it more visible
           (el as HTMLElement).style.animation = 'none';
-          (el as HTMLElement).style.animation = 'fadeIn 0.3s';
+          setTimeout(() => {
+            (el as HTMLElement).style.animation = 'fadeIn 0.3s';
+          }, 5);
         });
       }
     } catch (e) {
@@ -560,10 +582,11 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
     
     const coordinates = track.coordinates || [];
     
-    // Determine if we need to redraw
+    // Determine if we need to redraw - ALWAYS update during recording
     const now = Date.now();
     const coordinatesChanged = lastCoordLengthRef.current !== coordinates.length;
-    const forceRedrawNeeded = (now - lastForceRedrawTime.current) > 1000; // Force redraw more frequently (was 3000ms)
+    const forceRedrawNeeded = trackStore.isRecording || 
+                             (now - lastForceRedrawTime.current) > 500; // Much more frequent
     
     if (!coordinatesChanged && !forceRedrawNeeded) {
       return;
@@ -642,7 +665,7 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
             .track-latest-segment {
               stroke: #FFCC00 !important;
               stroke-width: 7px !important;
-              animation: dash 1.5s linear infinite;
+              animation: dash 1s linear infinite;
               stroke-dasharray: 10, 10 !important;
               stroke-linecap: round !important;
             }
@@ -655,6 +678,9 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
               from { opacity: 0.5; }
               to { opacity: 1; }
             }
+            .force-redraw {
+              stroke-width: 5.001px !important;
+            }
           `;
           document.head.appendChild(style);
         }
@@ -663,7 +689,7 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
         map.invalidateSize({ animate: false });
         
         // Force visible after a slight delay to ensure rendering
-        setTimeout(ensurePolylineVisibility, 50);
+        setTimeout(ensurePolylineVisibility, 10);
         
       } catch (err) {
         console.error('Error creating track polyline:', err);
@@ -686,7 +712,7 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
   useEffect(() => {
     if (!map || !trackStore.isRecording) return;
     
-    // During recording, force updates every 300ms to ensure visibility
+    // During recording, force updates every 100ms for smooth tracking
     const visibilityInterval = setInterval(() => {
       ensurePolylineVisibility();
       
@@ -704,8 +730,12 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
             }
           }
         });
+        
+        // Mini-pan trick for forced redraw
+        map.panBy([0.5, 0.5]);
+        setTimeout(() => map.panBy([-0.5, -0.5]), 10);
       }
-    }, 300); // More frequent (was 500ms)
+    }, 100); // Very frequent updates for smooth tracking
     
     return () => {
       clearInterval(visibilityInterval);
@@ -720,11 +750,19 @@ const MapUpdater = () => {
   const map = useMap();
   const trackStore = useTrackStore();
   const forceUpdateCountRef = useRef(0);
+  const lastUpdatedRef = useRef(Date.now());
   
   // This function will force a complete redraw of the map
   const forceFullMapUpdate = useCallback(() => {
     if (!map) return;
     
+    const now = Date.now();
+    // Limit update frequency to prevent excessive redraws
+    if (!trackStore.isRecording && now - lastUpdatedRef.current < 500) {
+      return;
+    }
+    
+    lastUpdatedRef.current = now;
     forceUpdateCountRef.current++;
     
     try {
@@ -744,12 +782,12 @@ const MapUpdater = () => {
       const currentZoom = map.getZoom();
       if (currentZoom) {
         map.setZoom(currentZoom - 0.001);
-        setTimeout(() => map.setZoom(currentZoom), 20);
+        setTimeout(() => map.setZoom(currentZoom), 10);
       }
       
       // 4. Pan trick - tiny pan to force redraw
       map.panBy([1, 1]);
-      setTimeout(() => map.panBy([-1, -1]), 30);
+      setTimeout(() => map.panBy([-1, -1]), 15);
       
       // 5. Fire map events to trigger internal updates
       map.fire('move');
@@ -757,21 +795,26 @@ const MapUpdater = () => {
       
       // 6. Force browser reflow
       window.dispatchEvent(new Event('resize'));
+      
+      // Log less frequently to reduce noise
+      if (forceUpdateCountRef.current % 10 === 0) {
+        console.log(`🗺️ Map force refreshed (${forceUpdateCountRef.current})`);
+      }
     } catch (e) {
       console.error('Error during full map update:', e);
     }
-  }, [map]);
+  }, [map, trackStore.isRecording]);
   
-  // Create a specific update effect for tracking
+  // Create a specific update effect for tracking - MORE FREQUENT
   useEffect(() => {
     if (!map || !trackStore.isRecording) return;
     
-    console.log('⏱️ Starting active tracking map updates');
+    console.log('⏱️ Starting active tracking map updates (high frequency)');
     
     // During active tracking, update the map very frequently
     const trackingInterval = setInterval(() => {
       forceFullMapUpdate();
-    }, 400); // More frequent than previous (was 700ms)
+    }, 200); // Much more frequent
     
     return () => {
       clearInterval(trackingInterval);
@@ -784,7 +827,7 @@ const MapUpdater = () => {
     if (!map) return;
     
     // Different intervals based on tracking state
-    const interval = trackStore.isRecording ? 800 : 2000; // More frequent than before
+    const interval = trackStore.isRecording ? 500 : 1000;
     
     const generalUpdateInterval = setInterval(() => {
       forceFullMapUpdate();
