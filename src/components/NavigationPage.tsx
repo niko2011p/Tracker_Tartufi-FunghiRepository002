@@ -283,7 +283,7 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
     }
 
     // Add start marker if available
-    if (track.startMarker && track.startMarker.coordinates) {
+    if (track.startMarker && track.startMarker?.coordinates) {
       console.log('🚩 Adding start marker at', track.startMarker.coordinates);
       
       try {
@@ -309,10 +309,12 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
                   animation: pulse 2s infinite;
                   z-index: 9999;
                 "></div>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); z-index: 10000; transform: scale(1.2);">
-                  <path fill="#4CAF50" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  <circle cx="12" cy="7" r="4" fill="white"/>
-                </svg>
+                <img src="/assets/icons/Start_Track_icon.svg" style="
+                  width: 48px;
+                  height: 48px;
+                  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+                  z-index: 10000;
+                " />
               </div>
             `,
             className: 'start-flag-icon',
@@ -331,9 +333,9 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
           <div>
             <strong>Punto de inicio</strong>
             <p>Hora: ${timeString}</p>
-            <p>Precisión: ${track.startMarker.accuracy.toFixed(1)}m</p>
-            <p>Lat: ${track.startMarker.coordinates[0].toFixed(6)}</p>
-            <p>Lon: ${track.startMarker.coordinates[1].toFixed(6)}</p>
+            <p>Precisión: ${track.startMarker?.accuracy?.toFixed(1) || 'N/A'}m</p>
+            <p>Lat: ${track.startMarker?.coordinates[0].toFixed(6) || 'N/A'}</p>
+            <p>Lon: ${track.startMarker?.coordinates[1].toFixed(6) || 'N/A'}</p>
           </div>
         `);
 
@@ -369,7 +371,7 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
     }
 
     // Add end marker if available
-    if (track.endMarker && track.endMarker.coordinates) {
+    if (track.endMarker && track.endMarker?.coordinates) {
       console.log('🏁 Adding end marker at', track.endMarker.coordinates);
       
       try {
@@ -394,10 +396,12 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
                   animation: pulse 2s infinite;
                   z-index: 9999;
                 "></div>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); z-index: 10000; transform: scale(1.2);">
-                  <path fill="#FF9800" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  <path fill="white" d="M12 11.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
+                <img src="/assets/icons/End_Track_icon.svg" style="
+                  width: 48px;
+                  height: 48px;
+                  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+                  z-index: 10000;
+                " />
               </div>
             `,
             className: 'end-flag-icon',
@@ -416,9 +420,9 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
           <div>
             <strong>Punto final</strong>
             <p>Hora: ${timeString}</p>
-            <p>Precisión: ${track.endMarker.accuracy.toFixed(1)}m</p>
-            <p>Lat: ${track.endMarker.coordinates[0].toFixed(6)}</p>
-            <p>Lon: ${track.endMarker.coordinates[1].toFixed(6)}</p>
+            <p>Precisión: ${track.endMarker?.accuracy?.toFixed(1) || 'N/A'}m</p>
+            <p>Lat: ${track.endMarker?.coordinates[0].toFixed(6) || 'N/A'}</p>
+            <p>Lon: ${track.endMarker?.coordinates[1].toFixed(6) || 'N/A'}</p>
           </div>
         `);
 
@@ -517,223 +521,138 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
 // Component to handle live GPS position updates
 const GpsPositionUpdater = () => {
   const map = useMap();
-  const { 
-    setCurrentPosition, 
-    setAccuracy, 
-    setHeading, 
-    setSpeed, 
-    setElevation,
-    setTrackingData,
-    activeTrackId,
-    tracks
-  } = useTrackStore();
-
+  const trackStore = useTrackStore();
+  
   const watchIdRef = useRef<number | null>(null);
-  const lastUpdateRef = useRef<number>(0);
-  const highAccuracyFailedRef = useRef<boolean>(false);
-
+  const updateCountRef = useRef(0);
+  const lastPositionRef = useRef<[number, number] | null>(null);
+  const lastUpdateTimeRef = useRef(Date.now());
+  const isTrackingRef = useRef(trackStore.isRecording);
+  
+  // Keep tracking ref in sync
   useEffect(() => {
-    console.log('📍 Setting up GPS position watcher');
+    isTrackingRef.current = trackStore.isRecording;
+  }, [trackStore.isRecording]);
+  
+  useEffect(() => {
+    if (!map) return;
     
-    // Function to update position with debounce effect
     const updatePosition = (position: GeolocationPosition) => {
+      const { latitude, longitude, accuracy, altitude, speed, heading } = position.coords;
+      const newPosition: [number, number] = [latitude, longitude];
+      
+      // Check if we should update based on time
       const now = Date.now();
+      const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
       
-      // Adjust update frequency based on movement speed
-      const updateInterval = position.coords.speed && position.coords.speed > 1 ? 500 : 1000;
+      // Determine update frequency based on movement
+      const updateFrequency = speed && speed > 2 ? 1000 : 3000;
       
-      if (now - lastUpdateRef.current >= updateInterval) {
-        lastUpdateRef.current = now;
-        
-        const coords: [number, number] = [position.coords.latitude, position.coords.longitude];
-        
-        console.log('📍 GPS Update:', coords, 'accuracy:', position.coords.accuracy.toFixed(1) + 'm');
-        
-        setCurrentPosition(coords);
-        setAccuracy(position.coords.accuracy);
-        
-        if (position.coords.heading !== null) {
-          setHeading(position.coords.heading);
-        }
-        
-        if (position.coords.speed !== null) {
-          setSpeed(position.coords.speed);
-        }
-        
-        if (position.coords.altitude !== null) {
-          setElevation(position.coords.altitude);
-        }
-        
-        // Update tracking data if track is active
-        if (activeTrackId) {
-          const activeTrack = tracks.find(t => t.id === activeTrackId);
-          if (activeTrack && !activeTrack.isPaused) {
-            setTrackingData({
-              position: coords,
-              accuracy: position.coords.accuracy,
-              timestamp: position.timestamp,
-              altitude: position.coords.altitude || undefined,
-              heading: position.coords.heading !== null ? position.coords.heading : undefined,
-              speed: position.coords.speed !== null ? position.coords.speed : undefined
-            });
-            
-            // Force map to update and recenter if tracking
-            if (map && !map.dragging.enabled()) {
-              map.panTo(coords);
-              // Force redraw of tiles to ensure track is visible
-              map.invalidateSize();
-            }
-          }
-        }
+      // Skip updates that happen too frequently
+      if (timeSinceLastUpdate < updateFrequency) {
+        return;
+      }
+      
+      // Update time and counter
+      lastUpdateTimeRef.current = now;
+      updateCountRef.current += 1;
+      
+      // Update position in store
+      trackStore.updateCurrentPosition(newPosition);
+      lastPositionRef.current = newPosition;
+      
+      // Log at reduced frequency
+      if (updateCountRef.current % 5 === 0) {
+        console.log(`🧭 GPS update: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], acc: ${accuracy.toFixed(1)}m`);
       }
     };
-
-    const setupWatcher = (highAccuracy = true) => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+    
+    // Setup watcher
+    const setupWatcher = () => {
+      if (!navigator.geolocation) {
+        console.error('❌ Geolocation API not available');
+        return;
       }
       
-      try {
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          updatePosition,
-          (error) => {
-            console.error('❌ GPS Error:', error.message);
-            if (highAccuracy && !highAccuracyFailedRef.current) {
-              console.log('⚠️ High accuracy failed, falling back to standard accuracy');
-              highAccuracyFailedRef.current = true;
-              setupWatcher(false);
-            }
-          },
-          {
-            enableHighAccuracy: highAccuracy,
-            maximumAge: 0,
-            timeout: 5000
-          }
-        );
-        
-        console.log(`✅ GPS watcher started with ${highAccuracy ? 'high' : 'standard'} accuracy`);
-      } catch (error) {
-        console.error('❌ Failed to set up GPS watcher:', error);
-      }
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        updatePosition,
+        (error) => {
+          console.error('❌ GPS error:', error.message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
     };
     
     setupWatcher();
     
-    // Create force update interval to ensure map is getting updates
+    // Force map update periodically
     const forceUpdateInterval = setInterval(() => {
       if (map) {
         map.invalidateSize();
-        console.log('🔄 Forced map refresh');
       }
-    }, 10000); // Force refresh every 10 seconds
+    }, 5000);
     
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
-        console.log('📍 GPS watcher stopped');
       }
       clearInterval(forceUpdateInterval);
     };
-  }, [
-    map, 
-    activeTrackId, 
-    tracks, 
-    setCurrentPosition, 
-    setAccuracy, 
-    setHeading, 
-    setSpeed, 
-    setElevation, 
-    setTrackingData
-  ]);
-
+  }, [map, trackStore]);
+  
   return null;
 };
 
-// Un componente specifico per aggiornare la mappa regolarmente
+// Simplified Map Updater
 const MapUpdater = () => {
-  const map = useMapContext();
-  const { 
-    currentPosition, 
-    accuracy, 
-    heading, 
-    activeTrackId, 
-    tracks, 
-    addLocationToTrack
-  } = useTrackStore();
+  const map = useMap();
+  const trackStore = useTrackStore();
   
-  const isTrackingRef = useRef(false);
-  const lastUpdateTimeRef = useRef(0);
+  const updateCountRef = useRef(0);
   
   useEffect(() => {
-    if (!map || !currentPosition) return;
+    if (!map || !trackStore.currentPosition) return;
     
-    const now = Date.now();
-    const activeTrack = activeTrackId ? tracks.find(t => t.id === activeTrackId) : null;
-    const isTracking = activeTrack && !activeTrack.isPaused;
+    updateCountRef.current += 1;
     
-    // Record the tracking state for comparison
-    isTrackingRef.current = !!isTracking;
-    
-    // If tracking, update more frequently
-    const updateInterval = isTracking ? 1000 : 3000;
-    
-    if (now - lastUpdateTimeRef.current >= updateInterval) {
-      lastUpdateTimeRef.current = now;
-      
-      // Force map update
-      map.invalidateSize();
-      
-      // Only add location points if we're actively recording
-      if (isTracking && activeTrackId) {
-        addLocationToTrack(activeTrackId, {
-          coordinates: currentPosition,
-          accuracy: accuracy || 0,
-          timestamp: now,
-          heading: heading !== null ? heading : undefined
-        });
-        
-        console.log('📍 Added position to track:', currentPosition);
-        
-        // If autocentering is active, force the map to center on current position
-        if (!map.dragging.enabled()) {
-          map.panTo(currentPosition);
-        }
-        
-        // Force redraw of tiles and paths
-        setTimeout(() => {
-          map.invalidateSize();
-          // Trigger a slight pan to force redrawing tiles
-          map.panBy([1, 1]);
-          map.panBy([-1, -1]);
-        }, 100);
-      }
+    // If tracking, center map on current position
+    if (trackStore.isRecording && !map.dragging.enabled()) {
+      map.panTo(trackStore.currentPosition);
     }
-  }, [
-    map,
-    currentPosition,
-    accuracy,
-    heading,
-    activeTrackId,
-    tracks,
-    addLocationToTrack
-  ]);
+    
+    // Force redraw only occasionally
+    if (updateCountRef.current % 3 === 0) {
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 100);
+    }
+  }, [map, trackStore.currentPosition, trackStore.isRecording]);
   
-  // Setup a background update timer to ensure map is always refreshed
+  // Background timer to keep map updated
   useEffect(() => {
     const forceUpdateInterval = setInterval(() => {
-      if (map && currentPosition) {
-        console.log('🔄 Forcing map refresh from background timer');
+      if (map) {
         map.invalidateSize();
         
-        // If tracking and not dragging, ensure map stays centered
-        if (isTrackingRef.current && !map.dragging.enabled()) {
-          map.panTo(currentPosition);
-        }
+        // Redraw tiles
+        map.eachLayer(layer => {
+          if ('redraw' in layer) {
+            try {
+              (layer as any).redraw();
+            } catch (e) {
+              // Ignore redraw errors
+            }
+          }
+        });
       }
-    }, 5000); // Every 5 seconds
+    }, 10000);
     
     return () => clearInterval(forceUpdateInterval);
-  }, [map, currentPosition]);
+  }, [map]);
   
   return null;
 };

@@ -93,35 +93,25 @@ function MapPeriodicUpdater() {
   const updateCountRef = useRef(0);
   
   useEffect(() => {
-    console.log('MapPeriodicUpdater montato');
+    console.log('MapPeriodicUpdater montato - modalità ridotta');
     
     // Funzione per forzare l'aggiornamento
     const forceUpdate = () => {
       updateCountRef.current += 1;
-      console.log(`🔄 Aggiornamento periodico mappa #${updateCountRef.current}`);
+      // Disabilito i log frequenti
+      if (updateCountRef.current % 10 === 0) {
+        console.log(`🔄 Aggiornamento periodico mappa #${updateCountRef.current}`);
+      }
       
       // Forza ridisegno
       map.invalidateSize({animate: false, pan: false});
-      
-      // Aggiorna tiles
-      map.eachLayer((layer) => {
-        if (layer instanceof L.TileLayer) {
-          layer.redraw();
-        }
-      });
-      
-      // Piccolo movimento per forzare aggiornamento
-      map.panBy([1, 1], { animate: false });
-      setTimeout(() => {
-        map.panBy([-1, -1], { animate: false });
-      }, 50);
     };
     
     // Avvia aggiornamento iniziale
     setTimeout(forceUpdate, 500);
     
-    // Aggiornamenti periodici
-    const intervalId = setInterval(forceUpdate, 2000);
+    // Aggiornamenti periodici molto meno frequenti (da 2 secondi a 10 secondi)
+    const intervalId = setInterval(forceUpdate, 10000);
     
     return () => {
       clearInterval(intervalId);
@@ -975,10 +965,12 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
                         animation: pulse 2s infinite;
                         z-index: 2999;
                       "></div>
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); z-index: 3000;">
-                        <path fill="#4CAF50" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                        <circle cx="12" cy="7" r="4" fill="white"/>
-                      </svg>
+                      <img src="/assets/icons/Start_Track_icon.svg" style="
+                        width: 48px;
+                        height: 48px;
+                        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+                        z-index: 3000;
+                      " />
                     </div>
                   `,
                   className: 'start-flag-icon',
@@ -1024,10 +1016,12 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
                         animation: pulse 2s infinite;
                         z-index: 2999;
                       "></div>
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); z-index: 3000;">
-                        <path fill="#FF9800" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                        <path fill="white" d="M12 11.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                      </svg>
+                      <img src="/assets/icons/End_Track_icon.svg" style="
+                        width: 48px;
+                        height: 48px;
+                        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+                        z-index: 3000;
+                      " />
                     </div>
                   `,
                   className: 'end-flag-icon',

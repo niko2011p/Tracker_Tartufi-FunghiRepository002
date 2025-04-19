@@ -807,7 +807,7 @@ export const useTrackStore = create<TrackState>()(
           }
           
           // Auto-salvataggio periodico in localStorage e IndexedDB
-          if (newCoordinates.length % 10 === 0) {
+          if (newCoordinates.length % 30 === 0) {
             console.log(`🔄 Auto-salvataggio traccia con ${newCoordinates.length} coordinate...`);
             
             // Backup veloce in localStorage
