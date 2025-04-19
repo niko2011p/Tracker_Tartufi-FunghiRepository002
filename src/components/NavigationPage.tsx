@@ -37,55 +37,100 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
   const lastPositionRef = useRef<[number, number]>([0, 0]);
   const lastUpdateTimeRef = useRef(Date.now());
   const userMovedMapRef = useRef(false);
+  const forceResetCountRef = useRef(0);
   
-  // Force complete map refresh - tiles and all layers
-  const forceCompleteMapRefresh = useCallback(() => {
+  // STRATEGIA RADICALE: Forza risveglio completo dell'app e della mappa
+  const forceCompleteWakeup = useCallback(() => {
     if (!map) return;
     
+    // Incrementa contatore reset
+    forceResetCountRef.current++;
+    console.log(`🔥 FORZA RISVEGLIO COMPLETO #${forceResetCountRef.current}`);
+    
     try {
-      // First invalidate size
-      map.invalidateSize({ animate: false, pan: false });
+      // 1. Forza un ridisegno totale del DOM
+      document.body.style.opacity = '0.99';
+      setTimeout(() => { document.body.style.opacity = '1'; }, 50);
       
-      // Force redraw all tiles
+      // 2. Invalidazione totale della mappa
+      map.invalidateSize({ animate: false, pan: false, debounceMoveend: false });
+      
+      // 3. Richiedi nuove tiles fresche (disabilita cache)
       map.eachLayer(layer => {
         if (layer instanceof L.TileLayer) {
           try {
+            // Assicurati che la cache sia disabilitata
+            if (layer.options) {
+              layer.options.maxAge = 0;
+              layer.options.maxZoom = 22;
+            }
+            
+            // Forza il ridisegno delle tiles
+            layer._removeTile = function(key) {
+              const tile = this._tiles[key];
+              if (!tile) { return; }
+              
+              L.DomUtil.remove(tile.el);
+              delete this._tiles[key];
+              this.fire('tileunload', {
+                tile: tile.el,
+                coords: this._keyToTileCoords(key)
+              });
+            };
+            
+            // Rimuovi e ricarica tutte le tiles
+            for (let key in layer._tiles) {
+              layer._removeTile(key);
+            }
             layer.redraw();
           } catch (e) {
-            console.warn('Error redrawing tile layer:', e);
+            console.warn('Errore nel ridisegno tile:', e);
           }
         }
       });
       
-      // Trigger browser reflow
-      window.dispatchEvent(new Event('resize'));
-      
-      // Trigger additional map events to force refresh
-      map.fire('move');
-      map.fire('moveend');
-      
-      // Force browser to redraw by making a minimal visual change
+      // 4. Zoom e pan micro-aggiustamenti per forzare refresh
       const currentZoom = map.getZoom();
       if (currentZoom) {
-        // Tiny zoom change to force redraw
-        map.setZoom(currentZoom - 0.001);
-        setTimeout(() => map.setZoom(currentZoom), 5);
+        map.setZoom(currentZoom - 0.01);
+        setTimeout(() => map.setZoom(currentZoom), 100);
       }
       
-      // Pan slightly to force redraw
-      map.panBy([1, 1]);
-      setTimeout(() => map.panBy([-1, -1]), 10);
+      map.panBy([5, 5]);
+      setTimeout(() => map.panBy([-5, -5]), 100);
+      
+      // 5. Genera una serie di eventi mappa
+      map.fire('move');
+      map.fire('moveend');
+      map.fire('zoomend');
+      map.fire('click');
+      map.fire('viewreset');
+      
+      // 6. Forza reflow del browser
+      void map._container.offsetHeight;
+      window.dispatchEvent(new Event('resize'));
+      
+      // 7. Forza una mini-navigazione sulla posizione attuale
+      if (position && position[0] !== 0 && position[1] !== 0) {
+        map.panTo(position, { 
+          animate: true, 
+          duration: 0.1, 
+          easeLinearity: 0.5 
+        });
+      }
     } catch (e) {
-      console.error('Error in complete map refresh:', e);
+      console.error('Errore nel risveglio completo:', e);
     }
-  }, [map]);
-
+  }, [map, position]);
+  
   // Reset userMovedMap when tracking starts
   useEffect(() => {
     if (isRecording) {
       userMovedMapRef.current = false;
+      // Forza un risveglio completo quando inizia la registrazione
+      forceCompleteWakeup();
     }
-  }, [isRecording]);
+  }, [isRecording, forceCompleteWakeup]);
   
   // Listen for map move events caused by user
   useEffect(() => {
@@ -134,16 +179,19 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
         }
       }
       
-      // Aggressive refresh during tracking
-      forceCompleteMapRefresh();
-      
     }, 150); // Much more frequent updates for continuous motion
+    
+    // STRATEGIA RADICALE: Periodicamente forza un risveglio completo
+    const wakeupInterval = setInterval(() => {
+      forceCompleteWakeup();
+    }, 3000); // Ogni 3 secondi forza un risveglio totale
     
     return () => {
       clearInterval(trackingInterval);
+      clearInterval(wakeupInterval);
       console.log('⏱️ Stopped ultra-aggressive map tracking mode');
     };
-  }, [map, isRecording, position, autoCenter, forceCompleteMapRefresh]);
+  }, [map, isRecording, position, autoCenter, forceCompleteWakeup]);
   
   // Normal position updates (both tracking and non-tracking)
   useEffect(() => {
@@ -176,7 +224,7 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
       lastUpdateTimeRef.current = now;
       
       // Force complete refresh after initial setup
-      setTimeout(forceCompleteMapRefresh, 100);
+      setTimeout(forceCompleteWakeup, 100);
       return;
     }
     
@@ -200,12 +248,9 @@ const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, nu
         duration: isRecording ? 0.1 : 0.3, // Very fast during recording
         easeLinearity: 0.5
       });
-      
-      // Refresh map visuals after centering
-      setTimeout(forceCompleteMapRefresh, 50);
     }
     
-  }, [position, map, autoCenter, isRecording, forceCompleteMapRefresh]);
+  }, [position, map, autoCenter, isRecording, forceCompleteWakeup]);
   
   return null;
 };
@@ -379,6 +424,59 @@ const GpsPositionUpdater = () => {
   const lastPositionRef = useRef<[number, number] | null>(null);
   const lastUpdateTimeRef = useRef(Date.now());
   
+  // SOLUZIONE RADICALE: Forza ridisegno completo di tutti i layer
+  const forceRedrawAllLayers = useCallback(() => {
+    if (!map) return;
+    
+    try {
+      // 1. Forzare un ridisegno di tutti i componenti
+      map.invalidateSize({ animate: false, pan: false });
+      
+      // 2. Forzare un ridisegno di tutte le tiles
+      map.eachLayer(layer => {
+        if (layer instanceof L.TileLayer) {
+          layer.redraw();
+        } else if (layer instanceof L.Polyline) {
+          // Ottieni l'elemento della polilinea
+          try {
+            const path = layer.getElement();
+            if (path) {
+              // Usa un'animazione per forzare un ridisegno
+              const htmlPath = path as HTMLElement;
+              htmlPath.style.strokeWidth = '5.01px';
+              setTimeout(() => {
+                htmlPath.style.strokeWidth = '5px';
+              }, 50);
+            }
+          } catch (e) {
+            // Ignora errori
+          }
+        }
+      });
+      
+      // 3. Forzare il browser a ridisegnare con movimento minimo
+      const currentCenter = map.getCenter();
+      const currentZoom = map.getZoom();
+      
+      if (currentZoom) {
+        map.setZoom(currentZoom - 0.001);
+        setTimeout(() => {
+          map.setZoom(currentZoom);
+          map.panTo(currentCenter, { animate: false });
+        }, 50);
+      }
+      
+      // 4. Genera eventi per forzare aggiornamenti di Leaflet
+      map.fire('moveend');
+      map.fire('zoomend');
+      
+      // 5. Forza un reflow del browser
+      window.dispatchEvent(new Event('resize'));
+    } catch (e) {
+      console.warn('Errore nel ridisegno completo:', e);
+    }
+  }, [map]);
+  
   useEffect(() => {
     if (!map) return;
     
@@ -421,46 +519,7 @@ const GpsPositionUpdater = () => {
         map.invalidateSize({ animate: false });
         
         // 3. Forzare un ridisegno COMPLETO di tutti i layer
-        map.eachLayer(layer => {
-          try {
-            if (layer instanceof L.TileLayer) {
-              layer.redraw();
-            } else if (layer instanceof L.Polyline) {
-              // Ridisegna la polilinea
-              const path = layer.getElement();
-              if (path) {
-                // Forza ridisegno con CSS
-                const htmlPath = path as HTMLElement;
-                htmlPath.style.display = 'none';
-                setTimeout(() => {
-                  htmlPath.style.display = 'block';
-                  htmlPath.style.strokeOpacity = '1';
-                }, 5);
-              }
-            }
-          } catch (e) {
-            // Ignora errori
-          }
-        });
-        
-        // 4. Trucci di micro-movimenti per forzare il ridisegno
-        const currentZoom = map.getZoom();
-        if (currentZoom) {
-          // Micro-zoom per forzare ridisegno
-          map.setZoom(currentZoom - 0.001);
-          setTimeout(() => map.setZoom(currentZoom), 5);
-        }
-        
-        // 5. Micro-spostamento per forzare ridisegno
-        map.panBy([1, 0]);
-        setTimeout(() => map.panBy([-1, 0]), 5);
-        
-        // 6. Genera eventi mappa per forzare aggiornamenti interni
-        map.fire('moveend');
-        map.fire('zoomend');
-        
-        // 7. Ridisegna completamente le finestre
-        window.dispatchEvent(new Event('resize'));
+        forceRedrawAllLayers();
       }
     };
     
@@ -479,52 +538,67 @@ const GpsPositionUpdater = () => {
         },
         {
           enableHighAccuracy: true,
-          timeout: 500, // Timeout più breve per risposte più veloci
-          maximumAge: 0   // Solo posizioni fresche
+          timeout: 200, // Timeout estremamente ridotto
+          maximumAge: 0  // Solo posizioni fresche
         }
       );
     };
     
     setupWatcher();
     
-    // Backup refresh ultrafrequente per garantire l'aggiornamento della mappa
+    // RISVEGLIO FORZATO: Timer dedicato che richiede posizione e forza aggiornamento
+    const wakeupTimer = setInterval(() => {
+      if (trackStore.isRecording) {
+        // Richiede posizione fresca e forza aggiornamento
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            console.log(`⚡ Risveglio forzato con posizione [${latitude.toFixed(6)}, ${longitude.toFixed(6)}]`);
+            
+            // Aggiorna la posizione nello store
+            trackStore.updateCurrentPosition([latitude, longitude]);
+            
+            // Forza un ridisegno completo
+            forceRedrawAllLayers();
+            
+            // Pannello sulla posizione
+            map.panTo([latitude, longitude], {
+              animate: true,
+              duration: 0.1
+            });
+          },
+          (error) => console.warn('Errore risveglio:', error),
+          {
+            enableHighAccuracy: true,
+            timeout: 1000,
+            maximumAge: 0
+          }
+        );
+      }
+    }, 2000); // Ogni 2 secondi
+    
+    // Backup refresh per garantire l'aggiornamento della mappa
     const backupRefreshInterval = setInterval(() => {
       if (map && trackStore.isRecording && lastPositionRef.current) {
-        console.log('🔄 Backup map refresh triggered');
-        
         // Forza panoramica sulla posizione attuale
         map.panTo(lastPositionRef.current, {
           animate: true,
           duration: 0.1
         });
         
-        // Invalidazione completa
-        map.invalidateSize({ animate: false });
-        
-        // Micro-zoom per forzare ridisegno
-        const currentZoom = map.getZoom();
-        if (currentZoom) {
-          map.setZoom(currentZoom - 0.001);
-          setTimeout(() => map.setZoom(currentZoom), 5);
-        }
-        
-        // Micro-pan per forzare ridisegno
-        map.panBy([1, 1]);
-        setTimeout(() => map.panBy([-1, -1]), 5);
-        
-        // Genera eventi mappa
-        map.fire('moveend');
-        map.fire('zoomend');
+        // Forza ridisegno
+        forceRedrawAllLayers();
       }
-    }, 300); // Molto frequente (300ms)
+    }, 1000); // Ogni secondo
     
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
+      clearInterval(wakeupTimer);
       clearInterval(backupRefreshInterval);
     };
-  }, [map, trackStore]);
+  }, [map, trackStore, forceRedrawAllLayers]);
   
   return null;
 };
@@ -537,246 +611,121 @@ const TrackPolylineLayer = ({ track }: { track: Track | null }) => {
   const lastSegmentRef = useRef<L.Polyline | null>(null);
   const lastCoordLengthRef = useRef(0);
   const lastForceRedrawTime = useRef(Date.now());
+  const recreationCountRef = useRef(0);
   
-  // Function to ensure polyline visibility on the map
-  const ensurePolylineVisibility = useCallback(() => {
-    if (!map || !track || !polylineRef.current || track.coordinates.length < 2) {
-      return;
-    }
+  // STRATEGIA RADICALE: invece di aggiornare, ricrea completamente la polyline
+  const recreatePolylineCompletely = useCallback(() => {
+    if (!map || !track || track.coordinates.length < 2) return;
     
-    // Get polyline bounds from the coordinates
-    const bounds = L.latLngBounds(track.coordinates);
+    recreationCountRef.current++;
     
-    // Get the bounds of what's currently visible on the map
-    const mapBounds = map.getBounds();
-    
-    // Check if the last coordinate is in current view
-    const lastCoord = track.coordinates[track.coordinates.length - 1];
-    const isLastCoordVisible = mapBounds.contains(lastCoord);
-    
-    // If the last point isn't visible and we're recording, fit to include it
-    if (!isLastCoordVisible && trackStore.isRecording) {
-      try {
-        // Extend bounds to include current position
-        if (trackStore.currentPosition) {
-          bounds.extend(trackStore.currentPosition);
-        }
-        
-        // Fit the map to these bounds, but with padding to make it look nicer
-        map.fitBounds(bounds, {
-          padding: [50, 50],
-          maxZoom: 18,
-          animate: true,
-          duration: 0.2 // Fast animation
-        });
-        
-        // Force redraw all layers to ensure visibility
-        map.eachLayer(layer => {
-          if (layer instanceof L.TileLayer) {
-            layer.redraw();
-          }
-        });
-      } catch (e) {
-        console.warn('Error fitting bounds:', e);
-      }
-    }
-    
-    // Force the polyline to be visible by manipulating its style directly
-    try {
-      if (polylineRef.current) {
-        // Force redraw by adding and removing a class
-        const polylinePath = polylineRef.current.getElement();
-        if (polylinePath) {
-          polylinePath.classList.remove('force-redraw');
-          setTimeout(() => polylinePath.classList.add('force-redraw'), 10);
-        }
-        
-        // Direct DOM manipulation for visibility
-        const pathElements = document.querySelectorAll('.track-polyline');
-        pathElements.forEach(el => {
-          (el as HTMLElement).style.visibility = 'visible';
-          (el as HTMLElement).style.display = 'block';
-          (el as HTMLElement).style.zIndex = '650';
-          (el as HTMLElement).style.stroke = '#FF9800';
-          (el as HTMLElement).style.strokeWidth = '5px';
-          (el as HTMLElement).style.strokeOpacity = '1';
-          
-          // Add animation flash to make it more visible
-          (el as HTMLElement).style.animation = 'none';
-          setTimeout(() => {
-            (el as HTMLElement).style.animation = 'fadeIn 0.3s';
-          }, 5);
-        });
-      }
-    } catch (e) {
-      console.warn('Error ensuring polyline visibility:', e);
-    }
-  }, [map, track, trackStore.isRecording, trackStore.currentPosition]);
-  
-  useEffect(() => {
-    if (!map || !track) return;
-    
-    const coordinates = track.coordinates || [];
-    
-    // Determine if we need to redraw - ALWAYS update during recording
-    const now = Date.now();
-    const coordinatesChanged = lastCoordLengthRef.current !== coordinates.length;
-    const forceRedrawNeeded = trackStore.isRecording || 
-                             (now - lastForceRedrawTime.current) > 500; // Much more frequent
-    
-    if (!coordinatesChanged && !forceRedrawNeeded) {
-      return;
-    }
-    
-    // Update refs
-    if (coordinatesChanged) {
-      lastCoordLengthRef.current = coordinates.length;
-    }
-    
-    if (forceRedrawNeeded) {
-      lastForceRedrawTime.current = now;
-    }
-    
-    // Remove existing polyline
+    // Rimuovi tutte le polyline esistenti
     if (polylineRef.current) {
       polylineRef.current.remove();
       polylineRef.current = null;
     }
     
-    // Remove last segment highlight
     if (lastSegmentRef.current) {
       lastSegmentRef.current.remove();
       lastSegmentRef.current = null;
     }
     
-    // Only create polyline if we have at least 2 points
-    if (coordinates.length >= 2) {
-      try {
-        // Create the polyline with better styling
-        polylineRef.current = L.polyline(coordinates, {
-          color: "#FF9800",
-          weight: 5,
-          opacity: 1.0,
+    try {
+      // Crea una polyline completamente nuova ogni volta
+      console.log(`🔄 Ricreazione completa polyline #${recreationCountRef.current} con ${track.coordinates.length} punti`);
+      
+      // Crea una classe unica per questa polilinea basata sul timestamp
+      const uniqueClass = `track-polyline-${Date.now()}`;
+      
+      // Crea nuova polyline con classe univoca
+      polylineRef.current = L.polyline(track.coordinates, {
+        color: "#FF9800",
+        weight: 5,
+        opacity: 1.0,
+        lineCap: 'round',
+        lineJoin: 'round',
+        className: `track-polyline ${uniqueClass}`,
+        interactive: false
+      }).addTo(map);
+      
+      // Aggiungi un effetto al segmento finale
+      if (track.coordinates.length >= 2 && trackStore.isRecording) {
+        const lastPoint = track.coordinates[track.coordinates.length - 1];
+        const secondLastPoint = track.coordinates[track.coordinates.length - 2];
+        
+        const uniqueLastClass = `track-latest-segment-${Date.now()}`;
+        
+        lastSegmentRef.current = L.polyline([secondLastPoint, lastPoint], {
+          color: "#FFCC00",
+          weight: 7,
+          opacity: 0.8,
+          dashArray: '10, 10',
           lineCap: 'round',
-          lineJoin: 'round',
-          className: 'track-polyline',
-          interactive: false
+          className: `track-latest-segment ${uniqueLastClass}`
         }).addTo(map);
-        
-        // Add a pulsing effect to the last segment to make it more visible
-        const lastPoint = coordinates[coordinates.length - 1];
-        const secondLastPoint = coordinates[coordinates.length - 2];
-        
-        if (lastPoint && secondLastPoint && trackStore.isRecording) {
-          // Add a highlighted segment for the latest part
-          lastSegmentRef.current = L.polyline([secondLastPoint, lastPoint], {
-            color: "#FFCC00",
-            weight: 7,
-            opacity: 0.8,
-            dashArray: '10, 10',
-            lineCap: 'round',
-            className: 'track-latest-segment'
-          }).addTo(map);
-        }
-        
-        // Make sure the polyline is visible
-        ensurePolylineVisibility();
-        
-        // Add custom style to ensure visibility 
-        if (!document.getElementById('track-polyline-style')) {
-          const style = document.createElement('style');
-          style.id = 'track-polyline-style';
-          style.innerHTML = `
-            .track-polyline {
+      }
+      
+      // Assicurati che sia visibile manipolando lo stile
+      setTimeout(() => {
+        try {
+          const pathElements = document.querySelectorAll(`.${uniqueClass}`);
+          pathElements.forEach(el => {
+            // Forza la visibilità con stile inline aggressivo
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.cssText = `
+              visibility: visible !important;
+              display: block !important;
               stroke: #FF9800 !important;
               stroke-width: 5px !important;
               stroke-opacity: 1 !important;
               stroke-linecap: round !important;
-              stroke-linejoin: round !important;
-              visibility: visible !important;
-              display: block !important;
               z-index: 650 !important;
               pointer-events: auto !important;
-            }
-            .track-latest-segment {
-              stroke: #FFCC00 !important;
-              stroke-width: 7px !important;
-              animation: dash 1s linear infinite;
-              stroke-dasharray: 10, 10 !important;
-              stroke-linecap: round !important;
-            }
-            @keyframes dash {
-              to {
-                stroke-dashoffset: -20;
-              }
-            }
-            @keyframes fadeIn {
-              from { opacity: 0.5; }
-              to { opacity: 1; }
-            }
-            .force-redraw {
-              stroke-width: 5.001px !important;
-            }
-          `;
-          document.head.appendChild(style);
+            `;
+          });
+        } catch (e) {
+          console.warn('Errore nel forzare stile:', e);
         }
-        
-        // Trigger a forced map update to ensure visibility
-        map.invalidateSize({ animate: false });
-        
-        // Force visible after a slight delay to ensure rendering
-        setTimeout(ensurePolylineVisibility, 10);
-        
-      } catch (err) {
-        console.error('Error creating track polyline:', err);
-      }
+      }, 50);
+      
+    } catch (err) {
+      console.error('Errore nella ricreazione polyline:', err);
     }
+  }, [map, track, trackStore.isRecording]);
+  
+  // Forza ricreazione ad ogni cambiamento di coordinate
+  useEffect(() => {
+    if (!track || !map) return;
     
+    // STRATEGIA RADICALE: ricrea anche se non ci sono cambiamenti
+    recreatePolylineCompletely();
+    
+    // Cleanup
     return () => {
       if (polylineRef.current) {
         polylineRef.current.remove();
-        polylineRef.current = null;
       }
       if (lastSegmentRef.current) {
         lastSegmentRef.current.remove();
-        lastSegmentRef.current = null;
       }
     };
-  }, [map, track?.coordinates, trackStore.isRecording, ensurePolylineVisibility]);
+  }, [track?.coordinates, map, recreatePolylineCompletely]);
   
-  // Additional effect specifically for handling recording state changes
+  // RICREARE PERIODICAMENTE durante la registrazione
   useEffect(() => {
-    if (!map || !trackStore.isRecording) return;
+    if (!trackStore.isRecording || !map || !track) return;
     
-    // During recording, force updates every 100ms for smooth tracking
-    const visibilityInterval = setInterval(() => {
-      ensurePolylineVisibility();
-      
-      // Also periodically force map invalidation during tracking
-      if (map) {
-        map.invalidateSize({ animate: false });
-        
-        // Force redraw all layers
-        map.eachLayer(layer => {
-          if (layer instanceof L.TileLayer) {
-            try {
-              layer.redraw();
-            } catch (e) {
-              // Ignore redraw errors
-            }
-          }
-        });
-        
-        // Mini-pan trick for forced redraw
-        map.panBy([0.5, 0.5]);
-        setTimeout(() => map.panBy([-0.5, -0.5]), 10);
-      }
-    }, 100); // Very frequent updates for smooth tracking
+    console.log('🔄 Avvio ricreazione periodica della polilinea');
+    
+    // Ricrea periodicamente la polilinea per garantire che sia sempre visibile
+    const recreationInterval = setInterval(() => {
+      recreatePolylineCompletely();
+    }, 2000); // Ogni 2 secondi
     
     return () => {
-      clearInterval(visibilityInterval);
+      clearInterval(recreationInterval);
     };
-  }, [map, trackStore.isRecording, ensurePolylineVisibility]);
+  }, [map, track, trackStore.isRecording, recreatePolylineCompletely]);
   
   return null;
 };
