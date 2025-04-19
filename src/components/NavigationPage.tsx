@@ -33,22 +33,88 @@ const GEOLOCATION_OPTIONS = {
 const MapViewUpdater = ({ position, autoCenter = true }: { position: [number, number], autoCenter?: boolean }) => {
   const map = useMap();
   const initialUpdateRef = useRef(false);
-  const { isRecording } = useTrackStore();
+  const lastPositionRef = useRef<[number, number]>([0, 0]);
+  const { isRecording, currentTrack } = useTrackStore();
   
   useEffect(() => {
     // Se la posizione è valida e il flag di centraggio automatico è attivo
-    if (position[0] !== 0 && position[1] !== 0 && autoCenter) {
-      // Solo se stiamo registrando, centriamo automaticamente
-      if (isRecording || !initialUpdateRef.current) {
+    if (position[0] !== 0 && position[1] !== 0) {
+      // Calcola la distanza dalla posizione precedente (se disponibile)
+      const hasMovedSignificantly = lastPositionRef.current[0] !== 0 &&
+        (Math.abs(position[0] - lastPositionRef.current[0]) > 0.00001 ||
+         Math.abs(position[1] - lastPositionRef.current[1]) > 0.00001);
+      
+      // Aggiorna il riferimento alla posizione precedente
+      lastPositionRef.current = position;
+      
+      // Vari casi in cui dobbiamo centrare la mappa:
+      // 1. Non abbiamo ancora fatto il primo aggiornamento
+      // 2. L'utente ha attivato il centraggio automatico
+      // 3. Stiamo registrando la traccia (e l'autoCenter è attivo)
+      if (!initialUpdateRef.current || 
+          (autoCenter && (isRecording || hasMovedSignificantly))) {
+        
         console.log('🗺️ Auto-centering map to:', position);
-        map.flyTo(position, map.getZoom() || 18, {
-          animate: true,
-          duration: 1
-        });
-        initialUpdateRef.current = true;
+        
+        // Differenzia fra primo centraggio e aggiornamenti successivi
+        if (!initialUpdateRef.current) {
+          // Primo aggiornamento: più lento per dare tempo al caricamento
+          map.setView(position, map.getZoom() || 18, {
+            animate: true,
+            duration: 1
+          });
+          initialUpdateRef.current = true;
+        } else {
+          // Centraggio durante la registrazione: più rapido e fluido
+          map.panTo(position, {
+            animate: true,
+            duration: 0.5,
+            easeLinearity: 0.5
+          });
+        }
+        
+        // Log per debug
+        console.log(`🗺️ Mappa centrata su [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
       }
     }
-  }, [position, map, autoCenter, isRecording]);
+  }, [position, map, autoCenter, isRecording, currentTrack]);
+  
+  // Effetto aggiuntivo che verifica se sono presenti marker di inizio/fine
+  useEffect(() => {
+    if (currentTrack && initialUpdateRef.current) {
+      // Controlla se ci sono marker da visualizzare sulla mappa
+      const hasStartMarker = currentTrack.startMarker && currentTrack.startMarker.coordinates;
+      const hasEndMarker = currentTrack.endMarker && currentTrack.endMarker.coordinates;
+      
+      // Se abbiamo sia il marker di inizio che di fine, aggiungiamo un effetto per inquadrare tutta la traccia
+      if (hasStartMarker && hasEndMarker && !isRecording) {
+        try {
+          // Creazione di bounds che includano entrambi i marker e la posizione attuale
+          const bounds = L.latLngBounds([
+            currentTrack.startMarker!.coordinates,
+            currentTrack.endMarker!.coordinates,
+            position
+          ]);
+          
+          // Aggiungi anche tutte le coordinate della traccia ai bounds
+          if (currentTrack.coordinates && currentTrack.coordinates.length > 0) {
+            currentTrack.coordinates.forEach(coord => {
+              bounds.extend(coord);
+            });
+          }
+          
+          // Applica i bounds con un po' di padding
+          console.log('🗺️ Fitting map to bounds of entire track');
+          map.fitBounds(bounds, {
+            padding: [50, 50],
+            animate: true
+          });
+        } catch (e) {
+          console.error('❌ Errore nel fitBounds:', e);
+        }
+      }
+    }
+  }, [currentTrack, map, position, isRecording]);
   
   return null;
 };
@@ -138,32 +204,28 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
         icon: L.divIcon({
           html: `
             <div class="marker-flag" style="
-              width: 32px;
-              height: 32px;
+              width: 40px;
+              height: 40px;
               position: relative;
               display: flex;
-              flex-direction: column;
+              justify-content: center;
               align-items: center;
             ">
               <div style="
-                width: 14px;
-                height: 20px;
-                background-color: ${track.startMarker.color};
-                clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-              "></div>
-              <div style="
-                width: 3px;
-                height: 24px;
-                background-color: #555;
-                margin-top: -4px;
+                width: 40px;
+                height: 40px;
+                background-image: url('/assets/icons/Start_Track_icon.svg');
+                background-size: contain;
+                background-position: center;
+                background-repeat: no-repeat;
+                filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
               "></div>
             </div>
           `,
           className: 'start-flag-icon',
-          iconSize: [32, 44],
-          iconAnchor: [7, 44],
-          popupAnchor: [0, -44]
+          iconSize: [40, 40],
+          iconAnchor: [20, 40],
+          popupAnchor: [0, -40]
         }),
         zIndexOffset: 1000
       });
@@ -192,32 +254,28 @@ const TrackMarkersLayer = ({ track }: { track: Track }) => {
         icon: L.divIcon({
           html: `
             <div class="marker-flag" style="
-              width: 32px;
-              height: 32px;
+              width: 40px;
+              height: 40px;
               position: relative;
               display: flex;
-              flex-direction: column;
+              justify-content: center;
               align-items: center;
             ">
               <div style="
-                width: 14px;
-                height: 20px;
-                background-color: ${track.endMarker.color};
-                clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-              "></div>
-              <div style="
-                width: 3px;
-                height: 24px;
-                background-color: #555;
-                margin-top: -4px;
+                width: 40px;
+                height: 40px;
+                background-image: url('/assets/icons/End_Track_icon.svg');
+                background-size: contain;
+                background-position: center;
+                background-repeat: no-repeat;
+                filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
               "></div>
             </div>
           `,
           className: 'end-flag-icon',
-          iconSize: [32, 44],
-          iconAnchor: [7, 44], 
-          popupAnchor: [0, -44]
+          iconSize: [40, 40],
+          iconAnchor: [20, 40],
+          popupAnchor: [0, -40]
         }),
         zIndexOffset: 1000
       });
