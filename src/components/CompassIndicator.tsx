@@ -41,7 +41,7 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'default
 
     animationFrameRef.current = requestAnimationFrame(updateHeading);
 
-    return () => {
+      return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -64,7 +64,7 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'default
   };
 
   return (
-    <div
+    <div 
       className="compass-container"
       style={{
         ...getPositionStyle(),
@@ -79,7 +79,7 @@ const CompassIndicator: React.FC<CompassIndicatorProps> = ({ position = 'default
         {/* Puntatore rosso */}
         <div 
           className="compass-pointer"
-          style={{
+        style={{
             transform: `rotate(${smoothedHeading}deg)`,
           }}
         />

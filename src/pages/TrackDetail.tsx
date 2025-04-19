@@ -19,8 +19,7 @@ import {
   Mountain,
   Map,
   Calendar,
-  MapPin,
-  Crosshair
+  MapPin
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -790,17 +789,6 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
     return format(date, 'dd/MM/yyyy HH:mm', { locale: it });
   };
 
-  // Funzione per centrare la mappa sui bounds della traccia
-  const handleCenterMap = () => {
-    if (leafletMapRef.current && bounds) {
-      leafletMapRef.current.fitBounds(bounds, {
-        padding: [50, 50],
-        maxZoom: 18,
-        animate: true
-      });
-    }
-  };
-
   if (!track) {
     return (
       <div className="w-screen h-screen bg-white text-gray-800 flex items-center justify-center">
@@ -908,242 +896,220 @@ const TrackDetail: React.FC<TrackDetailProps> = ({ trackId: propTrackId, trackDa
         </div>
       </div>
 
-      <div className="relative h-[40vh] md:h-[50vh] w-full" ref={mapContainerRef}>
+      <div ref={mapContainerRef} className="relative h-[78vh] min-h-[400px] bg-gray-100 overflow-hidden">
         {isMapReady && track && (checkCoordinatesValidity(track) || (track.location && track.location.coordinates)) && (
-          <>
-            <MapContainer
-              center={track.coordinates && track.coordinates.length > 0 
-                ? [track.coordinates[0][0], track.coordinates[0][1]] 
-                : track.location ? track.location.coordinates : [0, 0]}
-              zoom={15}
-              scrollWheelZoom={true}
-              className="w-full h-full z-0"
-              whenCreated={setMapRef}
-              attributionControl={false}
-              style={{ height: '100%', width: '100%' }}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                subdomains="abc"
-                maxZoom={19}
-                attribution="&copy; OpenStreetMap contributors"
-              />
-              
-              <TileErrorHandler />
-              <MapInvalidator />
-              <MapPeriodicUpdater />
-              
-              {/* Traccia con stile tratteggiato */}
-              {track.coordinates && track.coordinates.length > 1 && (
-                <Polyline 
-                  positions={track.coordinates} 
-                  color="#f5a149"
-                  weight={4}
-                  opacity={0.8}
-                  dashArray="10, 10"  /* Questo rende la linea tratteggiata */
-                />
-              )}
-              
-              {/* Fallback: Se non ci sono coordinate multiple ma c'è una location, mostra un cerchio */}
-              {(!track.coordinates || track.coordinates.length <= 1) && track.location && track.location.coordinates && (
-                <Polyline 
-                  positions={[track.location.coordinates, track.location.coordinates]} 
-                  color="#f5a149"
-                  weight={4}
-                  opacity={0.8}
-                />
-              )}
-              
-              {/* Marcador de inicio (bandera verde) */}
-              {track.startMarker && track.startMarker.coordinates && (
-                <Marker
-                  position={track.startMarker.coordinates}
-                  icon={L.divIcon({
-                    html: `
-                      <div class="marker-flag" style="
-                        width: 60px;
-                        height: 60px;
-                        position: relative;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        z-index: 3000 !important;
-                      ">
-                        <div class="pulse-ring" style="
-                          position: absolute;
-                          width: 48px;
-                          height: 48px;
-                          border-radius: 50%;
-                          background-color: rgba(76, 175, 80, 0.4);
-                          animation: pulse 2s infinite;
-                          z-index: 2999;
-                        "></div>
-                        <img src="/assets/icons/Start_Track_icon.svg" style="
-                          width: 48px;
-                          height: 48px;
-                          filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-                          z-index: 3000;
-                        " />
-                      </div>
-                    `,
-                    className: 'start-flag-icon',
-                    iconSize: [60, 60],
-                    iconAnchor: [30, 60],
-                    popupAnchor: [0, -60]
-                  })}
-                  zIndexOffset={3000}
-                >
-                  <Popup>
-                    <div>
-                      <strong>Punto de inicio</strong>
-                      <p>Hora: {track.startMarker.timestamp ? new Date(track.startMarker.timestamp).toLocaleTimeString() : new Date(track.actualStartTime || track.startTime).toLocaleTimeString()}</p>
-                      <p>Precisión: {track.startMarker.accuracy.toFixed(1)}m</p>
-                      <p>Lat: {track.startMarker.coordinates[0].toFixed(6)}</p>
-                      <p>Lon: {track.startMarker.coordinates[1].toFixed(6)}</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-              
-              {/* Marcador de fin (bandera naranja) */}
-              {track.endMarker && track.endMarker.coordinates && (
-                <Marker
-                  position={track.endMarker.coordinates}
-                  icon={L.divIcon({
-                    html: `
-                      <div class="marker-flag" style="
-                        width: 60px;
-                        height: 60px;
-                        position: relative;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        z-index: 3000 !important;
-                      ">
-                        <div class="pulse-ring" style="
-                          position: absolute;
-                          width: 48px;
-                          height: 48px;
-                          border-radius: 50%;
-                          background-color: rgba(255, 152, 0, 0.4);
-                          animation: pulse 2s infinite;
-                          z-index: 2999;
-                        "></div>
-                        <img src="/assets/icons/End_Track_icon.svg" style="
-                          width: 48px;
-                          height: 48px;
-                          filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-                          z-index: 3000;
-                        " />
-                      </div>
-                    `,
-                    className: 'end-flag-icon',
-                    iconSize: [60, 60],
-                    iconAnchor: [30, 60], 
-                    popupAnchor: [0, -60]
-                  })}
-                  zIndexOffset={3000}
-                >
-                  <Popup>
-                    <div>
-                      <strong>Punto final</strong>
-                      <p>Hora: {track.endMarker.timestamp ? new Date(track.endMarker.timestamp).toLocaleTimeString() : new Date(track.actualEndTime || track.endTime).toLocaleTimeString()}</p>
-                      <p>Precisión: {track.endMarker.accuracy.toFixed(1)}m</p>
-                      <p>Lat: {track.endMarker.coordinates[0].toFixed(6)}</p>
-                      <p>Lon: {track.endMarker.coordinates[1].toFixed(6)}</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-              
-              {track.findings?.map((finding: Finding) => (
-                <Marker
-                  key={finding.id}
-                  position={finding.coordinates}
-                  icon={L.divIcon({
-                    html: `
-                      <div class="finding-marker ${finding.type.toLowerCase()}-marker" style="
-                        width: 40px;
-                        height: 40px;
-                        position: relative;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
-                        border-radius: 50%;
-                        border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
-                      ">
-                        <div class="finding-pulse" style="
-                          position: absolute;
-                          width: 100%;
-                          height: 100%;
-                          border-radius: 50%;
-                          background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}30;
-                          animation: pulse 2s infinite;
-                        "></div>
-                        <div style="
-                          width: 24px;
-                          height: 24px;
-                          display: flex;
-                          align-items: center;
-                          justify-content: center;
-                          font-size: 16px;
-                          font-weight: bold;
-                          color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
-                        ">${finding.type === 'Fungo' ? '🍄' : '🥔'}</div>
-                      </div>
-                    `,
-                    className: 'finding-icon',
-                    iconSize: [40, 40],
-                    iconAnchor: [20, 20],
-                    popupAnchor: [0, -20]
-                  })}
-                >
-                  <Popup>
-                    <div className="p-2 min-w-[200px]">
-                      <h3 className="font-bold text-lg mb-1">{finding.name}</h3>
-                      {finding.description && (
-                        <p className="text-gray-600 mb-2">{finding.description}</p>
-                      )}
-                      {finding.photoUrl && (
-                        <img 
-                          src={finding.photoUrl} 
-                          alt={finding.name}
-                          className="w-full h-32 object-cover rounded mb-2"
-                        />
-                      )}
-                      <p className="text-sm text-gray-500">
-                        {new Date(finding.timestamp).toLocaleString('it-IT')}
-                      </p>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-              
-              {/* Componente per centrare la mappa sui bounds */}
-              {bounds && <MapBoundsHandler bounds={bounds} padding={[50, 50]} maxZoom={18} />}
-            </MapContainer>
+          <MapContainer
+            center={track.coordinates && track.coordinates.length > 0 
+              ? [track.coordinates[0][0], track.coordinates[0][1]] 
+              : track.location ? track.location.coordinates : [0, 0]}
+            zoom={15}
+            scrollWheelZoom={true}
+            className="w-full h-full z-0"
+            whenCreated={setMapRef}
+            attributionControl={false}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              subdomains="abc"
+              maxZoom={19}
+              attribution="&copy; OpenStreetMap contributors"
+            />
             
-            {/* Pulsante per centrare la mappa - Correttamente posizionato fuori dal MapContainer */}
-            <div className="absolute bottom-10 right-4 z-[1001]">
-              <button
-                onClick={handleCenterMap}
-                className="unified-button center-map"
-                style={{
-                  backgroundColor: 'rgba(59, 130, 246, 0.9)',
-                  borderRadius: '50%',
-                  width: '50px',
-                  height: '50px',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
-                }}
+            <TileErrorHandler />
+            <MapInvalidator />
+            <MapPeriodicUpdater />
+            
+            {/* Traccia con stile tratteggiato */}
+            {track.coordinates && track.coordinates.length > 1 && (
+              <Polyline 
+                positions={track.coordinates} 
+                color="#f5a149"
+                weight={4}
+                opacity={0.8}
+                dashArray="10, 10"  /* Questo rende la linea tratteggiata */
+              />
+            )}
+            
+            {/* Fallback: Se non ci sono coordinate multiple ma c'è una location, mostra un cerchio */}
+            {(!track.coordinates || track.coordinates.length <= 1) && track.location && track.location.coordinates && (
+              <Polyline 
+                positions={[track.location.coordinates, track.location.coordinates]} 
+                color="#f5a149"
+                weight={4}
+                opacity={0.8}
+              />
+            )}
+            
+            {/* Marcador de inicio (bandera verde) */}
+            {track.startMarker && track.startMarker.coordinates && (
+              <Marker
+                position={track.startMarker.coordinates}
+                icon={L.divIcon({
+                  html: `
+                    <div class="marker-flag" style="
+                      width: 60px;
+                      height: 60px;
+                      position: relative;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      z-index: 3000 !important;
+                    ">
+                      <div class="pulse-ring" style="
+                        position: absolute;
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 50%;
+                        background-color: rgba(76, 175, 80, 0.4);
+                        animation: pulse 2s infinite;
+                        z-index: 2999;
+                      "></div>
+                      <img src="/assets/icons/Start_Track_icon.svg" style="
+                        width: 48px;
+                        height: 48px;
+                        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+                        z-index: 3000;
+                      " />
+                    </div>
+                  `,
+                  className: 'start-flag-icon',
+                  iconSize: [60, 60],
+                  iconAnchor: [30, 60],
+                  popupAnchor: [0, -60]
+                })}
+                zIndexOffset={3000}
               >
-                <Crosshair className="w-6 h-6 text-white" />
-              </button>
-            </div>
-          </>
+                <Popup>
+                  <div>
+                    <strong>Punto de inicio</strong>
+                    <p>Hora: {track.startMarker.timestamp ? new Date(track.startMarker.timestamp).toLocaleTimeString() : new Date(track.actualStartTime || track.startTime).toLocaleTimeString()}</p>
+                    <p>Precisión: {track.startMarker.accuracy.toFixed(1)}m</p>
+                    <p>Lat: {track.startMarker.coordinates[0].toFixed(6)}</p>
+                    <p>Lon: {track.startMarker.coordinates[1].toFixed(6)}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+            
+            {/* Marcador de fin (bandera naranja) */}
+            {track.endMarker && track.endMarker.coordinates && (
+              <Marker
+                position={track.endMarker.coordinates}
+                icon={L.divIcon({
+                  html: `
+                    <div class="marker-flag" style="
+                      width: 60px;
+                      height: 60px;
+                      position: relative;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      z-index: 3000 !important;
+                    ">
+                      <div class="pulse-ring" style="
+                        position: absolute;
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 50%;
+                        background-color: rgba(255, 152, 0, 0.4);
+                        animation: pulse 2s infinite;
+                        z-index: 2999;
+                      "></div>
+                      <img src="/assets/icons/End_Track_icon.svg" style="
+                        width: 48px;
+                        height: 48px;
+                        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+                        z-index: 3000;
+                      " />
+                    </div>
+                  `,
+                  className: 'end-flag-icon',
+                  iconSize: [60, 60],
+                  iconAnchor: [30, 60], 
+                  popupAnchor: [0, -60]
+                })}
+                zIndexOffset={3000}
+              >
+                <Popup>
+                  <div>
+                    <strong>Punto final</strong>
+                    <p>Hora: {track.endMarker.timestamp ? new Date(track.endMarker.timestamp).toLocaleTimeString() : new Date(track.actualEndTime || track.endTime).toLocaleTimeString()}</p>
+                    <p>Precisión: {track.endMarker.accuracy.toFixed(1)}m</p>
+                    <p>Lat: {track.endMarker.coordinates[0].toFixed(6)}</p>
+                    <p>Lon: {track.endMarker.coordinates[1].toFixed(6)}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+            
+            {track.findings?.map((finding: Finding) => (
+              <Marker
+                key={finding.id}
+                position={finding.coordinates}
+                icon={L.divIcon({
+                  html: `
+                    <div class="finding-marker ${finding.type.toLowerCase()}-marker" style="
+                      width: 40px;
+                      height: 40px;
+                      position: relative;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}40;
+                      border-radius: 50%;
+                      border: 2px solid ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+                    ">
+                      <div class="finding-pulse" style="
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        border-radius: 50%;
+                        background-color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'}30;
+                        animation: pulse 2s infinite;
+                      "></div>
+                      <div style="
+                        width: 24px;
+                        height: 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 16px;
+                        font-weight: bold;
+                        color: ${finding.type === 'Fungo' ? '#8eaa36' : '#8B4513'};
+                      ">${finding.type === 'Fungo' ? '🍄' : '🥔'}</div>
+                    </div>
+                  `,
+                  className: 'finding-icon',
+                  iconSize: [40, 40],
+                  iconAnchor: [20, 20],
+                  popupAnchor: [0, -20]
+                })}
+              >
+                <Popup>
+                  <div className="p-2 min-w-[200px]">
+                    <h3 className="font-bold text-lg mb-1">{finding.name}</h3>
+                    {finding.description && (
+                      <p className="text-gray-600 mb-2">{finding.description}</p>
+                    )}
+                    {finding.photoUrl && (
+                      <img 
+                        src={finding.photoUrl} 
+                        alt={finding.name}
+                        className="w-full h-32 object-cover rounded mb-2"
+                      />
+                    )}
+                    <p className="text-sm text-gray-500">
+                      {new Date(finding.timestamp).toLocaleString('it-IT')}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+            
+            {/* Componente per centrare la mappa sui bounds */}
+            {bounds && <MapBoundsHandler bounds={bounds} padding={[50, 50]} maxZoom={18} />}
+          </MapContainer>
         )}
         
         {/* Mostra messaggio informativo se non ci sono coordinate */}

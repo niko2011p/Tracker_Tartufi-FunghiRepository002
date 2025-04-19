@@ -439,8 +439,8 @@ const GpsPositionUpdater = () => {
       console.log('🧭 Setting up high-precision GPS watcher...');
       
       watchIdRef.current = navigator.geolocation.watchPosition(
-        updatePosition,
-        (error) => {
+      updatePosition,
+      (error) => {
           console.error('❌ GPS error:', error.message);
         },
         {
@@ -895,8 +895,8 @@ const NavigationPage: React.FC = () => {
         updateCurrentPosition([latitude, longitude]);
         
         console.log(`📍 Position updated: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}], accuracy: ${gpsAccuracy.toFixed(1)}m`);
-      },
-      (error) => {
+          },
+          (error) => {
         console.error('❌ GPS Error:', error.message);
         setIsAcquiringGps(false);
       },
@@ -928,7 +928,7 @@ const NavigationPage: React.FC = () => {
       }
     }
   }, [currentTrack]);
-
+  
   // Add this useEffect to log findings whenever currentTrack changes
   useEffect(() => {
     if (currentTrack && currentTrack.findings && currentTrack.findings.length > 0) {
@@ -1018,8 +1018,8 @@ const NavigationPage: React.FC = () => {
                 <p>Lat: {currentPosition[0].toFixed(6)}°</p>
                 <p>Lon: {currentPosition[1].toFixed(6)}°</p>
                 <p>Precisione: {accuracy !== null ? `${accuracy.toFixed(1)}m` : 'N/A'}</p>
-            </div>
-            </div>
+        </div>
+        </div>
           </Popup>
         </Marker>
 
@@ -1050,10 +1050,10 @@ const NavigationPage: React.FC = () => {
 
         {/* Center Map Button */}
         <div className="fixed bottom-36 right-10 z-[1001]">
-          <button
+        <button
             onClick={handleCenterMap}
             className="unified-button center-map"
-            style={{
+          style={{
               backgroundColor: 'rgba(59, 130, 246, 0.9)',
               borderRadius: '50%',
               width: '50px',
@@ -1064,28 +1064,28 @@ const NavigationPage: React.FC = () => {
             }}
           >
             <Crosshair className="w-6 h-6 text-white" />
-          </button>
+        </button>
         </div>
-
+        
         {/* Tag Button */}
         <div className="fixed bottom-10 right-10 z-[10000]">
-          <button
-            onClick={() => setShowTagOptions(true)}
-            className="unified-button tag"
-            style={{
+        <button
+          onClick={() => setShowTagOptions(true)}
+          className="unified-button tag"
+          style={{
               backgroundColor: 'rgba(59, 130, 246, 0.9)',
               borderRadius: '50%'
-            }}
-          >
-            <MapPin className="w-6 h-6" />
-            Tag
-          </button>
-        </div>
+          }}
+        >
+          <MapPin className="w-6 h-6" />
+          Tag
+        </button>
+      </div>
       
         {/* Forms and Popups */}
-        {showTagOptions && (
-          <TagOptionsPopup 
-            onClose={() => setShowTagOptions(false)}
+      {showTagOptions && (
+        <TagOptionsPopup 
+          onClose={() => setShowTagOptions(false)}
             onFindingClick={() => {
               setShowTagOptions(false);
               setShowFindingForm(true);
@@ -1114,7 +1114,7 @@ const NavigationPage: React.FC = () => {
               alt: trackingData?.alt ?? 0
             }}
           />
-        </div>
+            </div>
       </MapContainer>
 
       {/* Indicador de espera de GPS */}

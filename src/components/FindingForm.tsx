@@ -268,10 +268,10 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setFindingType('Fungo');
-                  setSpeciesName('');
-                  setShowSuggestions(false);
-                }}
+                    setFindingType('Fungo');
+                    setSpeciesName('');
+                    setShowSuggestions(false);
+                  }}
                 className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
                   findingType === 'Fungo'
                     ? 'bg-[#8eaa36] text-white shadow-md'
@@ -286,10 +286,10 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setFindingType('Tartufo');
-                  setSpeciesName('');
-                  setShowSuggestions(false);
-                }}
+                    setFindingType('Tartufo');
+                    setSpeciesName('');
+                    setShowSuggestions(false);
+                  }}
                 className={`flex-1 py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-3 text-lg ${
                   findingType === 'Tartufo'
                     ? 'bg-[#8B4513] text-white shadow-md'
@@ -348,27 +348,27 @@ function FindingForm({ onClose, position }: FindingFormProps) {
               <Camera className="w-6 h-6" />
               Scatta Foto
             </button>
-            <input
+              <input
               type="file"
-              ref={fileInputRef}
-              accept="image/*"
+                ref={fileInputRef}
+                accept="image/*"
               onChange={handlePhotoUpload}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
+                className="hidden"
+              />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
               className="flex-1 py-4 px-6 bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-[#8eaa36] hover:text-[#8eaa36] transition-colors flex items-center justify-center gap-3 text-lg"
             >
               <Upload className="w-6 h-6" />
               Carica Foto
-            </button>
-          </div>
+                  </button>
+                </div>
 
           {photoUrl && (
             <div className="relative w-full">
-              <img 
-                src={photoUrl} 
+                  <img 
+                    src={photoUrl} 
                 alt="Preview"
                 className="w-full h-auto max-h-[300px] object-contain rounded-lg"
                 onLoad={(e) => {
@@ -385,13 +385,13 @@ function FindingForm({ onClose, position }: FindingFormProps) {
                   }
                 }}
               />
-              <button
-                type="button"
-                onClick={() => setPhotoUrl(null)}
+                    <button
+                      type="button"
+                      onClick={() => setPhotoUrl(null)}
                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-              >
+                    >
                 <X size={16} />
-              </button>
+                    </button>
             </div>
           )}
           

@@ -591,20 +591,20 @@ export const useTrackStore = create<TrackState>()(
               tryGetAltitude();
             });
           };
-          
-          // Verifica che tutti i ritrovamenti abbiano coordinate valide
-          const validatedFindings = currentTrack.findings.map(finding => {
-            if (!finding.coordinates || finding.coordinates.some(isNaN)) {
-              console.warn(`Coordinate non valide per il ritrovamento ${finding.id}, utilizzo ultima posizione conosciuta`);
-              return {
-                ...finding,
-                coordinates: currentTrack.coordinates.length > 0 ? 
-                  currentTrack.coordinates[currentTrack.coordinates.length - 1] : 
-                  [0, 0] as [number, number]
-              };
-            }
-            return finding;
-          });
+              
+              // Verifica che tutti i ritrovamenti abbiano coordinate valide
+              const validatedFindings = currentTrack.findings.map(finding => {
+                if (!finding.coordinates || finding.coordinates.some(isNaN)) {
+                  console.warn(`Coordinate non valide per il ritrovamento ${finding.id}, utilizzo ultima posizione conosciuta`);
+                  return {
+                    ...finding,
+                    coordinates: currentTrack.coordinates.length > 0 ? 
+                      currentTrack.coordinates[currentTrack.coordinates.length - 1] : 
+                      [0, 0] as [number, number]
+                  };
+                }
+                return finding;
+              });
           
           // Log debug per coordinates prima di finalizzare la track
           console.log(`🧐 DEBUG: Salvando traccia con ${currentTrack.coordinates.length} coordinate GPS`);
@@ -616,34 +616,34 @@ export const useTrackStore = create<TrackState>()(
           } else {
             console.warn("⚠️ ATTENZIONE: Nessuna coordinata GPS da salvare nella traccia!");
           }
-          
-          const completedTrack: Track = {
-            ...currentTrack,
-            findings: validatedFindings,
-            endTime,
-            duration: durationMs,
-            avgSpeed,
+              
+              const completedTrack: Track = {
+                ...currentTrack,
+                findings: validatedFindings,
+                endTime,
+                duration: durationMs,
+                avgSpeed,
             avgAltitude: 0,
-            totalDistance: currentTrack.distance,
+                totalDistance: currentTrack.distance,
             endMarker, // Añadimos el marcador final
             actualEndTime: new Date(), // Tiempo exacto de finalización
-            historyData: {
+                historyData: {
               recentTracks: tracks.map(t => t.id),
-              lastUpdated: new Date().toISOString()
-            }
-          };
-          
+                  lastUpdated: new Date().toISOString()
+                }
+              };
+              
           console.log('✅ Track stopped and saved successfully. Total tracks:', tracks.length + 1);
           
-          const updatedTracks = [...tracks, completedTrack];
-          
-          set({
-            tracks: updatedTracks,
-            currentTrack: null,
-            isRecording: false,
-            loadedFindings: null
-          });
-          
+              const updatedTracks = [...tracks, completedTrack];
+              
+              set({
+                tracks: updatedTracks,
+                currentTrack: null,
+                isRecording: false,
+                loadedFindings: null
+              });
+              
           // Salviamo direttamente in IndexedDB
           console.log('💾 Salvando dati direttamente in IndexedDB...');
           try {
@@ -656,7 +656,7 @@ export const useTrackStore = create<TrackState>()(
           // Aggiorniamo lo stato di persist di Zustand
           try {
             get().saveTracks();
-          } catch (error) {
+            } catch (error) {
             console.error('❌ Errore nel salvare le tracce con persist:', error);
           }
           
